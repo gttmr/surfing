@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Meeting {
+  id           Int           @id @default(autoincrement())
+  date         String        // "2026-03-21"
+  startTime    String        // "10:00"
+  endTime      String        // "12:00"
+  location     String
+  maxCapacity  Int
+  description  String?
+  isOpen       Boolean       @default(true)
+  participants Participant[]
+  createdAt    DateTime      @default(now())
+}
+
+model Participant {
+  id               Int       @id @default(autoincrement())
+  meetingId        Int
+  meeting          Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name             String
+  kakaoId          String
+  user             User?     @relation(fields: [kakaoId], references: [kakaoId])
+  kakaoNickname    String    // 카카오 프로필 닉네임 (참고용)
+  note             String?
+  status           String    @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
+  waitlistPosition Int?
+  cancelledAt      DateTime?
+  isPenalized      Boolean   @default(false) // 취소 시 패널티 적용 여부
+  submittedAt      DateTime  @default(now())
+
+  @@unique([meetingId, kakaoId])
+}
+
+model Notice {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  kakaoId      String        @unique
+  name         String?       // 카카오 또는 유저가 정한 이름
+  profileImage String?
+  phoneNumber  String?
+  role         String        @default("MEMBER") // ADMIN, MEMBER, BANNED
+  penaltyCount Int           @default(0)        // 누적 패널티 횟수
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  participants Participant[]
+}
+
+model Setting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
