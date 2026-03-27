@@ -8,16 +8,17 @@ datasource db {
 }
 
 model Meeting {
-  id           Int           @id @default(autoincrement())
-  date         String        // "2026-03-21"
-  startTime    String        // "10:00"
-  endTime      String        // "12:00"
-  location     String
-  maxCapacity  Int
-  description  String?
-  isOpen       Boolean       @default(true)
-  participants Participant[]
-  createdAt    DateTime      @default(now())
+  id                Int           @id @default(autoincrement())
+  date              String        // "2026-03-21"
+  startTime         String        // "10:00"
+  endTime           String        // "12:00"
+  location          String
+  description       String?
+  isOpen            Boolean       @default(true)
+  meetingType       String        @default("정기") // 정기 | 비정기
+  createdByKakaoId  String?       // null = admin, otherwise member's kakaoId
+  participants      Participant[]
+  createdAt         DateTime      @default(now())
 }
 
 model Participant {

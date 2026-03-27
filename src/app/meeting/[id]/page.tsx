@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { CapacityBar } from "@/components/ui/CapacityBar";
 import { SignupForm } from "@/components/meeting/SignupForm";
+import WaveChart from "@/components/wave/WaveChart";
 import type { MeetingWithCounts } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +38,11 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
     startTime: meeting.startTime,
     endTime: meeting.endTime,
     location: meeting.location,
-    maxCapacity: meeting.maxCapacity,
     description: meeting.description,
     isOpen: meeting.isOpen,
+    meetingType: meeting.meetingType,
+    createdByKakaoId: meeting.createdByKakaoId,
     approvedCount: meeting.participants.filter((p) => p.status === "APPROVED").length,
-    waitlistedCount: meeting.participants.filter((p) => p.status === "WAITLISTED").length,
     participantsList: meeting.participants,
   };
 }
@@ -69,9 +69,14 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
       <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
         {/* 모임 정보 카드 */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <h2 className="text-xl font-extrabold text-slate-900 mb-4">
-            {dayName}요일 모임
-          </h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xl font-extrabold text-slate-900">{dayName}요일 모임</h2>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+              meeting.meetingType === "비정기" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+            }`}>
+              {meeting.meetingType}
+            </span>
+          </div>
           <div className="space-y-2 text-sm text-slate-600 mb-5">
             <div className="flex items-center gap-2.5">
               <span className="text-base">📅</span>
@@ -85,14 +90,19 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
               <span className="text-base">🕐</span>
               <span>{meeting.startTime} – {meeting.endTime}</span>
             </div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">👥</span>
+              <span>참가자 {meeting.approvedCount}명</span>
+            </div>
           </div>
 
           {meeting.description && (
-            <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3 mb-5">{meeting.description}</p>
+            <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">{meeting.description}</p>
           )}
-
-          <CapacityBar current={meeting.approvedCount} max={meeting.maxCapacity} waitlisted={meeting.waitlistedCount} />
         </div>
+
+        {/* 파도 예보 */}
+        <WaveChart date={meeting.date} location={meeting.location} />
 
         {/* 신청 폼 카드 */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
@@ -119,9 +129,6 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
                   <div className="flex-1">
                     <p className="font-semibold text-slate-800 flex items-center gap-2">
                       {p.name}
-                      {p.status === "WAITLISTED" && (
-                        <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">대기</span>
-                      )}
                       {p.status === "APPROVED" && (
                         <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">참석 확정</span>
                       )}

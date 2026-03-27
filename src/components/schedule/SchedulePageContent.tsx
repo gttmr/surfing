@@ -28,11 +28,11 @@ export default async function SchedulePageContent() {
     startTime: meeting.startTime,
     endTime: meeting.endTime,
     location: meeting.location,
-    maxCapacity: meeting.maxCapacity,
     description: meeting.description,
     isOpen: meeting.isOpen,
+    meetingType: meeting.meetingType,
+    createdByKakaoId: meeting.createdByKakaoId,
     approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
-    waitlistedCount: meeting.participants.filter((participant) => participant.status === "WAITLISTED").length,
   }));
 
   return (
@@ -84,7 +84,7 @@ export default async function SchedulePageContent() {
       )}
 
       <main className="max-w-xl mx-auto px-4 py-6 space-y-4">
-        <ScheduleView meetings={meetingsForClient} />
+        <ScheduleView meetings={meetingsForClient} isLoggedIn={!!user} />
       </main>
 
       <footer className="max-w-xl mx-auto px-4 py-8 text-center text-sm text-slate-400 border-t border-slate-200 mt-8">
