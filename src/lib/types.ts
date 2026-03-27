@@ -6,11 +6,11 @@ export interface MeetingWithCounts {
   startTime: string;
   endTime: string;
   location: string;
-  maxCapacity: number;
   description: string | null;
   isOpen: boolean;
+  meetingType: string;
+  createdByKakaoId: string | null;
   approvedCount: number;
-  waitlistedCount: number;
 }
 
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];

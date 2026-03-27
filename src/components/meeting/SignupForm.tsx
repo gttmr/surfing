@@ -26,7 +26,6 @@ function KakaoIcon() {
 export function SignupForm({ meeting }: SignupFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isFull = meeting.approvedCount >= meeting.maxCapacity;
   const isClosed = !meeting.isOpen;
 
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
@@ -185,17 +184,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
     const returnTo = `/meeting/${meeting.id}`;
     return (
       <div className="space-y-4">
-        {isFull && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-amber-500 text-lg mt-0.5">⚠️</span>
-            <div>
-              <p className="font-semibold text-amber-800 text-sm">정원이 마감되었습니다</p>
-              <p className="text-amber-700 text-sm mt-0.5">
-                대기자로 등록됩니다.
-              </p>
-            </div>
-          </div>
-        )}
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 text-center space-y-3">
           <p className="text-sm text-slate-600">카카오 계정으로 간편하게 신청할 수 있습니다</p>
           <div className="pt-2">
@@ -289,18 +277,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // 로그인 상태 - 신청 폼
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {isFull && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <span className="text-amber-500 text-lg mt-0.5">⚠️</span>
-          <div>
-            <p className="font-semibold text-amber-800 text-sm">정원이 마감되었습니다</p>
-            <p className="text-amber-700 text-sm mt-0.5">
-              대기자로 등록됩니다.
-            </p>
-          </div>
-        </div>
-      )}
-
       {duplicate && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           이 모임에 이미 신청하셨습니다.
@@ -359,9 +335,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         className={`w-full py-3 rounded-xl font-bold text-white text-sm transition-all
           ${submitting || !name.trim()
             ? "bg-slate-300 cursor-not-allowed"
-            : isFull
-              ? "bg-blue-500 hover:bg-blue-600 active:scale-[0.99]"
-              : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
+            : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
           }`}
       >
         {submitting ? (
@@ -372,7 +346,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </svg>
             처리 중...
           </span>
-        ) : isFull ? "대기자로 신청하기" : "참가 신청하기"}
+        ) : "참가 신청하기"}
       </button>
     </form>
   );
