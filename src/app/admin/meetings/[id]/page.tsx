@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { CapacityBar } from "@/components/ui/CapacityBar";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { ParticipantStatus } from "@/lib/types";
 
@@ -29,12 +28,11 @@ interface Meeting {
   startTime: string;
   endTime: string;
   location: string;
-  maxCapacity: number;
   description: string | null;
   isOpen: boolean;
+  meetingType: string;
   participants: Participant[];
   approvedCount: number;
-  waitlistedCount: number;
 }
 
 type Tab = "approved" | "waitlisted" | "cancelled" | "all";
@@ -171,8 +169,13 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
-      <div className="mb-6">
-        <CapacityBar current={meeting.approvedCount} max={meeting.maxCapacity} />
+      <div className="mb-4 flex items-center gap-2">
+        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+          meeting.meetingType === "비정기" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+        }`}>
+          {meeting.meetingType}
+        </span>
+        <span className="text-sm text-slate-500">참가자 {meeting.approvedCount}명</span>
       </div>
 
       {/* 탭 */}

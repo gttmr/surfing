@@ -29,13 +29,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 신청하셨습니다" }, { status: 409 });
   }
 
-  const approvedCount = meeting.participants.filter((p) => p.status === "APPROVED").length;
-  const waitlistedCount = meeting.participants.filter((p) => p.status === "WAITLISTED").length;
-  const isFull = approvedCount >= meeting.maxCapacity;
-
-  const status = isFull ? "WAITLISTED" : "APPROVED";
-  const waitlistPosition = isFull ? waitlistedCount + 1 : null;
-
   // 이전에 취소한 기록이 있으면 업데이트, 없으면 새로 생성
   const cancelled = meeting.participants.find((p) => p.kakaoId === user.kakaoId && p.status === "CANCELLED");
 
@@ -46,8 +39,8 @@ export async function POST(req: NextRequest) {
       data: {
         name: name.trim(),
         note: note?.trim() || null,
-        status,
-        waitlistPosition,
+        status: "APPROVED",
+        waitlistPosition: null,
         cancelledAt: null,
         submittedAt: new Date(),
       },
@@ -60,8 +53,7 @@ export async function POST(req: NextRequest) {
         kakaoId: user.kakaoId,
         kakaoNickname: user.nickname,
         note: note?.trim() || null,
-        status,
-        waitlistPosition,
+        status: "APPROVED",
       },
     });
   }

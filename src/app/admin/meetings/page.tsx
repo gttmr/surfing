@@ -13,10 +13,10 @@ interface MeetingItem {
   startTime: string;
   endTime: string;
   location: string;
-  maxCapacity: number;
+  meetingType: string;
   isOpen: boolean;
   approvedCount: number;
-  waitlistedCount: number;
+  createdByKakaoId: string | null;
 }
 
 export default function AdminMeetingsPage() {
@@ -30,7 +30,7 @@ export default function AdminMeetingsPage() {
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newLocation, setNewLocation] = useState("");
-  const [newCapacity, setNewCapacity] = useState("20");
+  const [newMeetingType, setNewMeetingType] = useState("정기");
   const [newDescription, setNewDescription] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -56,7 +56,7 @@ export default function AdminMeetingsPage() {
         startTime: newStartTime,
         endTime: newEndTime,
         location: newLocation,
-        maxCapacity: newCapacity,
+        meetingType: newMeetingType,
         description: newDescription || null,
       }),
     });
@@ -64,7 +64,7 @@ export default function AdminMeetingsPage() {
     if (res.ok) {
       addToast("모임이 생성되었습니다", "success");
       setShowCreate(false);
-      setNewDate(""); setNewStartTime(""); setNewEndTime(""); setNewLocation(""); setNewCapacity("20"); setNewDescription("");
+      setNewDate(""); setNewStartTime(""); setNewEndTime(""); setNewLocation(""); setNewMeetingType("정기"); setNewDescription("");
       load();
     } else {
       addToast("모임 생성에 실패했습니다", "error");
@@ -77,18 +77,15 @@ export default function AdminMeetingsPage() {
   const past = meetings.filter((m) => m.date < today);
 
   function MeetingRow({ m }: { m: MeetingItem }) {
-    const approved = m.approvedCount;
-    const waitlisted = m.waitlistedCount;
     const d = new Date(m.date + "T00:00:00");
     const [, month, day] = m.date.split("-");
-    const pct = Math.min((approved / m.maxCapacity) * 100, 100);
 
     return (
       <Link
         href={`/admin/meetings/${m.id}`}
         className="block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 transition-colors"
       >
-        <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-semibold text-slate-800 text-sm">
               {parseInt(month)}월 {parseInt(day)}일 ({DAY_KO[d.getDay()]})
@@ -98,19 +95,16 @@ export default function AdminMeetingsPage() {
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              m.meetingType === "비정기" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+            }`}>
+              {m.meetingType}
+            </span>
             {!m.isOpen && <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">마감</span>}
-            {waitlisted > 0 && <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">대기자 {waitlisted}</span>}
+            {m.createdByKakaoId && <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">회원등록</span>}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${pct >= 100 ? "bg-red-500" : pct >= 85 ? "bg-amber-400" : "bg-green-500"}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <span className="text-xs text-slate-500 shrink-0">{approved}/{m.maxCapacity}명</span>
-        </div>
+        <p className="text-xs text-slate-400 mt-2">참가자 {m.approvedCount}명</p>
       </Link>
     );
   }
@@ -138,9 +132,12 @@ export default function AdminMeetingsPage() {
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">정원</label>
-              <input type="number" value={newCapacity} onChange={(e) => setNewCapacity(e.target.value)} min="1" required
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500" />
+              <label className="block text-xs font-semibold text-slate-500 mb-1">모임 유형</label>
+              <select value={newMeetingType} onChange={(e) => setNewMeetingType(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500">
+                <option value="정기">정기</option>
+                <option value="비정기">비정기</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">시작 시간</label>
