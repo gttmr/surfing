@@ -10,11 +10,19 @@ interface UserProfile {
   name: string | null;
   profileImage: string | null;
   phoneNumber: string | null;
+  memberType: string;
+  companionOfKakaoId: string | null;
+  companionOf: { kakaoId: string; name: string | null } | null;
   penaltyCount: number;
   createdAt: string;
   _count: {
     participants: number;
   };
+}
+
+interface RegularMember {
+  kakaoId: string;
+  name: string | null;
 }
 
 function KakaoIcon() {
@@ -46,6 +54,9 @@ function ProfilePage() {
 
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [memberType, setMemberType] = useState("REGULAR");
+  const [companionOfKakaoId, setCompanionOfKakaoId] = useState("");
+  const [regularMembers, setRegularMembers] = useState<RegularMember[]>([]);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -58,10 +69,18 @@ function ProfilePage() {
         setUser(data);
         setName(data.name || "");
         setPhoneNumber(data.phoneNumber || "");
+        setMemberType(data.memberType || "REGULAR");
+        setCompanionOfKakaoId(data.companionOfKakaoId || "");
         setLoading(false);
         if (isSetup) setShowSetup(true);
       })
       .catch(() => setLoading(false));
+
+    // 정회원 목록 로드 (동반인 선택용)
+    fetch("/api/members")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRegularMembers(data))
+      .catch(() => {});
   }, [isSetup]);
 
   const handleSetupSave = useCallback(async () => {
@@ -89,7 +108,12 @@ function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phoneNumber }),
+      body: JSON.stringify({
+        name,
+        phoneNumber,
+        memberType,
+        companionOfKakaoId: memberType === "COMPANION" ? companionOfKakaoId : null,
+      }),
     });
 
     if (res.ok) {
@@ -209,7 +233,17 @@ function ProfilePage() {
             <p className="text-xs text-slate-400 mt-1">
               가입일: {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}
             </p>
-            <div className="flex gap-3 mt-2">
+            <div className="flex gap-3 mt-2 flex-wrap">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                user?.memberType === "COMPANION" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"
+              }`}>
+                {user?.memberType === "COMPANION" ? "동반인" : "정회원"}
+              </span>
+              {user?.memberType === "COMPANION" && user?.companionOf?.name && (
+                <span className="text-xs bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full">
+                  {user.companionOf.name}의 동반
+                </span>
+              )}
               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">모임 {user?._count.participants}회</span>
               {(user?.penaltyCount ?? 0) > 0 && (
                 <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">패널티 {user?.penaltyCount}회</span>
@@ -248,19 +282,75 @@ function ProfilePage() {
             </div>
           </div>
 
+          {/* 회원 유형 */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+              <span className="text-lg">🏄</span> 회원 유형
+            </h3>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setMemberType("REGULAR"); setCompanionOfKakaoId(""); }}
+                  className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+                    memberType === "REGULAR"
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                  }`}
+                >
+                  정회원
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMemberType("COMPANION")}
+                  className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+                    memberType === "COMPANION"
+                      ? "border-orange-500 bg-orange-50 text-orange-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                  }`}
+                >
+                  동반인
+                </button>
+              </div>
+
+              {memberType === "COMPANION" && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    정회원 선택 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={companionOfKakaoId}
+                    onChange={(e) => setCompanionOfKakaoId(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-orange-500 transition-colors"
+                  >
+                    <option value="">정회원을 선택해주세요</option>
+                    {regularMembers.map((m) => (
+                      <option key={m.kakaoId} value={m.kakaoId}>
+                        {m.name || "(이름 없음)"}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    본인을 초대한 정회원을 선택해주세요. 모임 목록에서 해당 정회원 아래에 표시됩니다.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 저장 버튼 */}
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || (memberType === "COMPANION" && !companionOfKakaoId)}
             className={`w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all ${
-              saving
+              saving || (memberType === "COMPANION" && !companionOfKakaoId)
                 ? "bg-slate-300 cursor-not-allowed"
                 : saved
                 ? "bg-green-500"
                 : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
             }`}
           >
-            {saving ? "저장 중..." : saved ? "✓ 저장 완료!" : "프로필 저장하기"}
+            {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
           </button>
         </form>
       </main>
