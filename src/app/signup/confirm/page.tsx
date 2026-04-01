@@ -8,9 +8,10 @@ const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 export default async function ConfirmPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; waitlist?: string; meetingId?: string; name?: string }>;
+  searchParams: Promise<{ status?: string; waitlist?: string; meetingId?: string; name?: string; companions?: string }>;
 }) {
-  const { status, waitlist, meetingId, name } = await searchParams;
+  const { status, waitlist, meetingId, name, companions } = await searchParams;
+  const companionCount = companions ? parseInt(companions) : 0;
 
   let meetingDisplay = "";
   if (meetingId) {
@@ -62,6 +63,12 @@ export default async function ConfirmPage({
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">모임</span>
                 <span className="font-semibold text-slate-800">{meetingDisplay}</span>
+              </div>
+            )}
+            {companionCount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">동반인</span>
+                <span className="font-semibold text-orange-600">{companionCount}명 함께 신청</span>
               </div>
             )}
             <div className="flex justify-between text-sm">

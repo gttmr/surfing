@@ -11,6 +11,14 @@ interface SessionUser {
   profileImage?: string;
 }
 
+interface CompanionInfo {
+  id: number;
+  kakaoId: string;
+  name: string | null;
+  profileImage: string | null;
+  memberType: string;
+}
+
 interface SignupFormProps {
   meeting: MeetingWithCounts;
 }
@@ -52,6 +60,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
     penaltyMessage: string | null;
   } | null>(null);
 
+  // 동반인 관련
+  const [companions, setCompanions] = useState<CompanionInfo[]>([]);
+  const [selectedCompanions, setSelectedCompanions] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
@@ -75,6 +87,15 @@ export function SignupForm({ meeting }: SignupFormProps) {
       })
       .catch(() => setUser(null));
   }, []);
+
+  // 내 동반인 목록 로드
+  useEffect(() => {
+    if (!user?.kakaoId) return;
+    fetch("/api/companions")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setCompanions(data))
+      .catch(() => {});
+  }, [user]);
 
   // 내 참가 상태 확인
   useEffect(() => {
@@ -121,7 +142,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
       const res = await fetch("/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, name, note }),
+        body: JSON.stringify({
+          meetingId: meeting.id,
+          name,
+          note,
+          companionKakaoIds: Array.from(selectedCompanions),
+        }),
       });
 
       if (res.status === 409) { setDuplicate(true); setSubmitting(false); return; }
@@ -133,8 +159,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
       }
 
       const data = await res.json();
+      const compCount = data.companions?.length ?? 0;
       router.push(
-        `/signup/confirm?status=${data.status}&waitlist=${data.waitlistPosition ?? ""}&meetingId=${meeting.id}&name=${encodeURIComponent(name)}`
+        `/signup/confirm?status=${data.status}&waitlist=${data.waitlistPosition ?? ""}&meetingId=${meeting.id}&name=${encodeURIComponent(name)}&companions=${compCount}`
       );
     } catch {
       setServerError("네트워크 오류가 발생했습니다.");
@@ -329,6 +356,75 @@ export function SignupForm({ meeting }: SignupFormProps) {
         <p className="mt-1 text-xs text-slate-400 text-right">{note.length}/100</p>
       </div>
 
+      {/* 동반인 함께 신청 */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+            <span className="text-base">👥</span> 동반인 함께 신청
+          </label>
+          {companions.length === 0 && (
+            <a
+              href="/profile"
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              동반인 등록 &rarr;
+            </a>
+          )}
+        </div>
+
+        {companions.length === 0 ? (
+          <p className="text-xs text-slate-400">
+            등록된 동반인이 없습니다. 프로필 페이지에서 동반인을 먼저 등록해주세요.
+          </p>
+        ) : (
+          <div className="space-y-2 mt-2">
+            {companions.map((c) => {
+              const isSelected = selectedCompanions.has(c.kakaoId);
+              return (
+                <button
+                  key={c.kakaoId}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCompanions((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(c.kakaoId)) next.delete(c.kakaoId);
+                      else next.add(c.kakaoId);
+                      return next;
+                    });
+                  }}
+                  disabled={submitting}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left ${
+                    isSelected
+                      ? "bg-blue-50 border-2 border-blue-400"
+                      : "bg-white border-2 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"
+                  }`}>
+                    {isSelected && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                    {c.profileImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.profileImage} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-slate-400 text-xs">👤</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 flex-1">{c.name || "이름 없음"}</span>
+                  <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold shrink-0">동반</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <button
         type="submit"
         disabled={submitting || !name.trim()}
@@ -346,7 +442,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </svg>
             처리 중...
           </span>
-        ) : "참가 신청하기"}
+        ) : selectedCompanions.size > 0
+          ? `참가 신청하기 (동반 ${selectedCompanions.size}명 포함)`
+          : "참가 신청하기"}
       </button>
     </form>
   );
