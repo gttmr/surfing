@@ -13,6 +13,7 @@ const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 interface Participant {
   id: number;
   name: string;
+  kakaoId: string;
   kakaoNickname: string;
   note: string | null;
   status: ParticipantStatus;
@@ -20,6 +21,10 @@ interface Participant {
   isPenalized: boolean;
   cancelledAt: string | null;
   submittedAt: string;
+  user: {
+    memberType: string;
+    companionOfKakaoId: string | null;
+  } | null;
 }
 
 interface Meeting {
@@ -43,6 +48,24 @@ const TAB_LABELS: Record<Tab, string> = {
   cancelled: "취소됨",
   all: "전체",
 };
+
+// 정회원 아래에 동반인을 그룹핑하여 정렬
+function sortWithCompanions(participants: Participant[]): Participant[] {
+  const regulars = participants.filter((p) => p.user?.memberType !== "COMPANION");
+  const companions = participants.filter((p) => p.user?.memberType === "COMPANION");
+
+  const result: Participant[] = [];
+  for (const reg of regulars) {
+    result.push(reg);
+    const myCompanions = companions.filter((c) => c.user?.companionOfKakaoId === reg.kakaoId);
+    result.push(...myCompanions);
+  }
+  const placed = new Set(result.map((p) => p.id));
+  for (const c of companions) {
+    if (!placed.has(c.id)) result.push(c);
+  }
+  return result;
+}
 
 function KakaoBadge({ nickname }: { nickname: string }) {
   return (
@@ -197,12 +220,17 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
         {filteredParticipants.length === 0 ? (
           <p className="text-sm text-slate-400 text-center py-10">해당 상태의 신청자가 없습니다</p>
         ) : (
-          filteredParticipants.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-slate-200 p-4">
+          sortWithCompanions(filteredParticipants).map((p) => {
+            const isCompanion = p.user?.memberType === "COMPANION";
+            return (
+            <div key={p.id} className={`bg-white rounded-xl border border-slate-200 p-4 ${isCompanion ? "ml-6 border-l-2 border-l-orange-300" : ""}`}>
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900">{p.name}</span>
+                    {isCompanion && (
+                      <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반</span>
+                    )}
                     <StatusBadge status={p.status} waitlistPosition={p.waitlistPosition} size="sm" />
                     {p.isPenalized && (
                       <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">패널티</span>
@@ -250,7 +278,8 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
                 </div>
               </div>
             </div>
-          ))
+          );
+          })
         )}
       </div>
 

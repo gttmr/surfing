@@ -9,13 +9,18 @@ export const dynamic = "force-dynamic";
 
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
+type ParticipantItem = {
+  id: number;
+  name: string;
+  note: string | null;
+  status: string;
+  kakaoId: string;
+  memberType: string;
+  companionOfKakaoId: string | null;
+};
+
 type DetailedMeeting = MeetingWithCounts & {
-  participantsList: {
-    id: number;
-    name: string;
-    note: string | null;
-    status: string;
-  }[];
+  participantsList: ParticipantItem[];
 };
 
 async function getMeeting(id: number): Promise<DetailedMeeting | null> {
@@ -23,7 +28,10 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
     where: { id },
     include: {
       participants: {
-        select: { id: true, name: true, note: true, status: true },
+        select: {
+          id: true, name: true, note: true, status: true, kakaoId: true,
+          user: { select: { memberType: true, companionOfKakaoId: true } },
+        },
         orderBy: { submittedAt: "asc" },
         where: { status: { not: "CANCELLED" } },
       },
@@ -43,8 +51,36 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
     meetingType: meeting.meetingType,
     createdByKakaoId: meeting.createdByKakaoId,
     approvedCount: meeting.participants.filter((p) => p.status === "APPROVED").length,
-    participantsList: meeting.participants,
+    participantsList: meeting.participants.map((p) => ({
+      id: p.id,
+      name: p.name,
+      note: p.note,
+      status: p.status,
+      kakaoId: p.kakaoId,
+      memberType: p.user?.memberType || "REGULAR",
+      companionOfKakaoId: p.user?.companionOfKakaoId || null,
+    })),
   };
+}
+
+// 정회원 아래에 동반인을 그룹핑하여 정렬
+function sortWithCompanions(participants: ParticipantItem[]): ParticipantItem[] {
+  const regulars = participants.filter((p) => p.memberType !== "COMPANION");
+  const companions = participants.filter((p) => p.memberType === "COMPANION");
+
+  const result: ParticipantItem[] = [];
+  for (const reg of regulars) {
+    result.push(reg);
+    // 이 정회원의 동반인들을 바로 뒤에 추가
+    const myCompanions = companions.filter((c) => c.companionOfKakaoId === reg.kakaoId);
+    result.push(...myCompanions);
+  }
+  // 정회원을 찾을 수 없는 동반인 (정회원이 이 모임에 미참가)
+  const placed = new Set(result.map((p) => p.id));
+  for (const c of companions) {
+    if (!placed.has(c.id)) result.push(c);
+  }
+  return result;
 }
 
 export default async function MeetingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -121,22 +157,34 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
 
           {meeting.participantsList.length > 0 ? (
             <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 divide-y">
-              {meeting.participantsList.map((p, i) => (
-                <div key={p.id} className="p-4 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 text-sm font-medium">
-                    {i + 1}
+              {(() => {
+                let regularIdx = 0;
+                return sortWithCompanions(meeting.participantsList).map((p) => {
+                const isCompanion = p.memberType === "COMPANION";
+                if (!isCompanion) regularIdx++;
+                return (
+                  <div key={p.id} className={`p-4 flex items-center gap-3 ${isCompanion ? "pl-10 bg-slate-50/50" : ""}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-medium ${
+                      isCompanion ? "bg-orange-50 text-orange-400" : "bg-slate-100 text-slate-400"
+                    }`}>
+                      {isCompanion ? "+" : regularIdx}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-800 flex items-center gap-2">
+                        {p.name}
+                        {isCompanion && (
+                          <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반</span>
+                        )}
+                        {p.status === "APPROVED" && (
+                          <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">참석 확정</span>
+                        )}
+                      </p>
+                      {p.note && <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{p.note}</p>}
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-800 flex items-center gap-2">
-                      {p.name}
-                      {p.status === "APPROVED" && (
-                        <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">참석 확정</span>
-                      )}
-                    </p>
-                    {p.note && <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{p.note}</p>}
-                  </div>
-                </div>
-              ))}
+                );
+              });
+              })()}
             </div>
           ) : (
             <div className="bg-white rounded-2xl p-8 text-center border border-slate-100">

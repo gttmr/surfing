@@ -15,6 +15,9 @@ export async function GET() {
           participants: true,
         },
       },
+      companionOf: {
+        select: { kakaoId: true, name: true },
+      },
     },
   });
 

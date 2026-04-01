@@ -49,16 +49,20 @@ model Notice {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  kakaoId      String        @unique
-  name         String?       // 카카오 또는 유저가 정한 이름
-  profileImage String?
-  phoneNumber  String?
-  role         String        @default("MEMBER") // ADMIN, MEMBER, BANNED
-  penaltyCount Int           @default(0)        // 누적 패널티 횟수
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  participants Participant[]
+  id                  Int           @id @default(autoincrement())
+  kakaoId             String        @unique
+  name                String?       // 카카오 또는 유저가 정한 이름
+  profileImage        String?
+  phoneNumber         String?
+  role                String        @default("MEMBER") // ADMIN, MEMBER, BANNED
+  memberType          String        @default("REGULAR") // REGULAR | COMPANION
+  companionOfKakaoId  String?       // 동반인인 경우 정회원의 kakaoId
+  companionOf         User?         @relation("CompanionRelation", fields: [companionOfKakaoId], references: [kakaoId])
+  companions          User[]        @relation("CompanionRelation")
+  penaltyCount        Int           @default(0)        // 누적 패널티 횟수
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  participants        Participant[]
 }
 
 model Setting {
