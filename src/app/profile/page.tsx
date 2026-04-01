@@ -25,6 +25,22 @@ interface RegularMember {
   name: string | null;
 }
 
+interface CompanionMember {
+  id: number;
+  kakaoId: string;
+  name: string | null;
+  profileImage: string | null;
+  memberType: string;
+}
+
+interface LinkableMember {
+  kakaoId: string;
+  name: string | null;
+  profileImage: string | null;
+  memberType: string;
+  companionOfKakaoId: string | null;
+}
+
 function KakaoIcon() {
   return (
     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
@@ -57,6 +73,10 @@ function ProfilePage() {
   const [memberType, setMemberType] = useState("REGULAR");
   const [companionOfKakaoId, setCompanionOfKakaoId] = useState("");
   const [regularMembers, setRegularMembers] = useState<RegularMember[]>([]);
+  const [companions, setCompanions] = useState<CompanionMember[]>([]);
+  const [linkableMembers, setLinkableMembers] = useState<LinkableMember[]>([]);
+  const [showAddCompanion, setShowAddCompanion] = useState(false);
+  const [addingCompanion, setAddingCompanion] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -80,6 +100,12 @@ function ProfilePage() {
     fetch("/api/members")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setRegularMembers(data))
+      .catch(() => {});
+
+    // 내 동반인 목록 로드
+    fetch("/api/companions")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setCompanions(data))
       .catch(() => {});
   }, [isSetup]);
 
@@ -123,6 +149,43 @@ function ProfilePage() {
       setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);
+  }
+
+  async function openAddCompanion() {
+    setShowAddCompanion(true);
+    const res = await fetch("/api/members?linkable=true");
+    if (res.ok) {
+      const data = await res.json();
+      // 이미 내 동반인인 사람은 제외
+      const companionIds = new Set(companions.map((c) => c.kakaoId));
+      setLinkableMembers(data.filter((m: LinkableMember) => !companionIds.has(m.kakaoId)));
+    }
+  }
+
+  async function handleAddCompanion(kakaoId: string) {
+    setAddingCompanion(true);
+    const res = await fetch("/api/companions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kakaoId }),
+    });
+    if (res.ok) {
+      const added = await res.json();
+      setCompanions((prev) => [...prev, added]);
+      setLinkableMembers((prev) => prev.filter((m) => m.kakaoId !== kakaoId));
+    }
+    setAddingCompanion(false);
+  }
+
+  async function handleRemoveCompanion(kakaoId: string) {
+    const res = await fetch("/api/companions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kakaoId }),
+    });
+    if (res.ok) {
+      setCompanions((prev) => prev.filter((c) => c.kakaoId !== kakaoId));
+    }
   }
 
   async function handleLogout() {
@@ -353,6 +416,104 @@ function ProfilePage() {
             {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
           </button>
         </form>
+
+        {/* 동반인 관리 (정회원만 표시) */}
+        {memberType === "REGULAR" && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                <span className="text-lg">👥</span> 내 동반인 관리
+              </h3>
+              <button
+                type="button"
+                onClick={openAddCompanion}
+                className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                + 추가
+              </button>
+            </div>
+
+            {companions.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-slate-400">등록된 동반인이 없습니다</p>
+                <p className="text-xs text-slate-300 mt-1">동반인을 추가하면 모임 참석 시 함께 표시됩니다</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {companions.map((c) => (
+                  <div key={c.kakaoId} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                      {c.profileImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.profileImage} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-slate-400 text-sm">👤</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{c.name || "이름 없음"}</p>
+                      <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반인</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCompanion(c.kakaoId)}
+                      className="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1"
+                    >
+                      해제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 동반인 추가 모달 */}
+            {showAddCompanion && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+                <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-sm w-full p-6 shadow-xl max-h-[70vh] flex flex-col">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-extrabold text-slate-900">동반인 추가</h3>
+                    <button
+                      onClick={() => setShowAddCompanion(false)}
+                      className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-4">
+                    가입된 회원 중 동반인으로 추가할 회원을 선택하세요.
+                  </p>
+                  <div className="overflow-y-auto flex-1 -mx-2 px-2 space-y-2">
+                    {linkableMembers.length === 0 ? (
+                      <p className="text-center text-sm text-slate-400 py-8">추가 가능한 회원이 없습니다</p>
+                    ) : (
+                      linkableMembers.map((m) => (
+                        <button
+                          key={m.kakaoId}
+                          disabled={addingCompanion}
+                          onClick={() => handleAddCompanion(m.kakaoId)}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors text-left disabled:opacity-50"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                            {m.profileImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={m.profileImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-slate-400 text-sm">👤</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">{m.name || "이름 없음"}</p>
+                          </div>
+                          <span className="text-xs text-blue-600 font-bold shrink-0">추가</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
