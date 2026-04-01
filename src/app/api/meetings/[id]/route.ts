@@ -9,6 +9,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: {
       participants: {
         orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
+        include: {
+          user: {
+            select: {
+              memberType: true,
+              companionOfKakaoId: true,
+            },
+          },
+        },
       },
     },
   });
