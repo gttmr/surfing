@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MeetingWithCounts } from "@/lib/types";
 import { kakaoLogin } from "@/lib/kakao";
@@ -52,12 +52,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
     waitlistPosition: number | null;
   } | null>(null);
 
+  // 이미 신청된 동반인 kakaoId 목록 (참가 완료 후 관리용)
+  const [signedUpCompanions, setSignedUpCompanions] = useState<Set<string>>(new Set());
+  const [companionActionLoading, setCompanionActionLoading] = useState<string | null>(null);
+
   // 취소 관련
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelResult, setCancelResult] = useState<{
     penalty: boolean;
     penaltyMessage: string | null;
+    cancelledCompanions: number;
   } | null>(null);
 
   // 동반인 관련
@@ -97,8 +102,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
       .catch(() => {});
   }, [user]);
 
-  // 내 참가 상태 확인
-  useEffect(() => {
+  // 내 참가 상태 확인 + 동반인 참가 상태
+  const refreshParticipants = useCallback(() => {
     if (!user?.kakaoId) return;
     fetch(`/api/meetings/${meeting.id}`)
       .then((r) => r.json())
@@ -109,11 +114,26 @@ export function SignupForm({ meeting }: SignupFormProps) {
           );
           if (mine) {
             setMyParticipant({ id: mine.id, status: mine.status, waitlistPosition: mine.waitlistPosition });
+          } else {
+            setMyParticipant(null);
           }
+          // 동반인들의 참가 상태 확인
+          const companionIds = companions.map((c) => c.kakaoId);
+          const signedUp = new Set<string>();
+          for (const p of data.participants as { kakaoId: string; status: string }[]) {
+            if (companionIds.includes(p.kakaoId) && p.status !== "CANCELLED") {
+              signedUp.add(p.kakaoId);
+            }
+          }
+          setSignedUpCompanions(signedUp);
         }
       })
       .catch(() => {});
-  }, [user, meeting.id]);
+  }, [user, meeting.id, companions]);
+
+  useEffect(() => {
+    refreshParticipants();
+  }, [refreshParticipants]);
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -169,6 +189,54 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
+  async function handleAddCompanionToMeeting(kakaoId: string) {
+    setCompanionActionLoading(kakaoId);
+    try {
+      const res = await fetch("/api/participants/companions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId: meeting.id, companionKakaoId: kakaoId }),
+      });
+      if (res.ok) {
+        setSignedUpCompanions((prev) => new Set(prev).add(kakaoId));
+        router.refresh();
+      } else {
+        const data = await res.json();
+        setServerError(data.error ?? "동반인 추가 중 오류가 발생했습니다.");
+      }
+    } catch {
+      setServerError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setCompanionActionLoading(null);
+    }
+  }
+
+  async function handleCancelCompanion(kakaoId: string) {
+    setCompanionActionLoading(kakaoId);
+    try {
+      const res = await fetch("/api/participants/companions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId: meeting.id, companionKakaoId: kakaoId }),
+      });
+      if (res.ok) {
+        setSignedUpCompanions((prev) => {
+          const next = new Set(prev);
+          next.delete(kakaoId);
+          return next;
+        });
+        router.refresh();
+      } else {
+        const data = await res.json();
+        setServerError(data.error ?? "동반인 취소 중 오류가 발생했습니다.");
+      }
+    } catch {
+      setServerError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setCompanionActionLoading(null);
+    }
+  }
+
   async function handleCancel() {
     if (!myParticipant) return;
     setCancelling(true);
@@ -181,8 +249,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
         setCancelResult({
           penalty: data.penalty,
           penaltyMessage: data.penaltyMessage,
+          cancelledCompanions: data.cancelledCompanions ?? 0,
         });
         setMyParticipant(null);
+        setSignedUpCompanions(new Set());
         setShowCancelConfirm(false);
       } else {
         setServerError(data.error ?? "취소 중 오류가 발생했습니다.");
@@ -235,6 +305,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
         <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}>
           <div className="text-3xl mb-3">{cancelResult.penalty ? "⚠️" : "✓"}</div>
           <p className="font-bold text-slate-800 mb-2">참가가 취소되었습니다</p>
+          {cancelResult.cancelledCompanions > 0 && (
+            <p className="text-sm text-slate-600 mb-2">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
+          )}
           {cancelResult.penalty && cancelResult.penaltyMessage && (
             <div className="bg-red-100 rounded-lg p-3 mt-3 text-sm text-red-700">
               {cancelResult.penaltyMessage}
@@ -251,8 +324,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
     );
   }
 
-  // 이미 신청한 상태 → 취소 가능
+  // 이미 신청한 상태 → 동반인 관리 + 취소 가능
   if (myParticipant) {
+    const signedUpCount = signedUpCompanions.size;
     return (
       <div className="space-y-4">
         <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
@@ -260,7 +334,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <p className="font-bold text-green-800">
             {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
           </p>
-          <p className="text-sm text-green-600 mt-1">아래 버튼으로 참가를 취소할 수 있습니다</p>
+          {signedUpCount > 0 && (
+            <p className="text-sm text-green-600 mt-1">동반인 {signedUpCount}명도 함께 신청되었습니다</p>
+          )}
         </div>
 
         {serverError && (
@@ -269,17 +345,83 @@ export function SignupForm({ meeting }: SignupFormProps) {
           </div>
         )}
 
+        {/* 동반인 관리 */}
+        {companions.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
+              <span className="text-base">👥</span> 동반인 참가 관리
+            </label>
+            <div className="space-y-2">
+              {companions.map((c) => {
+                const isSignedUp = signedUpCompanions.has(c.kakaoId);
+                const isLoading = companionActionLoading === c.kakaoId;
+                return (
+                  <div
+                    key={c.kakaoId}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${
+                      isSignedUp ? "bg-green-50 border border-green-200" : "bg-white border border-slate-200"
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                      {c.profileImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.profileImage} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-slate-400 text-xs">👤</span>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name || "이름 없음"}</span>
+                    {isSignedUp ? (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => handleCancelCompanion(c.kakaoId)}
+                        className="text-xs font-bold text-red-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        {isLoading ? "..." : "취소"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => handleAddCompanionToMeeting(c.kakaoId)}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2.5 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                      >
+                        {isLoading ? "..." : "추가"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {companions.length === 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
+              <a href="/profile" className="text-xs text-blue-600 hover:text-blue-700 font-semibold">
+                동반인 등록 &rarr;
+              </a>
+            </div>
+          </div>
+        )}
+
         {showCancelConfirm ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
             <p className="text-sm font-semibold text-red-800">정말 참가를 취소하시겠습니까?</p>
             <p className="text-xs text-red-600">일정 2일 이내 취소 시 패널티가 부과될 수 있습니다.</p>
+            {signedUpCount > 0 && (
+              <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={handleCancel}
                 disabled={cancelling}
                 className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300"
               >
-                {cancelling ? "취소 중..." : "취소 확인"}
+                {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
               </button>
               <button
                 onClick={() => setShowCancelConfirm(false)}
