@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { meetingId, name, note } = body;
+  const { meetingId, name, note, companionKakaoIds } = body;
 
   if (!meetingId || !name?.trim()) {
     return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 신청하셨습니다" }, { status: 409 });
   }
 
-  // 이전에 취소한 기록이 있으면 업데이트, 없으면 새로 생성
+  // 본인 신청 처리
   const cancelled = meeting.participants.find((p) => p.kakaoId === user.kakaoId && p.status === "CANCELLED");
 
   let participant;
@@ -58,5 +58,60 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(participant, { status: 201 });
+  // 동반인 신청 처리
+  const companionResults: { kakaoId: string; name: string; status: string }[] = [];
+  if (Array.isArray(companionKakaoIds) && companionKakaoIds.length > 0) {
+    // 동반인들이 실제로 나의 동반인인지 확인
+    const myCompanions = await prisma.user.findMany({
+      where: {
+        kakaoId: { in: companionKakaoIds },
+        memberType: "COMPANION",
+        companionOfKakaoId: user.kakaoId,
+      },
+      select: { kakaoId: true, name: true },
+    });
+
+    for (const companion of myCompanions) {
+      const compExisting = meeting.participants.find(
+        (p) => p.kakaoId === companion.kakaoId && p.status !== "CANCELLED"
+      );
+      if (compExisting) continue; // 이미 신청된 동반인은 건너뜀
+
+      const compCancelled = meeting.participants.find(
+        (p) => p.kakaoId === companion.kakaoId && p.status === "CANCELLED"
+      );
+
+      if (compCancelled) {
+        await prisma.participant.update({
+          where: { meetingId_kakaoId: { meetingId: parseInt(meetingId), kakaoId: companion.kakaoId } },
+          data: {
+            name: companion.name || "동반인",
+            note: `${name.trim()}의 동반`,
+            status: "APPROVED",
+            waitlistPosition: null,
+            cancelledAt: null,
+            submittedAt: new Date(),
+          },
+        });
+      } else {
+        await prisma.participant.create({
+          data: {
+            meetingId: parseInt(meetingId),
+            name: companion.name || "동반인",
+            kakaoId: companion.kakaoId,
+            kakaoNickname: companion.name || "동반인",
+            note: `${name.trim()}의 동반`,
+            status: "APPROVED",
+          },
+        });
+      }
+      companionResults.push({
+        kakaoId: companion.kakaoId,
+        name: companion.name || "동반인",
+        status: "APPROVED",
+      });
+    }
+  }
+
+  return NextResponse.json({ ...participant, companions: companionResults }, { status: 201 });
 }
