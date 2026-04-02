@@ -15,8 +15,7 @@ type ParticipantItem = {
   note: string | null;
   status: string;
   kakaoId: string;
-  memberType: string;
-  companionOfKakaoId: string | null;
+  companionId: number | null;
 };
 
 type DetailedMeeting = MeetingWithCounts & {
@@ -29,8 +28,7 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
     include: {
       participants: {
         select: {
-          id: true, name: true, note: true, status: true, kakaoId: true,
-          user: { select: { memberType: true, companionOfKakaoId: true } },
+          id: true, name: true, note: true, status: true, kakaoId: true, companionId: true,
         },
         orderBy: { submittedAt: "asc" },
         where: { status: { not: "CANCELLED" } },
@@ -57,25 +55,24 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
       note: p.note,
       status: p.status,
       kakaoId: p.kakaoId,
-      memberType: p.user?.memberType || "REGULAR",
-      companionOfKakaoId: p.user?.companionOfKakaoId || null,
+      companionId: p.companionId,
     })),
   };
 }
 
 // 정회원 아래에 동반인을 그룹핑하여 정렬
 function sortWithCompanions(participants: ParticipantItem[]): ParticipantItem[] {
-  const regulars = participants.filter((p) => p.memberType !== "COMPANION");
-  const companions = participants.filter((p) => p.memberType === "COMPANION");
+  const regulars = participants.filter((p) => p.companionId === null);
+  const companions = participants.filter((p) => p.companionId !== null);
 
   const result: ParticipantItem[] = [];
   for (const reg of regulars) {
     result.push(reg);
     // 이 정회원의 동반인들을 바로 뒤에 추가
-    const myCompanions = companions.filter((c) => c.companionOfKakaoId === reg.kakaoId);
+    const myCompanions = companions.filter((c) => c.kakaoId === reg.kakaoId);
     result.push(...myCompanions);
   }
-  // 정회원을 찾을 수 없는 동반인 (정회원이 이 모임에 미참가)
+  // 정회원을 찾을 수 없는 동반인
   const placed = new Set(result.map((p) => p.id));
   for (const c of companions) {
     if (!placed.has(c.id)) result.push(c);
@@ -160,7 +157,7 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
               {(() => {
                 let regularIdx = 0;
                 return sortWithCompanions(meeting.participantsList).map((p) => {
-                const isCompanion = p.memberType === "COMPANION";
+                const isCompanion = p.companionId !== null;
                 if (!isCompanion) regularIdx++;
                 return (
                   <div key={p.id} className={`p-4 flex items-center gap-3 ${isCompanion ? "pl-10 bg-slate-50/50" : ""}`}>

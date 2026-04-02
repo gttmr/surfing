@@ -21,10 +21,7 @@ interface Participant {
   isPenalized: boolean;
   cancelledAt: string | null;
   submittedAt: string;
-  user: {
-    memberType: string;
-    companionOfKakaoId: string | null;
-  } | null;
+  companionId: number | null;
 }
 
 interface Meeting {
@@ -51,13 +48,13 @@ const TAB_LABELS: Record<Tab, string> = {
 
 // 정회원 아래에 동반인을 그룹핑하여 정렬
 function sortWithCompanions(participants: Participant[]): Participant[] {
-  const regulars = participants.filter((p) => p.user?.memberType !== "COMPANION");
-  const companions = participants.filter((p) => p.user?.memberType === "COMPANION");
+  const regulars = participants.filter((p) => p.companionId === null);
+  const companions = participants.filter((p) => p.companionId !== null);
 
   const result: Participant[] = [];
   for (const reg of regulars) {
     result.push(reg);
-    const myCompanions = companions.filter((c) => c.user?.companionOfKakaoId === reg.kakaoId);
+    const myCompanions = companions.filter((c) => c.kakaoId === reg.kakaoId);
     result.push(...myCompanions);
   }
   const placed = new Set(result.map((p) => p.id));
@@ -221,7 +218,7 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
           <p className="text-sm text-slate-400 text-center py-10">해당 상태의 신청자가 없습니다</p>
         ) : (
           sortWithCompanions(filteredParticipants).map((p) => {
-            const isCompanion = p.user?.memberType === "COMPANION";
+            const isCompanion = p.companionId !== null;
             return (
             <div key={p.id} className={`bg-white rounded-xl border border-slate-200 p-4 ${isCompanion ? "ml-6 border-l-2 border-l-orange-300" : ""}`}>
               <div className="flex items-start justify-between gap-3 mb-2">
