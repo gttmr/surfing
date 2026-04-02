@@ -98,7 +98,10 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
     <div className="min-h-screen bg-slate-50 pb-24">
       <header className="bg-hero-gradient text-white">
         <div className="max-w-xl mx-auto px-4 py-5 flex items-center gap-3">
-          <Link href="/" className="text-blue-200 hover:text-white transition-colors text-xl leading-none">&larr;</Link>
+          <Link href="/" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
+          </Link>
           <h1 className="font-bold text-lg">모임 신청</h1>
         </div>
       </header>
@@ -175,9 +178,6 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
                         {p.name}
                         {isCompanion && (
                           <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반</span>
-                        )}
-                        {p.status === "APPROVED" && (
-                          <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">참석 확정</span>
                         )}
                         {p.hasLesson && (
                           <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">강습</span>
