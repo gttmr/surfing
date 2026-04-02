@@ -31,10 +31,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "이미 취소된 신청입니다" }, { status: 400 });
   }
 
-  // 패널티 확인 (2일 이내 취소)
-  const penaltyDaysSetting = await prisma.setting.findUnique({ where: { key: "cancellation_penalty_days" } });
-  const penaltyDays = penaltyDaysSetting ? parseInt(penaltyDaysSetting.value) : 2;
-  const hasPenalty = shouldApplyPenalty(participant.meeting.date, penaltyDays);
+  // 패널티 확인 (해당 주 화요일 18시 이후 취소)
+  const hasPenalty = shouldApplyPenalty(participant.meeting.date);
 
   // 패널티 메시지 조회
   let penaltyMessage: string | null = null;
@@ -105,6 +103,44 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     penaltyMessage,
     cancelledCompanions,
   });
+}
+
+// 강습/버스 여부 업데이트 (정회원 또는 연동된 동반인 본인)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = getSessionFromRequest(req);
+  if (!user) {
+    return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const participant = await prisma.participant.findUnique({
+    where: { id: parseInt(id) },
+    include: { companion: true },
+  });
+
+  if (!participant) {
+    return NextResponse.json({ error: "신청 내역을 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  // 권한 확인: 정회원(participant.kakaoId) 또는 연동된 동반인 본인(companion.linkedKakaoId)
+  const isOwner = participant.kakaoId === user.kakaoId;
+  const isLinkedCompanion = participant.companion?.linkedKakaoId === user.kakaoId;
+  if (!isOwner && !isLinkedCompanion) {
+    return NextResponse.json({ error: "수정 권한이 없습니다" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { hasLesson, hasBus } = body;
+
+  const updated = await prisma.participant.update({
+    where: { id: parseInt(id) },
+    data: {
+      ...(hasLesson !== undefined && { hasLesson: !!hasLesson }),
+      ...(hasBus !== undefined && { hasBus: !!hasBus }),
+    },
+  });
+
+  return NextResponse.json(updated);
 }
 
 // 관리자가 참가자 상태 변경

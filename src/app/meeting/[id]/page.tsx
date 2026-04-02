@@ -13,6 +13,8 @@ type ParticipantItem = {
   id: number;
   name: string;
   note: string | null;
+  hasLesson: boolean;
+  hasBus: boolean;
   status: string;
   kakaoId: string;
   companionId: number | null;
@@ -28,7 +30,7 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
     include: {
       participants: {
         select: {
-          id: true, name: true, note: true, status: true, kakaoId: true, companionId: true,
+          id: true, name: true, note: true, hasLesson: true, hasBus: true, status: true, kakaoId: true, companionId: true,
         },
         orderBy: { submittedAt: "asc" },
         where: { status: { not: "CANCELLED" } },
@@ -53,6 +55,8 @@ async function getMeeting(id: number): Promise<DetailedMeeting | null> {
       id: p.id,
       name: p.name,
       note: p.note,
+      hasLesson: p.hasLesson,
+      hasBus: p.hasBus,
       status: p.status,
       kakaoId: p.kakaoId,
       companionId: p.companionId,
@@ -167,13 +171,19 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
                       {isCompanion ? "+" : regularIdx}
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-slate-800 flex items-center gap-2">
+                      <p className="font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">
                         {p.name}
                         {isCompanion && (
                           <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반</span>
                         )}
                         {p.status === "APPROVED" && (
                           <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">참석 확정</span>
+                        )}
+                        {p.hasLesson && (
+                          <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">강습</span>
+                        )}
+                        {p.hasBus && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-bold">버스</span>
                         )}
                       </p>
                       {p.note && <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{p.note}</p>}

@@ -35,15 +35,20 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, phoneNumber } = body;
+  const { name, phoneNumber, memberType } = body;
 
   const trimmedName = name !== undefined ? (name.trim() || null) : undefined;
+
+  // memberType은 최초 설정 시에만 허용 (이름이 없는 상태 = 초기 설정)
+  const existing = await prisma.user.findUnique({ where: { kakaoId: session.kakaoId } });
+  const canSetMemberType = memberType && !existing?.name; // 이름이 없을 때만 설정 가능
 
   const user = await prisma.user.update({
     where: { kakaoId: session.kakaoId },
     data: {
       ...(trimmedName !== undefined && { name: trimmedName }),
       ...(phoneNumber !== undefined && { phoneNumber: phoneNumber.trim() || null }),
+      ...(canSetMemberType && { memberType }),
     },
     include: {
       _count: {
