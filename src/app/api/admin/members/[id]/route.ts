@@ -38,12 +38,13 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { role, phoneNumber, penaltyCount } = body;
+  const { role, phoneNumber, penaltyCount, memberType } = body;
 
   const user = await prisma.user.update({
     where: { id: parseInt(id) },
     data: {
       ...(role && { role }),
+      ...(memberType && { memberType }),
       ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
       ...(penaltyCount !== undefined && { penaltyCount: parseInt(penaltyCount) }),
     },

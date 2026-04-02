@@ -37,6 +37,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [name, setName] = useState("");
   const [profileName, setProfileName] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [hasLesson, setHasLesson] = useState(false);
+  const [hasBus, setHasBus] = useState(false);
   const [nameError, setNameError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -65,6 +67,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // 동반인 관련
   const [companions, setCompanions] = useState<CompanionItem[]>([]);
   const [selectedCompanions, setSelectedCompanions] = useState<Set<number>>(new Set());
+
+  // 인라인 새 동반인 추가
+  const [newCompanionInput, setNewCompanionInput] = useState("");
+  const [pendingNewCompanions, setPendingNewCompanions] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -147,6 +153,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setMyParticipant(null);
   }
 
+  function handleAddPendingCompanion() {
+    const trimmed = newCompanionInput.trim();
+    if (!trimmed) return;
+    setPendingNewCompanions((prev) => [...prev, trimmed]);
+    setNewCompanionInput("");
+  }
+
+  function handleRemovePendingCompanion(idx: number) {
+    setPendingNewCompanions((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setNameError("이름을 입력해주세요"); return; }
@@ -163,7 +180,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
           meetingId: meeting.id,
           name,
           note,
+          hasLesson,
+          hasBus,
           companionIds: Array.from(selectedCompanions),
+          newCompanionNames: pendingNewCompanions,
         }),
       });
 
@@ -401,7 +421,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         {showCancelConfirm ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
             <p className="text-sm font-semibold text-red-800">정말 참가를 취소하시겠습니까?</p>
-            <p className="text-xs text-red-600">일정 2일 이내 취소 시 패널티가 부과될 수 있습니다.</p>
+            <p className="text-xs text-red-600">화요일 18시 이후 취소 시 패널티가 부과될 수 있습니다.</p>
             {signedUpCount > 0 && (
               <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
             )}
@@ -434,6 +454,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   }
 
   // 로그인 상태 - 신청 폼
+  const totalCompanionCount = selectedCompanions.size + pendingNewCompanions.length;
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {duplicate && (
@@ -472,16 +493,65 @@ export function SignupForm({ meeting }: SignupFormProps) {
         {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
       </div>
 
+      {/* 강습 / 버스 체크 */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <label className="block text-sm font-semibold text-slate-700 mb-3">참가 옵션</label>
+        <div className="flex gap-4">
+          <button
+            type="button"
+            onClick={() => setHasLesson((v) => !v)}
+            disabled={submitting}
+            className={`flex-1 flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-sm font-semibold ${
+              hasLesson
+                ? "bg-blue-50 border-blue-400 text-blue-700"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+              hasLesson ? "bg-blue-500 border-blue-500" : "border-slate-300"
+            }`}>
+              {hasLesson && (
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            <span>강습</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setHasBus((v) => !v)}
+            disabled={submitting}
+            className={`flex-1 flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-sm font-semibold ${
+              hasBus
+                ? "bg-green-50 border-green-400 text-green-700"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+              hasBus ? "bg-green-500 border-green-500" : "border-slate-300"
+            }`}>
+              {hasBus && (
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </div>
+            <span>버스</span>
+          </button>
+        </div>
+      </div>
+
       {/* 메모 */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-          메모 <span className="text-slate-400 font-normal">(선택)</span>
+          비고 <span className="text-slate-400 font-normal">(선택)</span>
         </label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value.slice(0, 100))}
           placeholder="처음 참가합니다, 주차 문의 등..."
-          rows={3}
+          rows={2}
           disabled={submitting}
           className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors resize-none disabled:bg-slate-50 disabled:text-slate-400"
         />
@@ -489,27 +559,14 @@ export function SignupForm({ meeting }: SignupFormProps) {
       </div>
 
       {/* 동반인 함께 신청 */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-            <span className="text-base">👥</span> 동반인 함께 신청
-          </label>
-          {companions.length === 0 && (
-            <a
-              href="/profile"
-              className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
-            >
-              동반인 등록 &rarr;
-            </a>
-          )}
-        </div>
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+          <span className="text-base">👥</span> 동반인 함께 신청
+        </label>
 
-        {companions.length === 0 ? (
-          <p className="text-xs text-slate-400">
-            등록된 동반인이 없습니다. 프로필 페이지에서 동반인을 먼저 등록해주세요.
-          </p>
-        ) : (
-          <div className="space-y-2 mt-2">
+        {/* 기존 동반인 선택 */}
+        {companions.length > 0 && (
+          <div className="space-y-2">
             {companions.map((c) => {
               const isSelected = selectedCompanions.has(c.id);
               return (
@@ -550,6 +607,52 @@ export function SignupForm({ meeting }: SignupFormProps) {
             })}
           </div>
         )}
+
+        {/* 새 동반인 추가 (인라인) */}
+        <div>
+          <p className="text-xs text-slate-500 mb-2">새 동반인 이름을 직접 입력하세요</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newCompanionInput}
+              onChange={(e) => setNewCompanionInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddPendingCompanion(); } }}
+              placeholder="동반인 이름"
+              disabled={submitting}
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors disabled:bg-slate-50"
+            />
+            <button
+              type="button"
+              onClick={handleAddPendingCompanion}
+              disabled={submitting || !newCompanionInput.trim()}
+              className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300 shrink-0"
+            >
+              추가
+            </button>
+          </div>
+
+          {/* 추가된 새 동반인 목록 */}
+          {pendingNewCompanions.length > 0 && (
+            <div className="space-y-1.5 mt-2">
+              {pendingNewCompanions.map((cName, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <span className="text-blue-500 text-xs font-bold">+</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 flex-1">{cName}</span>
+                  <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold shrink-0">신규</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePendingCompanion(idx)}
+                    className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <button
@@ -569,8 +672,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </svg>
             처리 중...
           </span>
-        ) : selectedCompanions.size > 0
-          ? `참가 신청하기 (동반 ${selectedCompanions.size}명 포함)`
+        ) : totalCompanionCount > 0
+          ? `참가 신청하기 (동반 ${totalCompanionCount}명 포함)`
           : "참가 신청하기"}
       </button>
     </form>

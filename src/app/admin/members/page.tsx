@@ -10,6 +10,7 @@ interface UserWithCounts {
   profileImage: string | null;
   phoneNumber: string | null;
   role: string;
+  memberType: string;
   penaltyCount: number;
   createdAt: string;
   _count: {
@@ -37,6 +38,15 @@ const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-purple-100 text-purple-700",
   MEMBER: "bg-green-100 text-green-700",
   BANNED: "bg-red-100 text-red-700",
+};
+
+const MEMBER_TYPE_LABELS: Record<string, string> = {
+  REGULAR: "정회원",
+  COMPANION: "동반인",
+};
+const MEMBER_TYPE_COLORS: Record<string, string> = {
+  REGULAR: "bg-blue-100 text-blue-700",
+  COMPANION: "bg-orange-100 text-orange-700",
 };
 
 export default function AdminMembersPage() {
@@ -70,6 +80,18 @@ export default function AdminMembersPage() {
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
     if (selectedUser?.id === userId) {
       setSelectedUser({ ...selectedUser, role: newRole });
+    }
+  }
+
+  async function handleMemberTypeChange(userId: number, newMemberType: string) {
+    await fetch(`/api/admin/members/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberType: newMemberType }),
+    });
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, memberType: newMemberType } : u)));
+    if (selectedUser?.id === userId) {
+      setSelectedUser({ ...selectedUser, memberType: newMemberType });
     }
   }
 
@@ -152,10 +174,13 @@ export default function AdminMembersPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                       <span className="font-bold text-slate-800 text-sm truncate">{user.name || "이름 없음"}</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ROLE_COLORS[user.role] || "bg-slate-100 text-slate-500"}`}>
                         {ROLE_LABELS[user.role] || user.role}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${MEMBER_TYPE_COLORS[user.memberType] || "bg-slate-100 text-slate-500"}`}>
+                        {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
                       </span>
                       {user.penaltyCount > 0 && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">
@@ -208,6 +233,28 @@ export default function AdminMembersPage() {
                           </button>
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* 회원 유형 변경 (관리자 전용) */}
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-slate-500 mb-2">회원 유형</label>
+                    <div className="flex gap-2">
+                      {(["REGULAR", "COMPANION"] as const).map((mt) => (
+                        <button
+                          key={mt}
+                          onClick={() => handleMemberTypeChange(selectedUser.id, mt)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                            selectedUser.memberType === mt
+                              ? mt === "COMPANION"
+                                ? "bg-orange-500 text-white shadow-sm"
+                                : "bg-blue-600 text-white shadow-sm"
+                              : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200"
+                          }`}
+                        >
+                          {MEMBER_TYPE_LABELS[mt]}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
