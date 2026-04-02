@@ -11,9 +11,32 @@ interface SessionUser {
   profileImage?: string;
 }
 
+interface UserProfile {
+  memberType: string;
+  name: string | null;
+}
+
 interface CompanionItem {
   id: number;
   name: string;
+}
+
+interface CompanionOption {
+  hasLesson: boolean;
+  hasBus: boolean;
+}
+
+interface NewCompanionEntry {
+  name: string;
+  hasLesson: boolean;
+  hasBus: boolean;
+}
+
+// 참가 후 동반인 관리용 (participantId 포함)
+interface SignedUpCompanionData {
+  participantId: number;
+  hasLesson: boolean;
+  hasBus: boolean;
 }
 
 interface SignupFormProps {
@@ -28,12 +51,54 @@ function KakaoIcon() {
   );
 }
 
+function OptionToggle({
+  label,
+  checked,
+  onChange,
+  color = "blue",
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  color?: "blue" | "green";
+  disabled?: boolean;
+}) {
+  const activeClass = color === "blue"
+    ? "bg-blue-50 border-blue-400 text-blue-700"
+    : "bg-green-50 border-green-400 text-green-700";
+  const checkClass = color === "blue" ? "bg-blue-500 border-blue-500" : "bg-green-500 border-green-500";
+
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all disabled:opacity-50 ${
+        checked ? activeClass : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+      }`}
+    >
+      <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 ${
+        checked ? checkClass : "border-slate-300"
+      }`}>
+        {checked && (
+          <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
+      {label}
+    </button>
+  );
+}
+
 export function SignupForm({ meeting }: SignupFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isClosed = !meeting.isOpen;
 
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [name, setName] = useState("");
   const [profileName, setProfileName] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -51,8 +116,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
     waitlistPosition: number | null;
   } | null>(null);
 
-  // 이 모임에 신청된 동반인 ID 목록
-  const [signedUpCompanionIds, setSignedUpCompanionIds] = useState<Set<number>>(new Set());
+  // 동반인 관련
+  const [companions, setCompanions] = useState<CompanionItem[]>([]);
+  const [selectedCompanions, setSelectedCompanions] = useState<Set<number>>(new Set());
+  const [companionOptions, setCompanionOptions] = useState<Record<number, CompanionOption>>({});
+
+  // 신규 동반인 (인라인 입력)
+  const [newCompanionInput, setNewCompanionInput] = useState("");
+  const [newCompanions, setNewCompanions] = useState<NewCompanionEntry[]>([]);
+
+  // 이미 이 모임에 신청된 동반인 데이터 (participantId + options)
+  const [signedUpCompanionData, setSignedUpCompanionData] = useState<Record<number, SignedUpCompanionData>>({});
   const [companionActionLoading, setCompanionActionLoading] = useState<number | null>(null);
 
   // 취소 관련
@@ -64,13 +138,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
     cancelledCompanions: number;
   } | null>(null);
 
-  // 동반인 관련
-  const [companions, setCompanions] = useState<CompanionItem[]>([]);
-  const [selectedCompanions, setSelectedCompanions] = useState<Set<number>>(new Set());
-
-  // 인라인 새 동반인 추가
-  const [newCompanionInput, setNewCompanionInput] = useState("");
-  const [pendingNewCompanions, setPendingNewCompanions] = useState<string[]>([]);
+  // 연동된 동반인(COMPANION 계정) 상태
+  const [linkedStatus, setLinkedStatus] = useState<{
+    linked: boolean;
+    companion?: { id: number; name: string; owner: { name: string | null; kakaoId: string } };
+    participant?: { id: number; status: string; hasLesson: boolean; hasBus: boolean } | null;
+  } | null>(null);
+  const [updatingLinked, setUpdatingLinked] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -81,62 +155,77 @@ export function SignupForm({ meeting }: SignupFormProps) {
           fetch("/api/profile")
             .then((r) => r.ok ? r.json() : null)
             .then((profile) => {
-              if (profile?.name) {
-                setName(profile.name);
-                setProfileName(profile.name);
+              if (profile) {
+                setUserProfile(profile);
+                if (profile.name) {
+                  setName(profile.name);
+                  setProfileName(profile.name);
+                } else if (data?.nickname) {
+                  setName(data.nickname);
+                }
               } else if (data?.nickname) {
                 setName(data.nickname);
               }
             })
-            .catch(() => {
-              if (data?.nickname) setName(data.nickname);
-            });
+            .catch(() => { if (data?.nickname) setName(data.nickname); });
         }
       })
       .catch(() => setUser(null));
   }, []);
 
-  // 내 동반인 목록 로드
+  // 동반인 계정인 경우 연동 상태 조회
   useEffect(() => {
-    if (!user?.kakaoId) return;
+    if (!user?.kakaoId || userProfile?.memberType !== "COMPANION") return;
+    fetch(`/api/participants/linked-companion?meetingId=${meeting.id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setLinkedStatus(data))
+      .catch(() => {});
+  }, [user, userProfile, meeting.id]);
+
+  // 내 동반인 목록 로드 (정회원만)
+  useEffect(() => {
+    if (!user?.kakaoId || userProfile?.memberType !== "REGULAR") return;
     fetch("/api/companions")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setCompanions(data))
       .catch(() => {});
-  }, [user]);
+  }, [user, userProfile]);
 
-  // 내 참가 상태 확인 + 동반인 참가 상태
+  // 참가 상태 + 동반인 참가 데이터
   const refreshParticipants = useCallback(() => {
     if (!user?.kakaoId) return;
     fetch(`/api/meetings/${meeting.id}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.participants) {
-          const mine = data.participants.find(
-            (p: { kakaoId: string; status: string; companionId: number | null }) =>
-              p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
-          );
-          if (mine) {
-            setMyParticipant({ id: mine.id, status: mine.status, waitlistPosition: mine.waitlistPosition });
-          } else {
-            setMyParticipant(null);
+        if (!data.participants) return;
+        const mine = data.participants.find(
+          (p: { kakaoId: string; status: string; companionId: number | null }) =>
+            p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
+        );
+        setMyParticipant(mine ? { id: mine.id, status: mine.status, waitlistPosition: mine.waitlistPosition } : null);
+
+        // 동반인 참가 데이터 (participantId + hasLesson/hasBus)
+        const data2: Record<number, SignedUpCompanionData> = {};
+        for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean }[]) {
+          if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
+            data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus };
           }
-          // 동반인들의 참가 상태 확인
-          const signedUp = new Set<number>();
-          for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null }[]) {
-            if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
-              signedUp.add(p.companionId);
-            }
-          }
-          setSignedUpCompanionIds(signedUp);
         }
+        setSignedUpCompanionData(data2);
       })
       .catch(() => {});
   }, [user, meeting.id]);
 
-  useEffect(() => {
-    refreshParticipants();
-  }, [refreshParticipants]);
+  // 연동 동반인 모임 상태 새로고침
+  const refreshLinkedStatus = useCallback(() => {
+    if (!user?.kakaoId || userProfile?.memberType !== "COMPANION") return;
+    fetch(`/api/participants/linked-companion?meetingId=${meeting.id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setLinkedStatus(data))
+      .catch(() => {});
+  }, [user, userProfile, meeting.id]);
+
+  useEffect(() => { refreshParticipants(); }, [refreshParticipants]);
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -153,15 +242,22 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setMyParticipant(null);
   }
 
-  function handleAddPendingCompanion() {
+  function setCompanionOpt(companionId: number, field: "hasLesson" | "hasBus", value: boolean) {
+    setCompanionOptions((prev) => ({
+      ...prev,
+      [companionId]: { ...( prev[companionId] ?? { hasLesson: false, hasBus: false }), [field]: value },
+    }));
+  }
+
+  function handleAddNewCompanion() {
     const trimmed = newCompanionInput.trim();
     if (!trimmed) return;
-    setPendingNewCompanions((prev) => [...prev, trimmed]);
+    setNewCompanions((prev) => [...prev, { name: trimmed, hasLesson: false, hasBus: false }]);
     setNewCompanionInput("");
   }
 
-  function handleRemovePendingCompanion(idx: number) {
-    setPendingNewCompanions((prev) => prev.filter((_, i) => i !== idx));
+  function updateNewCompanion(idx: number, field: "hasLesson" | "hasBus", value: boolean) {
+    setNewCompanions((prev) => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -183,7 +279,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
           hasLesson,
           hasBus,
           companionIds: Array.from(selectedCompanions),
-          newCompanionNames: pendingNewCompanions,
+          companionOptions: Object.fromEntries(
+            Array.from(selectedCompanions).map((id) => [id, companionOptions[id] ?? { hasLesson: false, hasBus: false }])
+          ),
+          newCompanions,
         }),
       });
 
@@ -208,14 +307,19 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
   async function handleAddCompanionToMeeting(companionId: number) {
     setCompanionActionLoading(companionId);
+    const opts = companionOptions[companionId] ?? { hasLesson: false, hasBus: false };
     try {
       const res = await fetch("/api/participants/companions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, companionId }),
+        body: JSON.stringify({ meetingId: meeting.id, companionId, ...opts }),
       });
       if (res.ok) {
-        setSignedUpCompanionIds((prev) => new Set(prev).add(companionId));
+        const created = await res.json();
+        setSignedUpCompanionData((prev) => ({
+          ...prev,
+          [companionId]: { participantId: created.id, hasLesson: created.hasLesson, hasBus: created.hasBus },
+        }));
         router.refresh();
       } else {
         const data = await res.json();
@@ -237,9 +341,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
         body: JSON.stringify({ meetingId: meeting.id, companionId }),
       });
       if (res.ok) {
-        setSignedUpCompanionIds((prev) => {
-          const next = new Set(prev);
-          next.delete(companionId);
+        setSignedUpCompanionData((prev) => {
+          const next = { ...prev };
+          delete next[companionId];
           return next;
         });
         router.refresh();
@@ -254,22 +358,40 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
+  async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus", value: boolean) {
+    const cData = signedUpCompanionData[companionId];
+    if (!cData) return;
+    setSignedUpCompanionData((prev) => ({ ...prev, [companionId]: { ...prev[companionId], [field]: value } }));
+    await fetch(`/api/participants/${cData.participantId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+  }
+
+  async function handleUpdateLinkedOption(field: "hasLesson" | "hasBus", value: boolean) {
+    if (!linkedStatus?.participant) return;
+    setUpdatingLinked(true);
+    setLinkedStatus((prev) => prev ? { ...prev, participant: prev.participant ? { ...prev.participant, [field]: value } : null } : null);
+    await fetch(`/api/participants/${linkedStatus.participant.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    setUpdatingLinked(false);
+    refreshLinkedStatus();
+  }
+
   async function handleCancel() {
     if (!myParticipant) return;
     setCancelling(true);
-
     try {
       const res = await fetch(`/api/participants/${myParticipant.id}`, { method: "DELETE" });
       const data = await res.json();
-
       if (res.ok) {
-        setCancelResult({
-          penalty: data.penalty,
-          penaltyMessage: data.penaltyMessage,
-          cancelledCompanions: data.cancelledCompanions ?? 0,
-        });
+        setCancelResult({ penalty: data.penalty, penaltyMessage: data.penaltyMessage, cancelledCompanions: data.cancelledCompanions ?? 0 });
         setMyParticipant(null);
-        setSignedUpCompanionIds(new Set());
+        setSignedUpCompanionData({});
         setShowCancelConfirm(false);
       } else {
         setServerError(data.error ?? "취소 중 오류가 발생했습니다.");
@@ -280,6 +402,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
       setCancelling(false);
     }
   }
+
+  // ───────────────────────────────────────────── render ─────────────────────────────────────────────
 
   if (isClosed) {
     return (
@@ -293,29 +417,88 @@ export function SignupForm({ meeting }: SignupFormProps) {
     return <div className="py-8 text-center text-slate-400 text-sm">불러오는 중...</div>;
   }
 
-  // 비로그인 상태
   if (!user) {
     const returnTo = `/meeting/${meeting.id}`;
     return (
       <div className="space-y-4">
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 text-center space-y-3">
           <p className="text-sm text-slate-600">카카오 계정으로 간편하게 신청할 수 있습니다</p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => kakaoLogin(returnTo)}
-              className="w-full h-12 inline-flex items-center gap-2 bg-[#FEE500] hover:bg-[#f0d800] text-[#3C1E1E] font-bold rounded-xl transition-colors justify-center text-sm"
-            >
-              <KakaoIcon />
-              카카오로 로그인하여 신청하기
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => kakaoLogin(returnTo)}
+            className="w-full h-12 inline-flex items-center gap-2 bg-[#FEE500] hover:bg-[#f0d800] text-[#3C1E1E] font-bold rounded-xl transition-colors justify-center text-sm"
+          >
+            <KakaoIcon />
+            카카오로 로그인하여 신청하기
+          </button>
         </div>
       </div>
     );
   }
 
-  // 취소 완료 결과
+  // ─── COMPANION 계정 뷰 ─────────────────────────────────────────────────────────────────────────────
+  if (userProfile?.memberType === "COMPANION") {
+    if (!linkedStatus) {
+      return <div className="py-4 text-center text-slate-400 text-sm">불러오는 중...</div>;
+    }
+
+    if (!linkedStatus.linked) {
+      return (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800 space-y-2">
+          <p className="font-semibold">동반인 연동 필요</p>
+          <p className="text-xs">프로필 페이지에서 정회원과 연동해주세요. 연동 후 참가 여부를 확인할 수 있습니다.</p>
+          <a href="/profile" className="inline-block text-xs font-bold text-blue-600 hover:underline">프로필로 이동 &rarr;</a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm">
+          <p className="text-xs text-slate-400 mb-1">정회원: {linkedStatus.companion?.owner.name ?? "알 수 없음"}</p>
+          <p className="font-semibold text-slate-800">{linkedStatus.companion?.name}</p>
+        </div>
+
+        {linkedStatus.participant ? (
+          <div className="space-y-3">
+            <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "bg-green-50 border border-green-200" : "bg-blue-50 border border-blue-200"}`}>
+              <div className="text-2xl mb-1">✓</div>
+              <p className="font-bold text-slate-800 text-sm">
+                {linkedStatus.participant.status === "APPROVED" ? "참가 확정" : "대기 중"}
+              </p>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <p className="text-xs font-semibold text-slate-600 mb-3">내 참가 옵션 변경</p>
+              <div className="flex gap-2">
+                <OptionToggle
+                  label="강습"
+                  checked={linkedStatus.participant.hasLesson}
+                  onChange={() => handleUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
+                  color="blue"
+                  disabled={updatingLinked}
+                />
+                <OptionToggle
+                  label="버스"
+                  checked={linkedStatus.participant.hasBus}
+                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                  color="green"
+                  disabled={updatingLinked}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-500 text-center">
+            아직 이 모임에 신청되지 않았습니다.<br />
+            <span className="text-xs text-slate-400">정회원이 동반인 추가 시 자동 등록됩니다.</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── 취소 완료 결과 ────────────────────────────────────────────────────────────────────────────────
   if (cancelResult) {
     return (
       <div className="space-y-4">
@@ -326,9 +509,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
             <p className="text-sm text-slate-600 mb-2">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
           )}
           {cancelResult.penalty && cancelResult.penaltyMessage && (
-            <div className="bg-red-100 rounded-lg p-3 mt-3 text-sm text-red-700">
-              {cancelResult.penaltyMessage}
-            </div>
+            <div className="bg-red-100 rounded-lg p-3 mt-3 text-sm text-red-700">{cancelResult.penaltyMessage}</div>
           )}
         </div>
         <button
@@ -341,9 +522,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
     );
   }
 
-  // 이미 신청한 상태 → 동반인 관리 + 취소 가능
+  // ─── 이미 신청한 상태 (정회원) ────────────────────────────────────────────────────────────────────
   if (myParticipant) {
-    const signedUpCount = signedUpCompanionIds.size;
+    const signedUpCount = Object.keys(signedUpCompanionData).length;
     return (
       <div className="space-y-4">
         <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
@@ -357,64 +538,80 @@ export function SignupForm({ meeting }: SignupFormProps) {
         </div>
 
         {serverError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-            {serverError}
-          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{serverError}</div>
         )}
 
-        {/* 동반인 관리 */}
+        {/* 동반인 참가 관리 */}
         {companions.length > 0 ? (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
+            <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
               <span className="text-base">👥</span> 동반인 참가 관리
-            </label>
-            <div className="space-y-2">
+            </p>
+            <div className="space-y-3">
               {companions.map((c) => {
-                const isSignedUp = signedUpCompanionIds.has(c.id);
+                const cData = signedUpCompanionData[c.id];
+                const isSignedUp = !!cData;
                 const isLoading = companionActionLoading === c.id;
+                const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false };
                 return (
-                  <div
-                    key={c.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg ${
-                      isSignedUp ? "bg-green-50 border border-green-200" : "bg-white border border-slate-200"
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                      <span className="text-orange-400 text-xs font-bold">+</span>
+                  <div key={c.id} className={`p-3 rounded-lg border ${isSignedUp ? "bg-green-50 border-green-200" : "bg-white border-slate-200"}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                        <span className="text-orange-400 text-xs font-bold">+</span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
+                      {isSignedUp ? (
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleCancelCompanion(c.id)}
+                          className="text-xs font-bold text-red-500 hover:text-red-600 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          {isLoading ? "..." : "취소"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleAddCompanionToMeeting(c.id)}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                        >
+                          {isLoading ? "..." : "추가"}
+                        </button>
+                      )}
                     </div>
-                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
-                    {isSignedUp ? (
-                      <button
-                        type="button"
+                    {/* 옵션 토글 */}
+                    <div className="flex gap-2 pl-8">
+                      <OptionToggle
+                        label="강습"
+                        checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
+                        onChange={() => isSignedUp
+                          ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
+                          : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
+                        }
+                        color="blue"
                         disabled={isLoading}
-                        onClick={() => handleCancelCompanion(c.id)}
-                        className="text-xs font-bold text-red-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                      >
-                        {isLoading ? "..." : "취소"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
+                      />
+                      <OptionToggle
+                        label="버스"
+                        checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
+                        onChange={() => isSignedUp
+                          ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
+                          : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                        }
+                        color="green"
                         disabled={isLoading}
-                        onClick={() => handleAddCompanionToMeeting(c.id)}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2.5 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                      >
-                        {isLoading ? "..." : "추가"}
-                      </button>
-                    )}
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
         ) : (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
-              <a href="/profile" className="text-xs text-blue-600 hover:text-blue-700 font-semibold">
-                동반인 등록 &rarr;
-              </a>
-            </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+            <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
+            <a href="/profile" className="text-xs text-blue-600 hover:text-blue-700 font-semibold">동반인 등록 &rarr;</a>
           </div>
         )}
 
@@ -426,26 +623,19 @@ export function SignupForm({ meeting }: SignupFormProps) {
               <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
             )}
             <div className="flex gap-2">
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300"
-              >
+              <button onClick={handleCancel} disabled={cancelling}
+                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300">
                 {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
               </button>
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors"
-              >
+              <button onClick={() => setShowCancelConfirm(false)}
+                className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors">
                 돌아가기
               </button>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setShowCancelConfirm(true)}
-            className="w-full py-3 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-colors"
-          >
+          <button onClick={() => setShowCancelConfirm(true)}
+            className="w-full py-3 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-colors">
             참가 취소하기
           </button>
         )}
@@ -453,8 +643,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
     );
   }
 
-  // 로그인 상태 - 신청 폼
-  const totalCompanionCount = selectedCompanions.size + pendingNewCompanions.length;
+  // ─── 신청 폼 (정회원) ─────────────────────────────────────────────────────────────────────────────
+  const totalCompanionCount = selectedCompanions.size + newCompanions.length;
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {duplicate && (
@@ -462,22 +652,18 @@ export function SignupForm({ meeting }: SignupFormProps) {
           이 모임에 이미 신청하셨습니다.
         </div>
       )}
-
       {serverError && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-          {serverError}
-        </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{serverError}</div>
       )}
 
       {/* 이름 */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">
           이름 <span className="text-red-500">*</span>
-          {profileName ? (
-            <span className="font-normal text-slate-400 ml-1 text-xs">(프로필에서 변경 가능)</span>
-          ) : (
-            <span className="font-normal text-amber-500 ml-1 text-xs">(프로필에서 이름을 설정해 주세요)</span>
-          )}
+          {profileName
+            ? <span className="font-normal text-slate-400 ml-1 text-xs">(프로필에서 변경 가능)</span>
+            : <span className="font-normal text-amber-500 ml-1 text-xs">(프로필에서 이름을 설정해 주세요)</span>
+          }
         </label>
         <input
           type="text"
@@ -493,56 +679,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
         {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
       </div>
 
-      {/* 강습 / 버스 체크 */}
+      {/* 내 참가 옵션 */}
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-        <label className="block text-sm font-semibold text-slate-700 mb-3">참가 옵션</label>
-        <div className="flex gap-4">
-          <button
-            type="button"
-            onClick={() => setHasLesson((v) => !v)}
-            disabled={submitting}
-            className={`flex-1 flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-sm font-semibold ${
-              hasLesson
-                ? "bg-blue-50 border-blue-400 text-blue-700"
-                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-            }`}
-          >
-            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-              hasLesson ? "bg-blue-500 border-blue-500" : "border-slate-300"
-            }`}>
-              {hasLesson && (
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </div>
-            <span>강습</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setHasBus((v) => !v)}
-            disabled={submitting}
-            className={`flex-1 flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-sm font-semibold ${
-              hasBus
-                ? "bg-green-50 border-green-400 text-green-700"
-                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-            }`}
-          >
-            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-              hasBus ? "bg-green-500 border-green-500" : "border-slate-300"
-            }`}>
-              {hasBus && (
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </div>
-            <span>버스</span>
-          </button>
+        <p className="text-sm font-semibold text-slate-700 mb-3">내 참가 옵션</p>
+        <div className="flex gap-2">
+          <OptionToggle label="강습" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} color="blue" disabled={submitting} />
+          <OptionToggle label="버스" checked={hasBus} onChange={() => setHasBus((v) => !v)} color="green" disabled={submitting} />
         </div>
       </div>
 
-      {/* 메모 */}
+      {/* 비고 */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">
           비고 <span className="text-slate-400 font-normal">(선택)</span>
@@ -558,72 +704,72 @@ export function SignupForm({ meeting }: SignupFormProps) {
         <p className="mt-1 text-xs text-slate-400 text-right">{note.length}/100</p>
       </div>
 
-      {/* 동반인 함께 신청 */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+      {/* 동반인 신청 */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+        <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
           <span className="text-base">👥</span> 동반인 함께 신청
-        </label>
+        </p>
 
-        {/* 기존 동반인 선택 */}
+        {/* 기존 동반인 */}
         {companions.length > 0 && (
           <div className="space-y-2">
             {companions.map((c) => {
               const isSelected = selectedCompanions.has(c.id);
+              const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false };
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCompanions((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(c.id)) next.delete(c.id);
-                      else next.add(c.id);
-                      return next;
-                    });
-                  }}
-                  disabled={submitting}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left ${
-                    isSelected
-                      ? "bg-blue-50 border-2 border-blue-400"
-                      : "bg-white border-2 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"
-                  }`}>
-                    {isSelected && (
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                    <span className="text-orange-400 text-xs font-bold">+</span>
-                  </div>
-                  <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
-                  <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold shrink-0">동반</span>
-                </button>
+                <div key={c.id} className={`rounded-lg border-2 p-3 transition-all ${isSelected ? "bg-blue-50 border-blue-300" : "bg-white border-slate-200"}`}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCompanions((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                        return next;
+                      });
+                    }}
+                    disabled={submitting}
+                    className="w-full flex items-center gap-3 text-left"
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"}`}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                      <span className="text-orange-400 text-xs font-bold">+</span>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
+                  </button>
+                  {isSelected && (
+                    <div className="flex gap-2 mt-2 pl-14">
+                      <OptionToggle label="강습" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} color="blue" disabled={submitting} />
+                      <OptionToggle label="버스" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} color="green" disabled={submitting} />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
         )}
 
-        {/* 새 동반인 추가 (인라인) */}
+        {/* 새 동반인 입력 */}
         <div>
-          <p className="text-xs text-slate-500 mb-2">새 동반인 이름을 직접 입력하세요</p>
+          <p className="text-xs text-slate-500 mb-2">새 동반인 직접 입력</p>
           <div className="flex gap-2">
             <input
               type="text"
               value={newCompanionInput}
               onChange={(e) => setNewCompanionInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddPendingCompanion(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNewCompanion(); } }}
               placeholder="동반인 이름"
               disabled={submitting}
               className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors disabled:bg-slate-50"
             />
             <button
               type="button"
-              onClick={handleAddPendingCompanion}
+              onClick={handleAddNewCompanion}
               disabled={submitting || !newCompanionInput.trim()}
               className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300 shrink-0"
             >
@@ -631,23 +777,23 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </button>
           </div>
 
-          {/* 추가된 새 동반인 목록 */}
-          {pendingNewCompanions.length > 0 && (
-            <div className="space-y-1.5 mt-2">
-              {pendingNewCompanions.map((cName, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <span className="text-blue-500 text-xs font-bold">+</span>
+          {newCompanions.length > 0 && (
+            <div className="space-y-2 mt-2">
+              {newCompanions.map((nc, idx) => (
+                <div key={idx} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                      <span className="text-blue-500 text-xs font-bold">+</span>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 flex-1">{nc.name}</span>
+                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">신규</span>
+                    <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
+                      className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800 flex-1">{cName}</span>
-                  <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold shrink-0">신규</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePendingCompanion(idx)}
-                    className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex gap-2 pl-8">
+                    <OptionToggle label="강습" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} color="blue" disabled={submitting} />
+                    <OptionToggle label="버스" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} color="green" disabled={submitting} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -659,10 +805,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         type="submit"
         disabled={submitting || !name.trim()}
         className={`w-full py-3 rounded-xl font-bold text-white text-sm transition-all
-          ${submitting || !name.trim()
-            ? "bg-slate-300 cursor-not-allowed"
-            : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
-          }`}
+          ${submitting || !name.trim() ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"}`}
       >
         {submitting ? (
           <span className="flex items-center justify-center gap-2">
@@ -672,9 +815,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </svg>
             처리 중...
           </span>
-        ) : totalCompanionCount > 0
-          ? `참가 신청하기 (동반 ${totalCompanionCount}명 포함)`
-          : "참가 신청하기"}
+        ) : totalCompanionCount > 0 ? `참가 신청하기 (동반 ${totalCompanionCount}명 포함)` : "참가 신청하기"}
       </button>
     </form>
   );

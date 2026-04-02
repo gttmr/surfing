@@ -16,6 +16,8 @@ interface Participant {
   kakaoId: string;
   kakaoNickname: string;
   note: string | null;
+  hasLesson: boolean;
+  hasBus: boolean;
   status: ParticipantStatus;
   waitlistPosition: number | null;
   isPenalized: boolean;
@@ -231,6 +233,12 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
                     <StatusBadge status={p.status} waitlistPosition={p.waitlistPosition} size="sm" />
                     {p.isPenalized && (
                       <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">패널티</span>
+                    )}
+                    {p.hasLesson && (
+                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">강습</span>
+                    )}
+                    {p.hasBus && (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-bold">버스</span>
                     )}
                   </div>
                   <KakaoBadge nickname={p.kakaoNickname} />

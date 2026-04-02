@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const { meetingId, companionId } = await req.json();
+  const { meetingId, companionId, hasLesson, hasBus } = await req.json();
   if (!meetingId || !companionId) {
     return NextResponse.json({ error: "필수 정보가 누락되었습니다" }, { status: 400 });
   }
@@ -36,7 +36,12 @@ export async function POST(req: NextRequest) {
   if (!meeting) return NextResponse.json({ error: "모임을 찾을 수 없습니다" }, { status: 404 });
   if (!meeting.isOpen) return NextResponse.json({ error: "신청이 마감된 모임입니다" }, { status: 400 });
 
-  // 이미 신청 여부 확인
+  // 취소된 기존 기록 확인
+  const cancelledRecord = await prisma.participant.findFirst({
+    where: { meetingId: mid, companionId: cid, status: "CANCELLED" },
+  });
+
+  // 이미 신청(활성) 여부 확인
   const existing = await prisma.participant.findFirst({
     where: { meetingId: mid, companionId: cid, status: { not: "CANCELLED" } },
   });
@@ -44,17 +49,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 신청된 동반인입니다" }, { status: 409 });
   }
 
-  const result = await prisma.participant.create({
-    data: {
-      meetingId: mid,
-      name: companion.name,
-      kakaoId: user.kakaoId,
-      kakaoNickname: companion.name,
-      companionId: cid,
-      note: `${myParticipant.name}의 동반`,
-      status: "APPROVED",
-    },
-  });
+  let result;
+  if (cancelledRecord) {
+    result = await prisma.participant.update({
+      where: { id: cancelledRecord.id },
+      data: {
+        hasLesson: !!hasLesson,
+        hasBus: !!hasBus,
+        status: "APPROVED",
+        cancelledAt: null,
+        submittedAt: new Date(),
+      },
+    });
+  } else {
+    result = await prisma.participant.create({
+      data: {
+        meetingId: mid,
+        name: companion.name,
+        kakaoId: user.kakaoId,
+        kakaoNickname: companion.name,
+        companionId: cid,
+        note: `${myParticipant.name}의 동반`,
+        hasLesson: !!hasLesson,
+        hasBus: !!hasBus,
+        status: "APPROVED",
+      },
+    });
+  }
 
   return NextResponse.json(result, { status: 201 });
 }
