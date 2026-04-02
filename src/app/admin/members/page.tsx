@@ -10,8 +10,6 @@ interface UserWithCounts {
   profileImage: string | null;
   phoneNumber: string | null;
   role: string;
-  memberType: string;
-  companionOf: { kakaoId: string; name: string | null } | null;
   penaltyCount: number;
   createdAt: string;
   _count: {
@@ -166,11 +164,6 @@ export default function AdminMembersPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                      {user.memberType === "COMPANION" && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">
-                          동반{user.companionOf?.name ? ` (${user.companionOf.name})` : ""}
-                        </span>
-                      )}
                       모임 {user._count.participants}회
                     </p>
                   </div>

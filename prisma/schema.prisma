@@ -22,21 +22,23 @@ model Meeting {
 }
 
 model Participant {
-  id               Int       @id @default(autoincrement())
+  id               Int        @id @default(autoincrement())
   meetingId        Int
-  meeting          Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meeting          Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   name             String
   kakaoId          String
-  user             User?     @relation(fields: [kakaoId], references: [kakaoId])
-  kakaoNickname    String    // 카카오 프로필 닉네임 (참고용)
+  user             User?      @relation(fields: [kakaoId], references: [kakaoId])
+  kakaoNickname    String     // 카카오 프로필 닉네임 (참고용)
+  companionId      Int?       // 동반인인 경우 Companion.id
+  companion        Companion? @relation(fields: [companionId], references: [id])
   note             String?
-  status           String    @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
+  status           String     @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
   waitlistPosition Int?
   cancelledAt      DateTime?
-  isPenalized      Boolean   @default(false) // 취소 시 패널티 적용 여부
-  submittedAt      DateTime  @default(now())
+  isPenalized      Boolean    @default(false) // 취소 시 패널티 적용 여부
+  submittedAt      DateTime   @default(now())
 
-  @@unique([meetingId, kakaoId])
+  @@unique([meetingId, kakaoId, companionId])
 }
 
 model Notice {
@@ -49,20 +51,26 @@ model Notice {
 }
 
 model User {
-  id                  Int           @id @default(autoincrement())
-  kakaoId             String        @unique
-  name                String?       // 카카오 또는 유저가 정한 이름
-  profileImage        String?
-  phoneNumber         String?
-  role                String        @default("MEMBER") // ADMIN, MEMBER, BANNED
-  memberType          String        @default("REGULAR") // REGULAR | COMPANION
-  companionOfKakaoId  String?       // 동반인인 경우 정회원의 kakaoId
-  companionOf         User?         @relation("CompanionRelation", fields: [companionOfKakaoId], references: [kakaoId])
-  companions          User[]        @relation("CompanionRelation")
-  penaltyCount        Int           @default(0)        // 누적 패널티 횟수
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  participants        Participant[]
+  id           Int           @id @default(autoincrement())
+  kakaoId      String        @unique
+  name         String?       // 카카오 또는 유저가 정한 이름
+  profileImage String?
+  phoneNumber  String?
+  role         String        @default("MEMBER") // ADMIN, MEMBER, BANNED
+  penaltyCount Int           @default(0)        // 누적 패널티 횟수
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  participants Participant[]
+  companions   Companion[]   // 내가 등록한 동반인 목록
+}
+
+model Companion {
+  id           Int           @id @default(autoincrement())
+  name         String
+  ownerKakaoId String        // 등록한 정회원의 kakaoId
+  owner        User          @relation(fields: [ownerKakaoId], references: [kakaoId])
+  createdAt    DateTime      @default(now())
+  participants Participant[]
 }
 
 model Setting {
