@@ -31,10 +31,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "이미 취소된 신청입니다" }, { status: 400 });
   }
 
-  // 패널티 확인 (2일 이내 취소)
-  const penaltyDaysSetting = await prisma.setting.findUnique({ where: { key: "cancellation_penalty_days" } });
-  const penaltyDays = penaltyDaysSetting ? parseInt(penaltyDaysSetting.value) : 2;
-  const hasPenalty = shouldApplyPenalty(participant.meeting.date, penaltyDays);
+  // 패널티 확인 (해당 주 화요일 18시 이후 취소)
+  const hasPenalty = shouldApplyPenalty(participant.meeting.date);
 
   // 패널티 메시지 조회
   let penaltyMessage: string | null = null;

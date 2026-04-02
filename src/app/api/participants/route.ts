@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { meetingId, name, note, companionIds } = body;
+  const { meetingId, name, note, hasLesson, hasBus, companionIds, newCompanionNames } = body;
 
   if (!meetingId || !name?.trim()) {
     return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });
@@ -29,6 +29,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 신청하셨습니다" }, { status: 409 });
   }
 
+  // 인라인으로 새 동반인 생성
+  const createdCompanionIds: number[] = [];
+  if (Array.isArray(newCompanionNames) && newCompanionNames.length > 0) {
+    for (const cName of newCompanionNames) {
+      if (!cName?.trim()) continue;
+      const newComp = await prisma.companion.create({
+        data: { name: cName.trim(), ownerKakaoId: user.kakaoId },
+      });
+      createdCompanionIds.push(newComp.id);
+    }
+  }
+
+  // 신청할 동반인 ID 목록 (기존 선택 + 새로 생성)
+  const allCompanionIds = [
+    ...(Array.isArray(companionIds) ? companionIds.map((id: number) => parseInt(String(id))) : []),
+    ...createdCompanionIds,
+  ];
+
   // 본인 신청 처리
   const cancelledRecord = await prisma.participant.findFirst({
     where: { meetingId: parseInt(meetingId), kakaoId: user.kakaoId, companionId: null, status: "CANCELLED" },
@@ -41,6 +59,8 @@ export async function POST(req: NextRequest) {
       data: {
         name: name.trim(),
         note: note?.trim() || null,
+        hasLesson: !!hasLesson,
+        hasBus: !!hasBus,
         status: "APPROVED",
         waitlistPosition: null,
         cancelledAt: null,
@@ -55,6 +75,8 @@ export async function POST(req: NextRequest) {
         kakaoId: user.kakaoId,
         kakaoNickname: user.nickname,
         note: note?.trim() || null,
+        hasLesson: !!hasLesson,
+        hasBus: !!hasBus,
         status: "APPROVED",
       },
     });
@@ -62,17 +84,15 @@ export async function POST(req: NextRequest) {
 
   // 동반인 신청 처리
   const companionResults: { companionId: number; name: string; status: string }[] = [];
-  if (Array.isArray(companionIds) && companionIds.length > 0) {
-    // 동반인들이 실제로 나의 동반인인지 확인
+  if (allCompanionIds.length > 0) {
     const myCompanions = await prisma.companion.findMany({
       where: {
-        id: { in: companionIds.map((id: number) => parseInt(String(id))) },
+        id: { in: allCompanionIds },
         ownerKakaoId: user.kakaoId,
       },
     });
 
     for (const companion of myCompanions) {
-      // 이미 신청 확인
       const compExisting = await prisma.participant.findFirst({
         where: { meetingId: parseInt(meetingId), companionId: companion.id, status: { not: "CANCELLED" } },
       });
