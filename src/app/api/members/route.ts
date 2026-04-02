@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/session";
 
-// 정회원 목록 조회 (동반인 선택 등 범용)
+// 정회원 목록 조회 (동반인 등록 시 선택용)
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
   if (!session) {
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
 
   const members = await prisma.user.findMany({
     where: {
+      memberType: "REGULAR",
       kakaoId: { not: session.kakaoId },
     },
     select: {
