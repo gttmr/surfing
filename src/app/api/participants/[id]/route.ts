@@ -63,18 +63,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     });
   }
 
-  // 정회원 취소 시 동반인도 함께 취소
-  const myCompanions = await prisma.user.findMany({
-    where: { companionOfKakaoId: participant.kakaoId, memberType: "COMPANION" },
-    select: { kakaoId: true },
-  });
+  // 본인 취소 시 동반인 참가도 함께 취소 (companionId가 null이 아닌 본인 kakaoId의 참가자)
   let cancelledCompanions = 0;
-  if (myCompanions.length > 0) {
-    const companionKakaoIds = myCompanions.map((c) => c.kakaoId);
+  if (!participant.companionId) {
     const result = await prisma.participant.updateMany({
       where: {
         meetingId: participant.meetingId,
-        kakaoId: { in: companionKakaoIds },
+        kakaoId: participant.kakaoId,
+        companionId: { not: null },
         status: { not: "CANCELLED" },
       },
       data: {

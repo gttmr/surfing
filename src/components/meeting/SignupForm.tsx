@@ -11,12 +11,9 @@ interface SessionUser {
   profileImage?: string;
 }
 
-interface CompanionInfo {
+interface CompanionItem {
   id: number;
-  kakaoId: string;
-  name: string | null;
-  profileImage: string | null;
-  memberType: string;
+  name: string;
 }
 
 interface SignupFormProps {
@@ -52,9 +49,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
     waitlistPosition: number | null;
   } | null>(null);
 
-  // 이미 신청된 동반인 kakaoId 목록 (참가 완료 후 관리용)
-  const [signedUpCompanions, setSignedUpCompanions] = useState<Set<string>>(new Set());
-  const [companionActionLoading, setCompanionActionLoading] = useState<string | null>(null);
+  // 이 모임에 신청된 동반인 ID 목록
+  const [signedUpCompanionIds, setSignedUpCompanionIds] = useState<Set<number>>(new Set());
+  const [companionActionLoading, setCompanionActionLoading] = useState<number | null>(null);
 
   // 취소 관련
   const [cancelling, setCancelling] = useState(false);
@@ -66,8 +63,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
   } | null>(null);
 
   // 동반인 관련
-  const [companions, setCompanions] = useState<CompanionInfo[]>([]);
-  const [selectedCompanions, setSelectedCompanions] = useState<Set<string>>(new Set());
+  const [companions, setCompanions] = useState<CompanionItem[]>([]);
+  const [selectedCompanions, setSelectedCompanions] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -110,7 +107,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
       .then((data) => {
         if (data.participants) {
           const mine = data.participants.find(
-            (p: { kakaoId: string; status: string }) => p.kakaoId === user.kakaoId && p.status !== "CANCELLED"
+            (p: { kakaoId: string; status: string; companionId: number | null }) =>
+              p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
           );
           if (mine) {
             setMyParticipant({ id: mine.id, status: mine.status, waitlistPosition: mine.waitlistPosition });
@@ -118,18 +116,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
             setMyParticipant(null);
           }
           // 동반인들의 참가 상태 확인
-          const companionIds = companions.map((c) => c.kakaoId);
-          const signedUp = new Set<string>();
-          for (const p of data.participants as { kakaoId: string; status: string }[]) {
-            if (companionIds.includes(p.kakaoId) && p.status !== "CANCELLED") {
-              signedUp.add(p.kakaoId);
+          const signedUp = new Set<number>();
+          for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null }[]) {
+            if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
+              signedUp.add(p.companionId);
             }
           }
-          setSignedUpCompanions(signedUp);
+          setSignedUpCompanionIds(signedUp);
         }
       })
       .catch(() => {});
-  }, [user, meeting.id, companions]);
+  }, [user, meeting.id]);
 
   useEffect(() => {
     refreshParticipants();
@@ -166,7 +163,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           meetingId: meeting.id,
           name,
           note,
-          companionKakaoIds: Array.from(selectedCompanions),
+          companionIds: Array.from(selectedCompanions),
         }),
       });
 
@@ -189,16 +186,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
-  async function handleAddCompanionToMeeting(kakaoId: string) {
-    setCompanionActionLoading(kakaoId);
+  async function handleAddCompanionToMeeting(companionId: number) {
+    setCompanionActionLoading(companionId);
     try {
       const res = await fetch("/api/participants/companions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, companionKakaoId: kakaoId }),
+        body: JSON.stringify({ meetingId: meeting.id, companionId }),
       });
       if (res.ok) {
-        setSignedUpCompanions((prev) => new Set(prev).add(kakaoId));
+        setSignedUpCompanionIds((prev) => new Set(prev).add(companionId));
         router.refresh();
       } else {
         const data = await res.json();
@@ -211,18 +208,18 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
-  async function handleCancelCompanion(kakaoId: string) {
-    setCompanionActionLoading(kakaoId);
+  async function handleCancelCompanion(companionId: number) {
+    setCompanionActionLoading(companionId);
     try {
       const res = await fetch("/api/participants/companions", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, companionKakaoId: kakaoId }),
+        body: JSON.stringify({ meetingId: meeting.id, companionId }),
       });
       if (res.ok) {
-        setSignedUpCompanions((prev) => {
+        setSignedUpCompanionIds((prev) => {
           const next = new Set(prev);
-          next.delete(kakaoId);
+          next.delete(companionId);
           return next;
         });
         router.refresh();
@@ -252,7 +249,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           cancelledCompanions: data.cancelledCompanions ?? 0,
         });
         setMyParticipant(null);
-        setSignedUpCompanions(new Set());
+        setSignedUpCompanionIds(new Set());
         setShowCancelConfirm(false);
       } else {
         setServerError(data.error ?? "취소 중 오류가 발생했습니다.");
@@ -326,7 +323,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
   // 이미 신청한 상태 → 동반인 관리 + 취소 가능
   if (myParticipant) {
-    const signedUpCount = signedUpCompanions.size;
+    const signedUpCount = signedUpCompanionIds.size;
     return (
       <div className="space-y-4">
         <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
@@ -346,36 +343,31 @@ export function SignupForm({ meeting }: SignupFormProps) {
         )}
 
         {/* 동반인 관리 */}
-        {companions.length > 0 && (
+        {companions.length > 0 ? (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
             <label className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
               <span className="text-base">👥</span> 동반인 참가 관리
             </label>
             <div className="space-y-2">
               {companions.map((c) => {
-                const isSignedUp = signedUpCompanions.has(c.kakaoId);
-                const isLoading = companionActionLoading === c.kakaoId;
+                const isSignedUp = signedUpCompanionIds.has(c.id);
+                const isLoading = companionActionLoading === c.id;
                 return (
                   <div
-                    key={c.kakaoId}
+                    key={c.id}
                     className={`flex items-center gap-3 p-3 rounded-lg ${
                       isSignedUp ? "bg-green-50 border border-green-200" : "bg-white border border-slate-200"
                     }`}
                   >
-                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                      {c.profileImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.profileImage} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-slate-400 text-xs">👤</span>
-                      )}
+                    <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                      <span className="text-orange-400 text-xs font-bold">+</span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name || "이름 없음"}</span>
+                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                     {isSignedUp ? (
                       <button
                         type="button"
                         disabled={isLoading}
-                        onClick={() => handleCancelCompanion(c.kakaoId)}
+                        onClick={() => handleCancelCompanion(c.id)}
                         className="text-xs font-bold text-red-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
                         {isLoading ? "..." : "취소"}
@@ -384,7 +376,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       <button
                         type="button"
                         disabled={isLoading}
-                        onClick={() => handleAddCompanionToMeeting(c.kakaoId)}
+                        onClick={() => handleAddCompanionToMeeting(c.id)}
                         className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2.5 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
                       >
                         {isLoading ? "..." : "추가"}
@@ -395,9 +387,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               })}
             </div>
           </div>
-        )}
-
-        {companions.length === 0 && (
+        ) : (
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
@@ -521,16 +511,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
         ) : (
           <div className="space-y-2 mt-2">
             {companions.map((c) => {
-              const isSelected = selectedCompanions.has(c.kakaoId);
+              const isSelected = selectedCompanions.has(c.id);
               return (
                 <button
-                  key={c.kakaoId}
+                  key={c.id}
                   type="button"
                   onClick={() => {
                     setSelectedCompanions((prev) => {
                       const next = new Set(prev);
-                      if (next.has(c.kakaoId)) next.delete(c.kakaoId);
-                      else next.add(c.kakaoId);
+                      if (next.has(c.id)) next.delete(c.id);
+                      else next.add(c.id);
                       return next;
                     });
                   }}
@@ -550,15 +540,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       </svg>
                     )}
                   </div>
-                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                    {c.profileImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.profileImage} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-slate-400 text-xs">👤</span>
-                    )}
+                  <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                    <span className="text-orange-400 text-xs font-bold">+</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800 flex-1">{c.name || "이름 없음"}</span>
+                  <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                   <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold shrink-0">동반</span>
                 </button>
               );
