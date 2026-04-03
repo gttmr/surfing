@@ -9,17 +9,37 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        bmw: {
+          blue: "#1c69d4",
+          focus: "#0653b6",
+          black: "#262626",
+          gray: "#757575",
+          silver: "#bbbbbb",
+        },
         primary: {
-          DEFAULT: "#2563EB",
-          hover: "#1D4ED8",
-          dark: "#1E40AF",
+          DEFAULT: "#1c69d4",
+          hover: "#0653b6",
+          dark: "#0653b6",
         },
       },
       fontFamily: {
-        sans: ["Pretendard", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["Helvetica", "Arial", "sans-serif"],
+        display: ["Helvetica", "Arial", "sans-serif"],
       },
-      backgroundImage: {
-        "hero-gradient": "linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%)",
+      lineHeight: {
+        tight: "1.15",
+        hero: "1.30",
+      },
+      borderRadius: {
+        none: '0px',
+        sm: '0px',
+        DEFAULT: '0px',
+        md: '0px',
+        lg: '0px',
+        xl: '0px',
+        '2xl': '0px',
+        '3xl': '0px',
+        full: '0px',
       },
     },
   },

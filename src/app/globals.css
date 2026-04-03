@@ -1,10 +1,21 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --site-context-theme-color: #ffffff;
+  --site-context-highlight-color: #1c69d4;
+  --site-context-focus-color: #0653b6;
+  --site-context-metainfo-color: #757575;
+}
+
 body {
-  font-family: "Pretendard", system-ui, -apple-system, sans-serif;
-  background-color: #F1F5F9;
+  font-family: Helvetica, Arial, sans-serif;
+  background-color: var(--site-context-theme-color);
+  color: #262626;
+}
+
+/* Enforce sharp corners globally per BMW design */
+* {
+  border-radius: 0 !important;
 }
