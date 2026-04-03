@@ -24,7 +24,7 @@ function MeetingDetailCard({
 
   return (
     <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
-      <div className="p-6">
+      <div className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-1">날짜</p>
@@ -56,13 +56,13 @@ function MeetingDetailCard({
         </div>
 
         {isClosed || isPast ? (
-          <div className="w-full py-4 bg-surface-container-low text-on-surface-variant/50 font-extrabold font-headline rounded-xl flex items-center justify-center gap-2 text-sm">
+          <div className="w-full py-3.5 bg-surface-container-low text-on-surface-variant/50 font-bold font-headline rounded-xl flex items-center justify-center gap-2 text-sm">
             {isClosed ? "모집 마감" : "지난 모임"}
           </div>
         ) : (
           <Link
             href={`/meeting/${meeting.id}`}
-            className="w-full py-4 bg-primary hover:bg-primary/90 text-on-primary font-extrabold font-headline rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
+            className="w-full py-3.5 bg-primary hover:bg-primary/90 text-on-primary font-extrabold font-headline rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
           >
             🏄 모임 참가
             <span className="material-symbols-outlined">arrow_forward</span>
@@ -73,18 +73,20 @@ function MeetingDetailCard({
   );
 }
 
-// ── Stitch 달력 뷰 ──────────────────────────────────────────────
-function CalendarView({
+// ── 메인 ScheduleView ───────────────────────────────────────────
+export default function ScheduleView({
   meetings,
-  today,
+  isLoggedIn,
 }: {
   meetings: MeetingWithCounts[];
-  today: string;
+  isLoggedIn?: boolean;
+  isAdmin?: boolean;
 }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const today = now.toISOString().split("T")[0];
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -109,7 +111,7 @@ function CalendarView({
     setSelectedDate(null);
   }
 
-  // 달력 셀 배열 (앞 빈칸 + 날짜들 + 뒤 빈칸)
+  // 달력 셀 배열
   const cells: (number | null)[] = [
     ...Array(startDow).fill(null),
     ...Array.from({ length: totalDays }, (_, i) => i + 1),
@@ -148,7 +150,6 @@ function CalendarView({
       {/* 달력 그리드 */}
       <div className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
         <div className="grid grid-cols-7 gap-y-3 text-center">
-          {/* 요일 헤더 */}
           {DAYS_EN.map((d, i) => (
             <div
               key={i}
@@ -159,7 +160,6 @@ function CalendarView({
             </div>
           ))}
 
-          {/* 날짜 셀 */}
           {cells.map((day, idx) => {
             if (!day) return <div key={idx} />;
 
@@ -177,7 +177,7 @@ function CalendarView({
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
               >
                 <div
-                  className={`text-sm py-1 font-medium w-8 h-8 flex items-center justify-center rounded-full transition-colors
+                  className={`text-sm w-8 h-8 flex items-center justify-center rounded-full transition-colors font-medium
                     ${isSelected ? "bg-primary text-on-primary font-bold" :
                       isToday ? "bg-primary-container text-on-primary-fixed font-bold" :
                       isPast ? "opacity-30" :
@@ -199,6 +199,26 @@ function CalendarView({
           })}
         </div>
       </div>
+
+      {/* 비정기 모임 생성 버튼 (로그인한 경우) */}
+      {isLoggedIn ? (
+        <Link
+          href="/meeting/create"
+          className="w-full py-3 bg-primary-container text-on-primary-container font-bold font-headline rounded-xl border border-primary/20 transition-all hover:bg-primary-container/80 flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-lg">add_circle</span>
+          비정기모임 생성하기
+        </Link>
+      ) : (
+        /* 미로그인 시 로그인 유도 배너 */
+        <Link
+          href="/api/auth/kakao?returnTo=/"
+          className="w-full py-3.5 bg-black hover:bg-neutral-800 text-white font-bold font-headline rounded-xl transition-all flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-lg">login</span>
+          로그인하고 모임 참가하기
+        </Link>
+      )}
 
       {/* 모임 상세/목록 */}
       <section>
@@ -231,160 +251,6 @@ function CalendarView({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-// ── 리스트 뷰 (기존 유지) ───────────────────────────────────────
-function MeetingRow({ meeting, today }: { meeting: MeetingWithCounts; today: string }) {
-  const isClosed = !meeting.isOpen;
-  const isPast = meeting.date < today;
-  const date = new Date(meeting.date + "T00:00:00");
-  const dayName = DAY_KO[date.getDay()];
-  const [, month, day] = meeting.date.split("-");
-
-  return (
-    <Link
-      href={`/meeting/${meeting.id}`}
-      className={`block bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 hover:border-primary/30 transition-all shadow-sm ${
-        isClosed || isPast ? "opacity-60" : ""
-      }`}
-    >
-      <div className="flex items-center gap-4">
-        <div className="text-center min-w-[52px]">
-          <p className="text-xs text-on-surface-variant/60">{parseInt(month, 10)}월</p>
-          <p className="text-2xl font-extrabold font-headline text-on-surface leading-none">{parseInt(day, 10)}</p>
-          <p className="text-xs text-on-surface-variant/60">{dayName}요일</p>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-sm font-semibold text-on-surface">
-              {meeting.startTime} – {meeting.endTime}
-            </span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                meeting.meetingType === "비정기"
-                  ? "bg-orange-100 text-orange-600"
-                  : "bg-primary-container text-on-primary-container"
-              }`}
-            >
-              {meeting.meetingType}
-            </span>
-            {isClosed && (
-              <span className="text-xs bg-surface-container text-on-surface-variant/60 px-1.5 py-0.5 rounded-full">
-                마감
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-on-surface-variant truncate">📍 {meeting.location}</p>
-          <p className="text-xs text-on-surface-variant/50 mt-1">참가자 {meeting.approvedCount}명</p>
-        </div>
-        {!isPast && !isClosed && (
-          <div className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold text-on-primary bg-primary">
-            신청
-          </div>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function ListView({ meetings, today }: { meetings: MeetingWithCounts[]; today: string }) {
-  const upcoming = meetings.filter((m) => m.date >= today);
-  const past = meetings.filter((m) => m.date < today).reverse();
-
-  return (
-    <div className="space-y-8">
-      {upcoming.length > 0 && (
-        <section>
-          <h2 className="text-xs font-bold text-on-surface-variant/40 uppercase tracking-widest mb-3">예정된 모임</h2>
-          <div className="space-y-3">
-            {upcoming.map((m) => (
-              <MeetingRow key={m.id} meeting={m} today={today} />
-            ))}
-          </div>
-        </section>
-      )}
-      {past.length > 0 && (
-        <section>
-          <h2 className="text-xs font-bold text-on-surface-variant/40 uppercase tracking-widest mb-3">지난 모임</h2>
-          <div className="space-y-3">
-            {past.map((m) => (
-              <MeetingRow key={m.id} meeting={m} today={today} />
-            ))}
-          </div>
-        </section>
-      )}
-      {meetings.length === 0 && (
-        <div className="text-center py-16 text-on-surface-variant/40">
-          <span className="material-symbols-outlined text-5xl mb-3 block">event</span>
-          <p className="font-medium">등록된 일정이 없습니다</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── 메인 ScheduleView ───────────────────────────────────────────
-export default function ScheduleView({
-  meetings,
-  isLoggedIn,
-  isAdmin,
-}: {
-  meetings: MeetingWithCounts[];
-  isLoggedIn?: boolean;
-  isAdmin?: boolean;
-}) {
-  const [view, setView] = useState<"list" | "calendar">("calendar");
-  const today = new Date().toISOString().split("T")[0];
-
-  return (
-    <div className="space-y-6">
-      {/* 뷰 전환 탭 */}
-      <div className="flex items-center justify-between">
-        <div className="flex bg-surface-container-low rounded-xl p-1 gap-1">
-          <button
-            onClick={() => setView("calendar")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              view === "calendar"
-                ? "bg-surface-container-lowest text-on-surface shadow-sm"
-                : "text-on-surface-variant/60 hover:text-on-surface-variant"
-            }`}
-          >
-            <span className="material-symbols-outlined text-sm align-middle mr-1">calendar_month</span>
-            달력
-          </button>
-          <button
-            onClick={() => setView("list")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              view === "list"
-                ? "bg-surface-container-lowest text-on-surface shadow-sm"
-                : "text-on-surface-variant/60 hover:text-on-surface-variant"
-            }`}
-          >
-            <span className="material-symbols-outlined text-sm align-middle mr-1">list</span>
-            목록
-          </button>
-        </div>
-      </div>
-
-      {/* 비정기 모임 생성 버튼 (누구나) */}
-      {isLoggedIn && (
-        <Link
-          href="/meeting/create"
-          className="w-full py-3 bg-primary-container text-on-primary-container font-bold font-headline rounded-xl border border-primary/20 transition-all hover:bg-primary-container/80 flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-lg">add_circle</span>
-          비정기모임 생성하기
-        </Link>
-      )}
-
-      {/* 뷰 렌더링 */}
-      {view === "calendar" ? (
-        <CalendarView meetings={meetings} today={today} />
-      ) : (
-        <ListView meetings={meetings} today={today} />
-      )}
     </div>
   );
 }

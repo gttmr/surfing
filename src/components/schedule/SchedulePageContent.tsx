@@ -44,7 +44,7 @@ export default async function SchedulePageContent() {
           <img src="/logo.png" alt="로고" className="h-full w-auto object-contain" />
         </div>
         <div className="flex items-center gap-3">
-          {user ? (
+          {user && (
             <>
               {isAdmin && (
                 <Link
@@ -61,13 +61,6 @@ export default async function SchedulePageContent() {
                 <span className="material-symbols-outlined text-xl">person</span>
               </Link>
             </>
-          ) : (
-            <Link
-              href="/api/auth/kakao?returnTo=/"
-              className="px-4 py-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-sm font-bold transition-colors whitespace-nowrap"
-            >
-              로그인
-            </Link>
           )}
         </div>
       </header>
