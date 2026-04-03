@@ -401,7 +401,7 @@ function ProfilePage() {
           <div className="flex items-center gap-3">
             <Link href="/" className="shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
+              <img src="/logo.png" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
             </Link>
             <h1 className="font-bold text-lg">내 프로필</h1>
           </div>

@@ -41,7 +41,7 @@ export default async function SchedulePageContent() {
         <div className="max-w-xl mx-auto px-4 py-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="로고" className="w-10 h-10 rounded-lg object-contain bg-black/30 shrink-0" />
+            <img src="/logo.png" alt="로고" className="w-10 h-10 rounded-lg object-contain bg-black/30 shrink-0" />
             <div>
               <h1 className="font-bold text-lg">전체 일정</h1>
               <p className="text-blue-200 text-xs mt-0.5">동호회 모임 일정을 한눈에 확인하세요</p>
