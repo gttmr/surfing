@@ -563,11 +563,10 @@ function ProfilePage() {
               ) : (
                 <div className="space-y-2">
                   {companions.map((c) => (
-                    <div key={c.id} className="brand-panel flex items-center gap-3 rounded-xl p-3">
+                    <div key={c.id} className="flex items-center gap-3 rounded-xl border border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)] p-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[var(--brand-text)]">{c.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반인</span>
                           {c.linkedKakaoId && (
                             <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">카카오 연동</span>
                           )}
