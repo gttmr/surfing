@@ -45,7 +45,7 @@
 
 ## 저장소 정리
 - Stitch 산출물 성격의 데모 페이지 `/upload-demo`는 제거했다.
-- 문서용 정적 목업 `docs/index.html`은 제거했다.
+- `docs/index.html`은 GitHub Pages 발행용 정적 파일로 유지한다.
 - 미사용 자산 `public/logo.svg`는 제거했다.
 - 빌드 경고를 유발하던 `middleware.ts`는 `src/proxy.ts`로 교체했다.
 
