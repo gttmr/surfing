@@ -105,8 +105,12 @@ function RadioOptionItem({
       disabled={disabled}
       className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50"
     >
-      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white">
-        {checked ? <div className="h-2 w-2 rounded-full bg-[var(--brand-primary)]" /> : null}
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-300 bg-white transition-colors">
+        {checked ? (
+          <svg className="h-2.5 w-2.5 text-[#000000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : null}
       </div>
       <span className="flex items-center gap-1.5">
         {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
@@ -136,14 +140,12 @@ function CheckboxOptionItem({
       disabled={disabled}
       className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-xs font-bold text-slate-500 transition-colors">
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-300 bg-white transition-colors">
         {checked ? (
           <svg className="h-2.5 w-2.5 text-[#000000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
-        ) : (
-          <span>+</span>
-        )}
+        ) : null}
       </div>
       <span className="flex items-center gap-1.5">
         {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
@@ -620,15 +622,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
                   disabled={updatingLinked}
                 />
-                <div className="ml-6 rounded-xl border border-dashed border-slate-200 bg-white/80 p-2">
-                  <CheckboxOptionItem
-                    label="셔틀 버스"
-                    icon="🚌"
-                    checked={linkedStatus.participant.hasBus}
-                    onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
-                    disabled={updatingLinked}
-                  />
-                </div>
+                <CheckboxOptionItem
+                  label="셔틀 버스"
+                  icon="🚌"
+                  checked={linkedStatus.participant.hasBus}
+                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                  disabled={updatingLinked}
+                />
               </div>
             </div>
           </div>
@@ -746,18 +746,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
                         }
                         disabled={isLoading}
                       />
-                      <div className="ml-6 rounded-xl border border-dashed border-slate-200 bg-white/80 p-2">
-                        <CheckboxOptionItem
-                          label="셔틀 버스"
-                          icon="🚌"
-                          checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
-                          onChange={() => isSignedUp
-                            ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
-                            : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
-                          }
-                          disabled={isLoading}
-                        />
-                      </div>
+                      <CheckboxOptionItem
+                        label="셔틀 버스"
+                        icon="🚌"
+                        checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
+                        onChange={() => isSignedUp
+                          ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
+                          : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                        }
+                        disabled={isLoading}
+                      />
                     </div>
                   </div>
                 );
@@ -844,9 +842,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         <div className="space-y-2">
           <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
           <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
-          <div className="ml-6 rounded-xl border border-dashed border-slate-200 bg-white/80 p-2">
-            <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
-          </div>
+          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
         </div>
       </div>
 
@@ -908,9 +904,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <div className="mt-2 space-y-2 pl-14">
                       <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <RadioOptionItem label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
-                      <div className="ml-6 rounded-xl border border-dashed border-slate-200 bg-white/80 p-2">
-                        <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
-                      </div>
+                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -957,9 +951,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   <div className="space-y-2 pl-8">
                     <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <RadioOptionItem label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
-                    <div className="ml-6 rounded-xl border border-dashed border-slate-200 bg-white/80 p-2">
-                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
-                    </div>
+                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                   </div>
                 </div>
               ))}
