@@ -103,7 +103,7 @@ export default function EmbeddedMeetingDetail({
   }, [meetingId]);
 
   if (loading) {
-    return <div className="h-48 animate-pulse rounded-2xl bg-white shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10" />;
+    return <div className="min-h-[34rem] animate-pulse rounded-2xl bg-white shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10" />;
   }
 
   if (error || !meeting) {
@@ -121,7 +121,7 @@ export default function EmbeddedMeetingDetail({
   const participants = sortWithCompanions(meeting.participantsList);
 
   return (
-    <section className="space-y-3 rounded-[24px] bg-white p-4 shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
+    <section className="min-h-[34rem] space-y-3 rounded-[24px] bg-white p-4 shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
       {activeTab === "apply" ? (
         <div className="space-y-3">
           <div className="rounded-2xl bg-[#f9f9f9] p-3.5">
