@@ -173,9 +173,9 @@ export default function EmbeddedMeetingDetail({
                         <div className="flex flex-wrap items-center gap-1.5">
                           <p className="font-semibold text-[#1a1c1c]">{participant.name}</p>
                           {isCompanion ? <span className="rounded bg-[#fff1d6] px-1.5 py-0.5 text-[10px] font-bold text-[#915b00]">동반</span> : null}
-                          {participant.hasLesson ? <span className="rounded bg-[var(--brand-primary-soft-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">강습</span> : null}
+                          {participant.hasLesson ? <span className="rounded bg-[var(--brand-primary-soft-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">강습+장비대여</span> : null}
                           {participant.hasBus ? <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text-strong)]">버스</span> : null}
-                          {participant.hasRental ? <span className="rounded bg-[#e8f3ff] px-1.5 py-0.5 text-[10px] font-bold text-[#1d4ed8]">장비 대여</span> : null}
+                          {participant.hasRental ? <span className="rounded bg-[#e8f3ff] px-1.5 py-0.5 text-[10px] font-bold text-[#1d4ed8]">장비 대여만</span> : null}
                         </div>
                         {visibleNote ? <p className="mt-1 text-sm text-[#4b4732]/70">{visibleNote}</p> : null}
                       </div>
