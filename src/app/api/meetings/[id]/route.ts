@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { resolveProfileImage } from "@/lib/profile-image";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,6 +10,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: {
       participants: {
         orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
+        include: {
+          user: {
+            select: {
+              profileImage: true,
+              customProfileImageUrl: true,
+            },
+          },
+        },
       },
     },
   });
@@ -18,7 +27,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const approvedCount = meeting.participants.filter((p) => p.status === "APPROVED").length;
   const waitlistedCount = meeting.participants.filter((p) => p.status === "WAITLISTED").length;
 
-  return NextResponse.json({ ...meeting, approvedCount, waitlistedCount });
+  const participants = meeting.participants.map((participant) => ({
+    ...participant,
+    profileImage: resolveProfileImage(participant.user),
+  }));
+
+  return NextResponse.json({ ...meeting, participants, approvedCount, waitlistedCount });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

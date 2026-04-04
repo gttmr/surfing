@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
+import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import EmbeddedMeetingDetail from "./EmbeddedMeetingDetail";
 
 type HomeUser = {
@@ -135,6 +136,7 @@ function Icon({
 
 function ProfileButton({ user }: { user: HomeUser }) {
   const hasImage = !!user.profileImage;
+  const fallbackEmoji = pickSurfAvatarEmoji(user.kakaoId ?? user.nickname);
 
   return (
     <Link href="/profile" className="flex items-center">
@@ -144,7 +146,7 @@ function ProfileButton({ user }: { user: HomeUser }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img alt={user.nickname} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.profileImage} />
         ) : (
-          <span className="text-sm font-extrabold">{user.nickname.slice(0, 1)}</span>
+          <span className="text-sm font-extrabold">{fallbackEmoji}</span>
         )}
       </div>
     </Link>
@@ -293,7 +295,7 @@ export default function SurfClubLandingPage({
   const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
   const hasSelectedMeetings = selectedMeetings.length > 0;
   const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
-  const selectedParticipantBadge = selectedParticipantCount > 9 ? "9+" : String(selectedParticipantCount);
+  const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
   const calendarCells = buildCalendarCells(year, month);
   const topOffsetClass = pinnedNotice ? "pt-36" : "pt-24";
   const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);

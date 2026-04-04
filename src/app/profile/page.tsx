@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
+import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 
 interface UserProfile {
   id: number;
@@ -59,8 +60,16 @@ const MEMBER_TYPE_COLORS: Record<string, string> = {
   COMPANION: "brand-chip-companion",
 };
 
-function HeaderProfileButton({ name, image }: { name: string; image: string | null }) {
-  const fallbackText = (name || "U").trim().slice(0, 1) || "U";
+function HeaderProfileButton({
+  name,
+  image,
+  fallbackSeed,
+}: {
+  name: string;
+  image: string | null;
+  fallbackSeed?: string | null;
+}) {
+  const fallbackEmoji = pickSurfAvatarEmoji(fallbackSeed ?? name);
 
   return (
     <div className="flex items-center">
@@ -70,7 +79,7 @@ function HeaderProfileButton({ name, image }: { name: string; image: string | nu
           // eslint-disable-next-line @next/next/no-img-element
           <img alt={name} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={image} />
         ) : (
-          <span className="text-sm font-extrabold">{fallbackText}</span>
+          <span className="text-sm font-extrabold">{fallbackEmoji}</span>
         )}
       </div>
     </div>
@@ -290,7 +299,7 @@ function ProfilePage() {
   const isRegular = (user?.memberType ?? "REGULAR") === "REGULAR";
   const isAdmin = user?.role === "ADMIN";
   const profileDisplayName = user?.name || "이름 없음";
-  const profileInitial = (profileDisplayName || "U").trim().slice(0, 1) || "U";
+  const profileFallbackSeed = user?.kakaoId ?? profileDisplayName;
 
   // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
   const companionSetupValid = setupMemberType === "REGULAR" ||
@@ -444,7 +453,7 @@ function ProfilePage() {
                 관리자
               </Link>
             ) : null}
-            <HeaderProfileButton image={user?.profileImage ?? null} name={profileDisplayName} />
+            <HeaderProfileButton fallbackSeed={profileFallbackSeed} image={user?.profileImage ?? null} name={profileDisplayName} />
           </div>
         </div>
       </header>
@@ -453,7 +462,7 @@ function ProfilePage() {
         <section className="flex flex-col items-center pt-2">
           <ProfileImageUploader
             currentImage={user?.profileImage ?? null}
-            fallbackText={profileInitial}
+            fallbackSeed={profileFallbackSeed}
             onUpdated={(updatedUser) => {
               setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
             }}

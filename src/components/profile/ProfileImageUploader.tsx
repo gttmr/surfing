@@ -5,6 +5,7 @@ import {
   compressProfileImageFile,
   type CompressedProfileImage,
 } from "@/lib/profile-image-client";
+import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 
 type ProfileUserPatch = {
   customProfileImageUrl: string | null;
@@ -14,11 +15,11 @@ type ProfileUserPatch = {
 
 export function ProfileImageUploader({
   currentImage,
-  fallbackText,
+  fallbackSeed,
   onUpdated,
 }: {
   currentImage: string | null;
-  fallbackText: string;
+  fallbackSeed?: string | null;
   onUpdated: (user: ProfileUserPatch) => void;
 }) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export function ProfileImageUploader({
   }
 
   const activeImage = previewImage ?? currentImage;
+  const fallbackEmoji = pickSurfAvatarEmoji(fallbackSeed);
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
@@ -114,7 +116,7 @@ export function ProfileImageUploader({
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="프로필 사진" className="h-full w-full object-cover" src={activeImage} />
           ) : (
-            <span>{fallbackText}</span>
+            <span>{fallbackEmoji}</span>
           )}
         </div>
 

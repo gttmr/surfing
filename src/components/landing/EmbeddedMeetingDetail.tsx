@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
 import type { MeetingWithCounts } from "@/lib/types";
+import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 
 type ParticipantItem = {
   id: number;
@@ -14,6 +15,7 @@ type ParticipantItem = {
   status: string;
   kakaoId: string;
   companionId: number | null;
+  profileImage?: string | null;
 };
 
 type DetailedMeeting = MeetingWithCounts & {
@@ -120,6 +122,21 @@ export default function EmbeddedMeetingDetail({
   const displayDate = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName})`;
   const participants = sortWithCompanions(meeting.participantsList);
 
+  function ParticipantAvatar({ participant }: { participant: ParticipantItem }) {
+    const fallbackEmoji = pickSurfAvatarEmoji(`${participant.kakaoId}:${participant.companionId ?? participant.id}:${participant.name}`);
+
+    return (
+      <div className="brand-avatar-shell flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-extrabold shadow-sm">
+        {participant.profileImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={participant.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={participant.profileImage} />
+        ) : (
+          <span>{fallbackEmoji}</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <section className="brand-card min-h-[34rem] space-y-3 rounded-[24px] p-4">
       {activeTab === "apply" ? (
@@ -154,9 +171,8 @@ export default function EmbeddedMeetingDetail({
           {participants.length ? (
             <div className="brand-inset-panel overflow-hidden rounded-2xl">
               {(() => {
-                return participants.map((participant, index) => {
+                return participants.map((participant) => {
                   const isCompanion = participant.companionId !== null;
-                  const displayIndex = index + 1;
                   const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반")
                     ? null
                     : participant.note;
@@ -166,9 +182,7 @@ export default function EmbeddedMeetingDetail({
                       key={participant.id}
                       className={`flex gap-3 border-b border-[var(--brand-divider)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-[var(--brand-surface-elevated)] pl-9" : ""}`}
                     >
-                      <div className="w-5 shrink-0 text-sm font-bold tabular-nums text-[var(--brand-text)]">
-                        {displayIndex}
-                      </div>
+                      <ParticipantAvatar participant={participant} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
