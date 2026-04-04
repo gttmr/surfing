@@ -824,7 +824,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           placeholder="홍길동"
           disabled={submitting}
           className={`w-full px-4 py-2.5 rounded-lg text-sm outline-none
-            ${nameError ? "border border-red-400 bg-red-50" : profileName ? "border border-[var(--brand-divider)] bg-[var(--brand-surface)] text-[var(--brand-text-muted)]" : "brand-input"}
+            ${nameError ? "border border-red-400 bg-red-50" : profileName ? "brand-input-dimmed" : "brand-input"}
             disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]`}
         />
         {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}

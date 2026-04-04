@@ -30,6 +30,9 @@
   --brand-text-subtle: rgba(0, 29, 110, 0.48);
   --brand-divider: rgba(0, 29, 110, 0.16);
   --brand-divider-strong: rgba(0, 29, 110, 0.28);
+  --brand-dimmed-surface: #e5e7eb;
+  --brand-dimmed-border: #9ca3af;
+  --brand-dimmed-text: #4b5563;
   --brand-shadow: rgba(0, 29, 110, 0.1);
   --brand-ring: rgba(127, 181, 255, 0.35);
 }
@@ -159,6 +162,12 @@ body {
 .brand-input:focus {
   border-color: var(--brand-primary-border-strong);
   box-shadow: 0 0 0 3px var(--brand-ring);
+}
+
+.brand-input-dimmed {
+  background-color: var(--brand-dimmed-surface);
+  border: 1px solid var(--brand-dimmed-border);
+  color: var(--brand-dimmed-text);
 }
 
 .brand-toggle-active {

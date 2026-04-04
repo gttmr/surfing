@@ -524,9 +524,7 @@ function ProfilePage() {
                     <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
                       회원 유형 <span className="brand-text-subtle ml-1 text-xs font-normal">(변경 불가 · 관리자 문의)</span>
                     </label>
-                    <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
-                      user?.memberType === "COMPANION" ? "border-[var(--brand-primary-border)] bg-[var(--brand-primary-soft-accent)] text-[var(--brand-text)]" : "border-[var(--brand-divider)] bg-[var(--brand-surface)] text-[var(--brand-text-muted)]"
-                    }`}>
+                    <div className="brand-input-dimmed rounded-xl px-4 py-2.5 text-sm font-semibold">
                       {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
                     </div>
                   </div>
