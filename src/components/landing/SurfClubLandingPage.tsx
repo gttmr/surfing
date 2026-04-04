@@ -312,7 +312,7 @@ export default function SurfClubLandingPage({
       <header className="fixed inset-x-0 top-0 z-50 bg-white/70 shadow-[0_8px_24px_rgba(26,28,28,0.06)] backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <div className="flex h-12 items-center">
-            <Image alt="Surfing club logo" className="h-auto w-[56px]" height={56} priority src="/logo.png" width={56} />
+            <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
           </div>
           <div className="flex items-center gap-2">
             {isAdmin ? (
@@ -344,7 +344,7 @@ export default function SurfClubLandingPage({
         <section>
           <div className="mb-6 flex items-end justify-between">
             <div>
-              <h1 className="font-headline text-[2.375rem] font-extrabold leading-none tracking-[-0.06em]">
+              <h1 className="font-headline text-[2.25rem] font-extrabold leading-none tracking-[-0.06em]">
                 {MONTH_NAMES_KO[month]}
               </h1>
               <p className="mt-1 text-xs font-semibold text-[#4b4732]/45">{year}</p>
