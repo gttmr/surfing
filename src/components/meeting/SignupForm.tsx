@@ -85,7 +85,7 @@ function OptionPricingHelp({ guide }: { guide: string }) {
   );
 }
 
-function OptionToggle({
+function RadioOptionItem({
   label,
   icon,
   checked,
@@ -103,20 +103,55 @@ function OptionToggle({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`flex w-full items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
-        checked ? "brand-toggle-active" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+      className={`flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+        checked ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
       }`}
     >
-      <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 ${
+      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+        checked ? "border-[var(--brand-primary)]" : "border-slate-300"
+      }`}>
+        {checked ? <div className="h-2 w-2 rounded-full bg-[var(--brand-primary)]" /> : null}
+      </div>
+      <span className="flex items-center gap-1.5">
+        {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
+        <span>{label}</span>
+      </span>
+    </button>
+  );
+}
+
+function CheckboxOptionItem({
+  label,
+  icon,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  icon?: string;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={disabled}
+      className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+        checked ? "border-[var(--brand-primary)] bg-white text-[#1a1c1c]" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+      }`}
+    >
+      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
         checked ? "brand-check-active" : "border-slate-300"
       }`}>
         {checked && (
-          <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-2 w-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         )}
       </div>
-      <span className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className="flex items-center gap-1.5">
         {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
         <span>{label}</span>
       </span>
@@ -576,28 +611,30 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 <p className="text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
                 <OptionPricingHelp guide={participantOptionPricingGuide} />
               </div>
-              <div className="flex flex-col gap-2">
-                <OptionToggle
+              <div className="space-y-2">
+                <RadioOptionItem
                   label="강습+장비대여"
                   icon="🏄‍♂️"
                   checked={linkedStatus.participant.hasLesson}
                   onChange={() => handleUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
                   disabled={updatingLinked}
                 />
-                <OptionToggle
-                  label="버스"
-                  icon="🚌"
-                  checked={linkedStatus.participant.hasBus}
-                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
-                  disabled={updatingLinked}
-                />
-                <OptionToggle
+                <RadioOptionItem
                   label="장비 대여만"
                   icon="🩳"
                   checked={linkedStatus.participant.hasRental}
                   onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
                   disabled={updatingLinked}
                 />
+                <div className="rounded-xl border border-slate-200 bg-white p-2">
+                  <CheckboxOptionItem
+                    label="셔틀 버스"
+                    icon="🚌"
+                    checked={linkedStatus.participant.hasBus}
+                    onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                    disabled={updatingLinked}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -694,8 +731,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       )}
                     </div>
                     {/* 옵션 토글 */}
-                    <div className="flex flex-col gap-2 pl-8">
-                      <OptionToggle
+                    <div className="space-y-2 pl-8">
+                      <RadioOptionItem
                         label="강습+장비대여"
                         icon="🏄‍♂️"
                         checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
@@ -705,17 +742,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                         }
                         disabled={isLoading}
                       />
-                      <OptionToggle
-                        label="버스"
-                        icon="🚌"
-                        checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
-                        onChange={() => isSignedUp
-                          ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
-                          : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
-                        }
-                        disabled={isLoading}
-                      />
-                      <OptionToggle
+                      <RadioOptionItem
                         label="장비 대여만"
                         icon="🩳"
                         checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
@@ -725,6 +752,18 @@ export function SignupForm({ meeting }: SignupFormProps) {
                         }
                         disabled={isLoading}
                       />
+                      <div className="rounded-xl border border-slate-200 bg-white p-2">
+                        <CheckboxOptionItem
+                          label="셔틀 버스"
+                          icon="🚌"
+                          checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
+                          onChange={() => isSignedUp
+                            ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
+                            : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                          }
+                          disabled={isLoading}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -808,10 +847,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <p className="text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
           <OptionPricingHelp guide={participantOptionPricingGuide} />
         </div>
-        <div className="flex flex-col gap-2">
-          <OptionToggle label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
-          <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
-          <OptionToggle label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
+        <div className="space-y-2">
+          <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
+          <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
+          <div className="rounded-xl border border-slate-200 bg-white p-2">
+            <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
+          </div>
         </div>
       </div>
 
@@ -870,10 +911,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                   </button>
                   {isSelected && (
-                    <div className="mt-2 flex flex-col gap-2 pl-14">
-                      <OptionToggle label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
-                      <OptionToggle label="버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
-                      <OptionToggle label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
+                    <div className="mt-2 space-y-2 pl-14">
+                      <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
+                      <RadioOptionItem label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
+                      <div className="rounded-xl border border-slate-200 bg-white p-2">
+                        <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -917,10 +960,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
-                  <div className="flex flex-col gap-2 pl-8">
-                    <OptionToggle label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
-                    <OptionToggle label="버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
-                    <OptionToggle label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
+                  <div className="space-y-2 pl-8">
+                    <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
+                    <RadioOptionItem label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
+                    </div>
                   </div>
                 </div>
               ))}
