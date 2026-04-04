@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -10,6 +10,22 @@ interface SessionUser {
 }
 
 export default function CreateMeetingPage() {
+  return (
+    <Suspense fallback={<CreateMeetingPageFallback />}>
+      <CreateMeetingPageContent />
+    </Suspense>
+  );
+}
+
+function CreateMeetingPageFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-on-surface-variant text-sm">불러오는 중...</div>
+    </div>
+  );
+}
+
+function CreateMeetingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedDate = searchParams.get("date") ?? "";
@@ -74,13 +90,7 @@ export default function CreateMeetingPage() {
     }
   }
 
-  if (user === undefined) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-on-surface-variant text-sm">불러오는 중...</div>
-      </div>
-    );
-  }
+  if (user === undefined) return <CreateMeetingPageFallback />;
 
   if (!user) {
     return (
