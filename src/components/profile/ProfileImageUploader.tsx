@@ -109,7 +109,7 @@ export function ProfileImageUploader({
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
-        <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--brand-surface-elevated)] bg-[var(--brand-surface)] shadow-[0_18px_40px_var(--brand-shadow)]">
+        <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--brand-primary)] bg-[var(--brand-primary)] shadow-[0_18px_40px_var(--brand-shadow)]">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="프로필 사진" className="h-full w-full object-cover" src={activeImage} />
