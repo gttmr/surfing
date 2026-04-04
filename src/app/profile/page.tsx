@@ -56,7 +56,7 @@ const MEMBER_TYPE_LABELS: Record<string, string> = {
 };
 const MEMBER_TYPE_COLORS: Record<string, string> = {
   REGULAR: "brand-chip-soft",
-  COMPANION: "brand-chip-accent",
+  COMPANION: "brand-chip-companion",
 };
 
 function HeaderProfileButton({ name, image }: { name: string; image: string | null }) {
@@ -469,7 +469,7 @@ function ProfilePage() {
             <span className="rounded-full bg-[var(--brand-primary-soft-strong)] px-2 py-0.5 text-xs font-bold text-[var(--brand-primary-text)]">
               모임 {user?._count?.participants ?? 0}회
             </span>
-            {companions.length > 0 ? <span className="brand-chip-accent rounded-full px-2 py-0.5 text-xs font-bold">동반인 {companions.length}명</span> : null}
+            {companions.length > 0 ? <span className="brand-chip-companion rounded-full px-2 py-0.5 text-xs font-bold">동반인 {companions.length}명</span> : null}
             {(user?.penaltyCount ?? 0) > 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">패널티 {user?.penaltyCount}회</span> : null}
           </div>
         </section>
@@ -566,13 +566,10 @@ function ProfilePage() {
                 <div className="space-y-2">
                   {companions.map((c) => (
                     <div key={c.id} className="brand-panel flex items-center gap-3 rounded-xl p-3">
-                      <div className="brand-chip-accent flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                        <span className="text-sm font-bold">+</span>
-                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[var(--brand-text)]">{c.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">동반인</span>
+                          <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반인</span>
                           {c.linkedKakaoId && (
                             <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">카카오 연동</span>
                           )}

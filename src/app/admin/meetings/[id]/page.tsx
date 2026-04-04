@@ -229,7 +229,7 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-[var(--brand-text)]">{p.name}</span>
                     {isCompanion && (
-                      <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span>
+                      <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span>
                     )}
                     <StatusBadge status={p.status} waitlistPosition={p.waitlistPosition} size="sm" />
                     {p.isPenalized && (

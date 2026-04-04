@@ -700,9 +700,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 return (
                   <div key={c.id} className={`rounded-lg border p-3 ${isSignedUp ? "border-green-200 bg-green-50" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="brand-chip-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                        <span className="text-xs font-bold">+</span>
-                      </div>
                       <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
                       {isSignedUp ? (
                         <button
@@ -725,7 +722,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       )}
                     </div>
                     {/* 옵션 토글 */}
-                    <div className="space-y-2 pl-8">
+                    <div className="space-y-2 pl-0">
                       <RadioOptionItem
                         label="강습+장비대여"
                         icon="🏄‍♂️"
@@ -895,13 +892,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
                         </svg>
                       )}
                     </div>
-                    <div className="brand-chip-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                      <span className="text-xs font-bold">+</span>
-                    </div>
                     <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
                   </button>
                   {isSelected && (
-                    <div className="mt-2 space-y-2 pl-14">
+                    <div className="mt-2 space-y-2 pl-8">
                       <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <RadioOptionItem label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
                       <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
@@ -940,15 +934,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
               {newCompanions.map((nc, idx) => (
                 <div key={idx} className="brand-panel-strong rounded-lg p-2.5">
                   <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-soft-accent)]">
-                      <span className="text-xs font-bold text-[var(--brand-primary-text)]">+</span>
-                    </div>
                     <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{nc.name}</span>
                     <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">신규</span>
                     <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
                       className="brand-text-subtle ml-1 text-xs transition-colors hover:text-red-500">✕</button>
                   </div>
-                  <div className="space-y-2 pl-8">
+                  <div className="space-y-2 pl-0">
                     <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <RadioOptionItem label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
                     <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />

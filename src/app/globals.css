@@ -10,7 +10,7 @@
   --color-sky-100: #c4ddff;
   --color-sky-300: #7fb5ff;
   --color-navy-900: #001d6e;
-  --color-peach-100: #fee2c5;
+  --color-peach-100: #ffffff;
   --brand-primary: var(--color-navy-900);
   --brand-primary-hover: var(--color-navy-900);
   --brand-primary-foreground: var(--color-peach-100);
@@ -83,6 +83,11 @@ body {
 
 .brand-chip-accent {
   background-color: var(--brand-primary-soft-accent);
+  color: var(--brand-primary-text);
+}
+
+.brand-chip-companion {
+  background-color: #fee2c5;
   color: var(--brand-primary-text);
 }
 
@@ -163,7 +168,7 @@ body {
 }
 
 .brand-check-active {
-  background-color: var(--brand-primary-soft-strong);
+  background-color: var(--brand-surface-elevated);
   border-color: var(--brand-primary-border-strong);
   color: var(--brand-primary-text);
 }
