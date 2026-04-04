@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MeetingWithCounts } from "@/lib/types";
 import { kakaoLogin } from "@/lib/kakao";
+import {
+  DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
+  PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
+} from "@/lib/settings";
 
 interface SessionUser {
   kakaoId: string;
@@ -51,6 +55,33 @@ function KakaoIcon() {
     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
       <path d="M12 3C6.477 3 2 6.477 2 10.857c0 2.713 1.584 5.1 3.988 6.577L5 21l4.29-2.287C10.145 18.9 11.058 19 12 19c5.523 0 10-3.477 10-7.143C22 6.477 17.523 3 12 3z" />
     </svg>
+  );
+}
+
+function OptionPricingHelp({ guide }: { guide: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="참가 옵션 가격 안내"
+        onClick={() => setOpen((value) => !value)}
+        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
+          open
+            ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]"
+            : "border-slate-300 bg-white text-slate-500 hover:border-slate-400"
+        }`}
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-[14px] leading-none">info</span>
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-[var(--brand-primary-border)] bg-white p-3 text-left shadow-[0_12px_30px_rgba(26,28,28,0.08)]">
+          <p className="mb-2 text-xs font-bold text-[#1a1c1c]">가격 안내</p>
+          <p className="whitespace-pre-line text-xs leading-5 text-[#4b4732]/80">{guide}</p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -107,6 +138,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [hasLesson, setHasLesson] = useState(false);
   const [hasBus, setHasBus] = useState(false);
   const [hasRental, setHasRental] = useState(false);
+  const [participantOptionPricingGuide, setParticipantOptionPricingGuide] = useState(DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE);
   const [nameError, setNameError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -174,6 +206,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
         }
       })
       .catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/public")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]) {
+          setParticipantOptionPricingGuide(data[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // 동반인 계정인 경우 연동 상태 조회
@@ -248,7 +291,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
   function setCompanionOpt(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     setCompanionOptions((prev) => ({
       ...prev,
-      [companionId]: { ...( prev[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false }), [field]: value },
+      [companionId]: {
+        ...(prev[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false }),
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      },
     }));
   }
 
@@ -260,7 +308,35 @@ export function SignupForm({ meeting }: SignupFormProps) {
   }
 
   function updateNewCompanion(idx: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
-    setNewCompanions((prev) => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+    setNewCompanions((prev) => prev.map((c, i) => {
+      if (i !== idx) return c;
+      return {
+        ...c,
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      };
+    }));
+  }
+
+  function toggleMainOption(field: "hasLesson" | "hasBus" | "hasRental") {
+    if (field === "hasLesson") {
+      setHasLesson((current) => {
+        const next = !current;
+        if (next) setHasRental(false);
+        return next;
+      });
+      return;
+    }
+    if (field === "hasRental") {
+      setHasRental((current) => {
+        const next = !current;
+        if (next) setHasLesson(false);
+        return next;
+      });
+      return;
+    }
+    setHasBus((current) => !current);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -365,22 +441,46 @@ export function SignupForm({ meeting }: SignupFormProps) {
   async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     const cData = signedUpCompanionData[companionId];
     if (!cData) return;
-    setSignedUpCompanionData((prev) => ({ ...prev, [companionId]: { ...prev[companionId], [field]: value } }));
+    setSignedUpCompanionData((prev) => ({
+      ...prev,
+      [companionId]: {
+        ...prev[companionId],
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      },
+    }));
     await fetch(`/api/participants/${cData.participantId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify({
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      }),
     });
   }
 
   async function handleUpdateLinkedOption(field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     if (!linkedStatus?.participant) return;
     setUpdatingLinked(true);
-    setLinkedStatus((prev) => prev ? { ...prev, participant: prev.participant ? { ...prev.participant, [field]: value } : null } : null);
+    setLinkedStatus((prev) => prev ? {
+      ...prev,
+      participant: prev.participant ? {
+        ...prev.participant,
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      } : null,
+    } : null);
     await fetch(`/api/participants/${linkedStatus.participant.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify({
+        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
+        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
+        [field]: value,
+      }),
     });
     setUpdatingLinked(false);
     refreshLinkedStatus();
@@ -472,7 +572,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </div>
 
             <div className="brand-panel rounded-xl p-4">
-              <p className="mb-3 text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+                <OptionPricingHelp guide={participantOptionPricingGuide} />
+              </div>
               <div className="flex flex-col gap-2">
                 <OptionToggle
                   label="강습+장비대여"
@@ -701,11 +804,14 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       {/* 내 참가 옵션 */}
       <div className="brand-panel rounded-xl p-3">
-        <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+        <div className="mb-2.5 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+          <OptionPricingHelp guide={participantOptionPricingGuide} />
+        </div>
         <div className="flex flex-col gap-2">
-          <OptionToggle label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
-          <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
-          <OptionToggle label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => setHasRental((v) => !v)} disabled={submitting} />
+          <OptionToggle label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
+          <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
+          <OptionToggle label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
         </div>
       </div>
 

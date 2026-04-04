@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
+import {
+  DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
+  PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
+} from "@/lib/settings";
 
 const DEFAULT_PENALTY_MESSAGE =
   "일정 2일 이내 취소로 패널티가 부과됩니다. 잦은 직전 취소는 다른 회원들에게 피해를 줄 수 있으니 신중하게 결정해 주세요.";
@@ -10,6 +14,7 @@ const DEFAULT_PENALTY_MESSAGE =
 export default function AdminSettingsPage() {
   const [penaltyMessage, setPenaltyMessage] = useState(DEFAULT_PENALTY_MESSAGE);
   const [penaltyDays, setPenaltyDays] = useState("2");
+  const [participantOptionPricingGuide, setParticipantOptionPricingGuide] = useState(DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
@@ -23,6 +28,9 @@ export default function AdminSettingsPage() {
         }
         if (data.cancellation_penalty_days) {
           setPenaltyDays(data.cancellation_penalty_days);
+        }
+        if (data[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]) {
+          setParticipantOptionPricingGuide(data[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]);
         }
         setLoading(false);
       })
@@ -44,6 +52,11 @@ export default function AdminSettingsPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: "cancellation_penalty_days", value: penaltyDays }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: PARTICIPANT_OPTION_PRICING_GUIDE_KEY, value: participantOptionPricingGuide }),
         }),
       ]);
 
@@ -123,6 +136,40 @@ export default function AdminSettingsPage() {
                 <div className="bg-red-100 rounded-lg p-3 text-sm text-red-700">
                   {penaltyMessage || "(메시지 없음)"}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <span>ℹ️</span> 참가 옵션 가격 안내
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                안내 문구
+              </label>
+              <p className="text-xs text-slate-400 mb-2">
+                참가 신청 화면의 정보 버튼을 눌렀을 때 표시되는 안내입니다.
+              </p>
+              <textarea
+                value={participantOptionPricingGuide}
+                onChange={(e) => setParticipantOptionPricingGuide(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors resize-none"
+                placeholder="참가 옵션 가격 안내 문구를 입력하세요..."
+              />
+              <p className="mt-1 text-xs text-slate-400 text-right">{participantOptionPricingGuide.length}자</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-2">미리보기</label>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="whitespace-pre-line text-sm text-slate-700">
+                  {participantOptionPricingGuide || "(메시지 없음)"}
+                </p>
               </div>
             </div>
           </div>
