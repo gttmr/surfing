@@ -163,7 +163,7 @@ export default function EmbeddedMeetingDetail({
                   return (
                     <div
                       key={participant.id}
-                      className={`flex items-start gap-3 border-b border-[var(--brand-primary-border)] px-4 py-3 last:border-b-0 ${isCompanion ? "bg-white/60 pl-9" : ""}`}
+                      className={`flex gap-3 border-b border-[var(--brand-primary-border)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-white/60 pl-9" : ""}`}
                     >
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompanion ? "bg-[#fff1d6] text-[#915b00]" : "bg-white text-[#4b4732]"}`}>
                         {displayIndex}
