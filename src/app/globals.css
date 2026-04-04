@@ -52,6 +52,11 @@ body {
   border: 1px solid var(--brand-divider);
 }
 
+.brand-panel-white {
+  background-color: var(--brand-surface-elevated);
+  border: 1px solid var(--brand-divider);
+}
+
 .brand-panel-strong {
   background-color: var(--brand-surface-elevated);
   border: 1px solid var(--brand-primary-border);
