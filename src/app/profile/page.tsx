@@ -505,88 +505,90 @@ function ProfilePage() {
           </div>
         ) : null}
 
-        {(!isRegular || activeTab === "profile") ? (
-          <form onSubmit={handleSave} className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
-                    className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">연락처 <span className="text-slate-400 font-normal">(선택)</span></label>
-                  <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="010-0000-0000"
-                    className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                    회원 유형 <span className="font-normal text-slate-400 ml-1 text-xs">(변경 불가 · 관리자 문의)</span>
-                  </label>
-                  <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
-                    user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-slate-200 bg-slate-100 text-slate-600"
-                  }`}>
-                    {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
+        <div className={isRegular ? "min-h-[27rem]" : ""}>
+          {(!isRegular || activeTab === "profile") ? (
+            <form onSubmit={handleSave} className="space-y-6">
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
+                      className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">연락처 <span className="text-slate-400 font-normal">(선택)</span></label>
+                    <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="010-0000-0000"
+                      className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      회원 유형 <span className="font-normal text-slate-400 ml-1 text-xs">(변경 불가 · 관리자 문의)</span>
+                    </label>
+                    <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
+                      user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-slate-200 bg-slate-100 text-slate-600"
+                    }`}>
+                      {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <button type="submit" disabled={saving}
-              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
-                saving ? "bg-slate-300 cursor-not-allowed text-white" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
-              }`}>
-              {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
-            </button>
-          </form>
-        ) : null}
-
-        {isRegular && activeTab === "companions" ? (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-            <div className="flex gap-2 mb-4 min-w-0">
-              <input type="text" value={addCompanionName} onChange={(e) => setAddCompanionName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCompanion(); } }}
-                placeholder="동반인 이름 입력"
-                className="brand-input min-w-0 flex-1 rounded-xl px-4 py-2.5 text-sm outline-none" />
-              <button type="button" onClick={handleAddCompanion} disabled={addingCompanion || !addCompanionName.trim()}
-                className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  addingCompanion || !addCompanionName.trim() ? "bg-slate-300 cursor-not-allowed text-white" : "brand-button-primary active:scale-[0.99]"
+              <button type="submit" disabled={saving}
+                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
+                  saving ? "bg-slate-300 cursor-not-allowed text-white" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
                 }`}>
-                {addingCompanion ? "..." : "추가"}
+                {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
               </button>
-            </div>
+            </form>
+          ) : null}
 
-            {companions.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-slate-400">등록된 동반인이 없습니다</p>
-                <p className="text-xs text-slate-300 mt-1">이름을 입력하여 동반인을 추가하세요</p>
+          {isRegular && activeTab === "companions" ? (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <div className="flex gap-2 mb-4 min-w-0">
+                <input type="text" value={addCompanionName} onChange={(e) => setAddCompanionName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCompanion(); } }}
+                  placeholder="동반인 이름 입력"
+                  className="brand-input min-w-0 flex-1 rounded-xl px-4 py-2.5 text-sm outline-none" />
+                <button type="button" onClick={handleAddCompanion} disabled={addingCompanion || !addCompanionName.trim()}
+                  className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    addingCompanion || !addCompanionName.trim() ? "bg-slate-300 cursor-not-allowed text-white" : "brand-button-primary active:scale-[0.99]"
+                  }`}>
+                  {addingCompanion ? "..." : "추가"}
+                </button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {companions.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                    <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                      <span className="text-orange-400 text-sm font-bold">+</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">{c.name}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반인</span>
-                        {c.linkedKakaoId && (
-                          <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">카카오 연동</span>
-                        )}
+
+              {companions.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-slate-400">등록된 동반인이 없습니다</p>
+                  <p className="text-xs text-slate-300 mt-1">이름을 입력하여 동반인을 추가하세요</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {companions.map((c) => (
+                    <div key={c.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                      <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                        <span className="text-orange-400 text-sm font-bold">+</span>
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반인</span>
+                          {c.linkedKakaoId && (
+                            <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">카카오 연동</span>
+                          )}
+                        </div>
+                      </div>
+                      <button type="button" onClick={() => handleRemoveCompanion(c.id)}
+                        className="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1">
+                        삭제
+                      </button>
                     </div>
-                    <button type="button" onClick={() => handleRemoveCompanion(c.id)}
-                      className="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1">
-                      삭제
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
 
         <button
           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700"
