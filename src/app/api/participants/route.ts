@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/session";
 
-type CompanionOption = { hasLesson?: boolean; hasBus?: boolean };
-type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean };
+type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
+type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
 
 export async function POST(req: NextRequest) {
   const user = getSessionFromRequest(req);
@@ -18,15 +18,17 @@ export async function POST(req: NextRequest) {
     note,
     hasLesson,
     hasBus,
+    hasRental,
     companionIds,
-    companionOptions,   // { [companionId]: { hasLesson, hasBus } }
-    newCompanions,      // { name, hasLesson, hasBus }[]
+    companionOptions,   // { [companionId]: { hasLesson, hasBus, hasRental } }
+    newCompanions,      // { name, hasLesson, hasBus, hasRental }[]
   } = body as {
     meetingId: number;
     name: string;
     note?: string;
     hasLesson?: boolean;
     hasBus?: boolean;
+    hasRental?: boolean;
     companionIds?: number[];
     companionOptions?: Record<string, CompanionOption>;
     newCompanions?: NewCompanion[];
@@ -50,14 +52,14 @@ export async function POST(req: NextRequest) {
   }
 
   // 인라인 새 동반인 생성
-  const createdCompanions: { id: number; hasLesson: boolean; hasBus: boolean }[] = [];
+  const createdCompanions: { id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[] = [];
   if (Array.isArray(newCompanions) && newCompanions.length > 0) {
     for (const nc of newCompanions) {
       if (!nc?.name?.trim()) continue;
       const newComp = await prisma.companion.create({
         data: { name: nc.name.trim(), ownerKakaoId: user.kakaoId },
       });
-      createdCompanions.push({ id: newComp.id, hasLesson: !!nc.hasLesson, hasBus: !!nc.hasBus });
+      createdCompanions.push({ id: newComp.id, hasLesson: !!nc.hasLesson, hasBus: !!nc.hasBus, hasRental: !!nc.hasRental });
     }
   }
 
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
         note: note?.trim() || null,
         hasLesson: !!hasLesson,
         hasBus: !!hasBus,
+        hasRental: !!hasRental,
         status: "APPROVED",
         waitlistPosition: null,
         cancelledAt: null,
@@ -91,17 +94,18 @@ export async function POST(req: NextRequest) {
         note: note?.trim() || null,
         hasLesson: !!hasLesson,
         hasBus: !!hasBus,
+        hasRental: !!hasRental,
         status: "APPROVED",
       },
     });
   }
 
   // 기존 선택 동반인 신청
-  const allCompanionEntries: { id: number; hasLesson: boolean; hasBus: boolean }[] = [
+  const allCompanionEntries: { id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[] = [
     ...(Array.isArray(companionIds)
       ? companionIds.map((id) => {
           const opt = companionOptions?.[String(id)];
-          return { id: parseInt(String(id)), hasLesson: !!opt?.hasLesson, hasBus: !!opt?.hasBus };
+          return { id: parseInt(String(id)), hasLesson: !!opt?.hasLesson, hasBus: !!opt?.hasBus, hasRental: !!opt?.hasRental };
         })
       : []),
     ...createdCompanions,
@@ -134,6 +138,7 @@ export async function POST(req: NextRequest) {
           data: {
             hasLesson: opts?.hasLesson ?? false,
             hasBus: opts?.hasBus ?? false,
+            hasRental: opts?.hasRental ?? false,
             status: "APPROVED",
             cancelledAt: null,
             submittedAt: new Date(),
@@ -150,6 +155,7 @@ export async function POST(req: NextRequest) {
             note: `${name.trim()}의 동반`,
             hasLesson: opts?.hasLesson ?? false,
             hasBus: opts?.hasBus ?? false,
+            hasRental: opts?.hasRental ?? false,
             status: "APPROVED",
           },
         });

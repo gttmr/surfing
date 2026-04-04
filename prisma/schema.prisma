@@ -34,6 +34,7 @@ model Participant {
   note             String?
   hasLesson        Boolean    @default(false) // 강습 여부
   hasBus           Boolean    @default(false) // 버스 이용 여부
+  hasRental        Boolean    @default(false) // 장비 대여 여부
   status           String     @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
   waitlistPosition Int?
   cancelledAt      DateTime?

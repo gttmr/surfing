@@ -24,12 +24,14 @@ interface CompanionItem {
 interface CompanionOption {
   hasLesson: boolean;
   hasBus: boolean;
+  hasRental: boolean;
 }
 
 interface NewCompanionEntry {
   name: string;
   hasLesson: boolean;
   hasBus: boolean;
+  hasRental: boolean;
 }
 
 // 참가 후 동반인 관리용 (participantId 포함)
@@ -37,6 +39,7 @@ interface SignedUpCompanionData {
   participantId: number;
   hasLesson: boolean;
   hasBus: boolean;
+  hasRental: boolean;
 }
 
 interface SignupFormProps {
@@ -103,6 +106,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [note, setNote] = useState("");
   const [hasLesson, setHasLesson] = useState(false);
   const [hasBus, setHasBus] = useState(false);
+  const [hasRental, setHasRental] = useState(false);
   const [nameError, setNameError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -141,7 +145,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [linkedStatus, setLinkedStatus] = useState<{
     linked: boolean;
     companion?: { id: number; name: string; owner: { name: string | null; kakaoId: string } };
-    participant?: { id: number; status: string; hasLesson: boolean; hasBus: boolean } | null;
+    participant?: { id: number; status: string; hasLesson: boolean; hasBus: boolean; hasRental: boolean } | null;
   } | null>(null);
   const [updatingLinked, setUpdatingLinked] = useState(false);
 
@@ -205,9 +209,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
         // 동반인 참가 데이터 (participantId + hasLesson/hasBus)
         const data2: Record<number, SignedUpCompanionData> = {};
-        for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean }[]) {
+        for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[]) {
           if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
-            data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus };
+            data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus, hasRental: p.hasRental };
           }
         }
         setSignedUpCompanionData(data2);
@@ -241,21 +245,21 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setMyParticipant(null);
   }
 
-  function setCompanionOpt(companionId: number, field: "hasLesson" | "hasBus", value: boolean) {
+  function setCompanionOpt(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     setCompanionOptions((prev) => ({
       ...prev,
-      [companionId]: { ...( prev[companionId] ?? { hasLesson: false, hasBus: false }), [field]: value },
+      [companionId]: { ...( prev[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false }), [field]: value },
     }));
   }
 
   function handleAddNewCompanion() {
     const trimmed = newCompanionInput.trim();
     if (!trimmed) return;
-    setNewCompanions((prev) => [...prev, { name: trimmed, hasLesson: false, hasBus: false }]);
+    setNewCompanions((prev) => [...prev, { name: trimmed, hasLesson: false, hasBus: false, hasRental: false }]);
     setNewCompanionInput("");
   }
 
-  function updateNewCompanion(idx: number, field: "hasLesson" | "hasBus", value: boolean) {
+  function updateNewCompanion(idx: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     setNewCompanions((prev) => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
   }
 
@@ -277,9 +281,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
           note,
           hasLesson,
           hasBus,
+          hasRental,
           companionIds: Array.from(selectedCompanions),
           companionOptions: Object.fromEntries(
-            Array.from(selectedCompanions).map((id) => [id, companionOptions[id] ?? { hasLesson: false, hasBus: false }])
+            Array.from(selectedCompanions).map((id) => [id, companionOptions[id] ?? { hasLesson: false, hasBus: false, hasRental: false }])
           ),
           newCompanions,
         }),
@@ -306,7 +311,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
   async function handleAddCompanionToMeeting(companionId: number) {
     setCompanionActionLoading(companionId);
-    const opts = companionOptions[companionId] ?? { hasLesson: false, hasBus: false };
+    const opts = companionOptions[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false };
     try {
       const res = await fetch("/api/participants/companions", {
         method: "POST",
@@ -317,7 +322,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         const created = await res.json();
         setSignedUpCompanionData((prev) => ({
           ...prev,
-          [companionId]: { participantId: created.id, hasLesson: created.hasLesson, hasBus: created.hasBus },
+          [companionId]: { participantId: created.id, hasLesson: created.hasLesson, hasBus: created.hasBus, hasRental: created.hasRental },
         }));
         router.refresh();
       } else {
@@ -357,7 +362,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
-  async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus", value: boolean) {
+  async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     const cData = signedUpCompanionData[companionId];
     if (!cData) return;
     setSignedUpCompanionData((prev) => ({ ...prev, [companionId]: { ...prev[companionId], [field]: value } }));
@@ -368,7 +373,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
     });
   }
 
-  async function handleUpdateLinkedOption(field: "hasLesson" | "hasBus", value: boolean) {
+  async function handleUpdateLinkedOption(field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     if (!linkedStatus?.participant) return;
     setUpdatingLinked(true);
     setLinkedStatus((prev) => prev ? { ...prev, participant: prev.participant ? { ...prev.participant, [field]: value } : null } : null);
@@ -471,7 +476,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               <div className="flex gap-2">
                 <OptionToggle
                   label="강습"
-                  icon="🎓"
+                  icon="🏄‍♂️"
                   checked={linkedStatus.participant.hasLesson}
                   onChange={() => handleUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
                   disabled={updatingLinked}
@@ -481,6 +486,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   icon="🚌"
                   checked={linkedStatus.participant.hasBus}
                   onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                  disabled={updatingLinked}
+                />
+                <OptionToggle
+                  label="장비 대여"
+                  icon="🏄"
+                  checked={linkedStatus.participant.hasRental}
+                  onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
                   disabled={updatingLinked}
                 />
               </div>
@@ -550,7 +562,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 const cData = signedUpCompanionData[c.id];
                 const isSignedUp = !!cData;
                 const isLoading = companionActionLoading === c.id;
-                const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false };
+                const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
                 return (
                   <div key={c.id} className={`p-3 rounded-lg border ${isSignedUp ? "bg-green-50 border-green-200" : "bg-white border-slate-200"}`}>
                     <div className="flex items-center gap-2 mb-2">
@@ -582,7 +594,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <div className="flex gap-2 pl-8">
                       <OptionToggle
                         label="강습"
-                        icon="🎓"
+                        icon="🏄‍♂️"
                         checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
                         onChange={() => isSignedUp
                           ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
@@ -597,6 +609,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
                         onChange={() => isSignedUp
                           ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
                           : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                        }
+                        disabled={isLoading}
+                      />
+                      <OptionToggle
+                        label="장비 대여"
+                        icon="🏄"
+                        checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
+                        onChange={() => isSignedUp
+                          ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
+                          : setCompanionOpt(c.id, "hasRental", !opts.hasRental)
                         }
                         disabled={isLoading}
                       />
@@ -681,8 +703,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
       <div className="brand-panel rounded-xl p-3">
         <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
         <div className="flex gap-2">
-          <OptionToggle label="강습" icon="🎓" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
+          <OptionToggle label="강습" icon="🏄‍♂️" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
           <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
+          <OptionToggle label="장비 대여" icon="🏄" checked={hasRental} onChange={() => setHasRental((v) => !v)} disabled={submitting} />
         </div>
       </div>
 
@@ -713,7 +736,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <div className="space-y-2">
             {companions.map((c) => {
               const isSelected = selectedCompanions.has(c.id);
-              const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false };
+              const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
               return (
                 <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "bg-white border-slate-200"}`}>
                   <button
@@ -742,8 +765,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   </button>
                   {isSelected && (
                   <div className="mt-2 flex gap-2 pl-14">
-                      <OptionToggle label="강습" icon="🎓" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
+                      <OptionToggle label="강습" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <OptionToggle label="버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
+                      <OptionToggle label="장비 대여" icon="🏄" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -788,8 +812,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
                   <div className="flex gap-2 pl-8">
-                    <OptionToggle label="강습" icon="🎓" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
+                    <OptionToggle label="강습" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <OptionToggle label="버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
+                    <OptionToggle label="장비 대여" icon="🏄" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
                   </div>
                 </div>
               ))}

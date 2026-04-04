@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     linked: true,
     companion: { id: companion.id, name: companion.name, owner: companion.owner },
     participant: participant
-      ? { id: participant.id, status: participant.status, hasLesson: participant.hasLesson, hasBus: participant.hasBus }
+      ? { id: participant.id, status: participant.status, hasLesson: participant.hasLesson, hasBus: participant.hasBus, hasRental: participant.hasRental }
       : null,
   });
 }

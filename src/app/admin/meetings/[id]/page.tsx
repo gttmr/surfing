@@ -18,6 +18,7 @@ interface Participant {
   note: string | null;
   hasLesson: boolean;
   hasBus: boolean;
+  hasRental: boolean;
   status: ParticipantStatus;
   waitlistPosition: number | null;
   isPenalized: boolean;
@@ -239,6 +240,9 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
                     )}
                     {p.hasBus && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-bold">버스</span>
+                    )}
+                    {p.hasRental && (
+                      <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-bold">장비 대여</span>
                     )}
                   </div>
                   <KakaoBadge nickname={p.kakaoNickname} />

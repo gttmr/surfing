@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const { meetingId, companionId, hasLesson, hasBus } = await req.json();
+  const { meetingId, companionId, hasLesson, hasBus, hasRental } = await req.json();
   if (!meetingId || !companionId) {
     return NextResponse.json({ error: "필수 정보가 누락되었습니다" }, { status: 400 });
   }
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       data: {
         hasLesson: !!hasLesson,
         hasBus: !!hasBus,
+        hasRental: !!hasRental,
         status: "APPROVED",
         cancelledAt: null,
         submittedAt: new Date(),
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
         note: `${myParticipant.name}의 동반`,
         hasLesson: !!hasLesson,
         hasBus: !!hasBus,
+        hasRental: !!hasRental,
         status: "APPROVED",
       },
     });

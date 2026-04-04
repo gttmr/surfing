@@ -10,6 +10,7 @@ type ParticipantItem = {
   note: string | null;
   hasLesson: boolean;
   hasBus: boolean;
+  hasRental: boolean;
   status: string;
   kakaoId: string;
   companionId: number | null;
@@ -174,6 +175,7 @@ export default function EmbeddedMeetingDetail({
                           {isCompanion ? <span className="rounded bg-[#fff1d6] px-1.5 py-0.5 text-[10px] font-bold text-[#915b00]">동반</span> : null}
                           {participant.hasLesson ? <span className="rounded bg-[var(--brand-primary-soft-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">강습</span> : null}
                           {participant.hasBus ? <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text-strong)]">버스</span> : null}
+                          {participant.hasRental ? <span className="rounded bg-[#e8f3ff] px-1.5 py-0.5 text-[10px] font-bold text-[#1d4ed8]">장비 대여</span> : null}
                         </div>
                         {visibleNote ? <p className="mt-1 text-sm text-[#4b4732]/70">{visibleNote}</p> : null}
                       </div>
