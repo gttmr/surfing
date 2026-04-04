@@ -25,7 +25,6 @@ export function ProfileImageUploader({
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -34,12 +33,6 @@ export function ProfileImageUploader({
       }
     };
   }, [previewImage]);
-
-  useEffect(() => {
-    if (!statusMessage) return;
-    const timeout = window.setTimeout(() => setStatusMessage(null), 2400);
-    return () => window.clearTimeout(timeout);
-  }, [statusMessage]);
 
   async function uploadCompressed(compressed: CompressedProfileImage) {
     setIsUploading(true);
@@ -67,7 +60,6 @@ export function ProfileImageUploader({
         if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
         return null;
       });
-      setStatusMessage("프로필 사진이 변경되었습니다.");
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "업로드에 실패했습니다.");
     } finally {
@@ -86,7 +78,6 @@ export function ProfileImageUploader({
     }
 
     setIsProcessing(true);
-    setStatusMessage(null);
     setError(null);
 
     try {
@@ -115,12 +106,6 @@ export function ProfileImageUploader({
   }
 
   const activeImage = previewImage ?? currentImage;
-  const helperText = isProcessing
-    ? "사진을 준비하는 중..."
-    : isUploading
-      ? "프로필 사진을 업로드하는 중..."
-      : statusMessage ?? "오른쪽 아래 카메라를 눌러 사진을 바꿀 수 있습니다.";
-
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
@@ -155,7 +140,6 @@ export function ProfileImageUploader({
         </label>
       </div>
 
-      <p className="mt-3 text-center text-xs font-medium text-slate-500">{helperText}</p>
       {error ? <p className="mt-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">{error}</p> : null}
     </div>
   );

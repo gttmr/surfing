@@ -55,7 +55,7 @@ const MEMBER_TYPE_LABELS: Record<string, string> = {
   COMPANION: "동반인",
 };
 const MEMBER_TYPE_COLORS: Record<string, string> = {
-  REGULAR: "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]",
+  REGULAR: "bg-slate-100 text-slate-600",
   COMPANION: "bg-orange-50 text-orange-600",
 };
 
@@ -95,6 +95,7 @@ function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [activeTab, setActiveTab] = useState<"profile" | "companions">("profile");
 
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -473,46 +474,71 @@ function ProfilePage() {
           </div>
         </section>
 
-        <form onSubmit={handleSave} className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-            <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="text-lg">📝</span> 기본 정보
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
-                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">연락처 <span className="text-slate-400 font-normal">(선택)</span></label>
-                <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="010-0000-0000"
-                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
-              </div>
-              {/* 회원 유형 - 읽기 전용 */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  회원 유형 <span className="font-normal text-slate-400 ml-1 text-xs">(변경 불가 · 관리자 문의)</span>
-                </label>
-                <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
-                  user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-[var(--brand-primary-border)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]"
-                }`}>
-                  {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
+        {isRegular ? (
+          <div className="border-b border-slate-200">
+            <div className="flex">
+              <button
+                className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
+                  activeTab === "profile" ? "border-[var(--brand-primary)] text-slate-900" : "border-transparent text-slate-400"
+                }`}
+                onClick={() => setActiveTab("profile")}
+                type="button"
+              >
+                기본 정보
+              </button>
+              <button
+                className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
+                  activeTab === "companions" ? "border-[var(--brand-primary)] text-slate-900" : "border-transparent text-slate-400"
+                }`}
+                onClick={() => setActiveTab("companions")}
+                type="button"
+              >
+                동반인 관리
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {(!isRegular || activeTab === "profile") ? (
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-lg">📝</span> 기본 정보
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
+                    className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">연락처 <span className="text-slate-400 font-normal">(선택)</span></label>
+                  <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="010-0000-0000"
+                    className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    회원 유형 <span className="font-normal text-slate-400 ml-1 text-xs">(변경 불가 · 관리자 문의)</span>
+                  </label>
+                  <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
+                    user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-slate-200 bg-slate-100 text-slate-600"
+                  }`}>
+                    {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <button type="submit" disabled={saving}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
-              saving ? "bg-slate-300 cursor-not-allowed text-white" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
-            }`}>
-            {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
-          </button>
-        </form>
+            <button type="submit" disabled={saving}
+              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
+                saving ? "bg-slate-300 cursor-not-allowed text-white" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+              }`}>
+              {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
+            </button>
+          </form>
+        ) : null}
 
-        {/* 동반인 관리 - 정회원만 */}
-        {isRegular && (
+        {isRegular && activeTab === "companions" ? (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
               <span className="text-lg">👥</span> 내 동반인 관리
@@ -561,7 +587,7 @@ function ProfilePage() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
 
         <button
           className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700"
