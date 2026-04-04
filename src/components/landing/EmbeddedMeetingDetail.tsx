@@ -166,7 +166,7 @@ export default function EmbeddedMeetingDetail({
                       key={participant.id}
                       className={`flex gap-3 border-b border-[var(--brand-divider)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-[var(--brand-surface-elevated)] pl-9" : ""}`}
                     >
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompanion ? "brand-chip-companion" : "brand-chip-dark"}`}>
+                      <div className="w-5 shrink-0 text-sm font-bold tabular-nums text-[var(--brand-text)]">
                         {displayIndex}
                       </div>
                       <div className="min-w-0 flex-1">
