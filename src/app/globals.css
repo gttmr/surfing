@@ -106,7 +106,7 @@ body {
 
 .brand-avatar-shell {
   background-color: #fee2c5;
-  border: 2px solid var(--brand-primary);
+  border: 2px solid #7fb5ff;
   color: var(--brand-primary-foreground);
 }
 
