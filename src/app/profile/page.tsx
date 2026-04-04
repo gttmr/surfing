@@ -484,7 +484,10 @@ function ProfilePage() {
                 onClick={() => setActiveTab("profile")}
                 type="button"
               >
-                기본 정보
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-[17px]">📝</span>
+                  <span>기본 정보</span>
+                </span>
               </button>
               <button
                 className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
@@ -493,7 +496,10 @@ function ProfilePage() {
                 onClick={() => setActiveTab("companions")}
                 type="button"
               >
-                동반인 관리
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-[17px]">👥</span>
+                  <span>동반인 관리</span>
+                </span>
               </button>
             </div>
           </div>
@@ -502,9 +508,6 @@ function ProfilePage() {
         {(!isRegular || activeTab === "profile") ? (
           <form onSubmit={handleSave} className="space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="text-lg">📝</span> 기본 정보
-              </h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
@@ -540,10 +543,6 @@ function ProfilePage() {
 
         {isRegular && activeTab === "companions" ? (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-            <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center gap-2">
-              <span className="text-lg">👥</span> 내 동반인 관리
-            </h3>
-
             <div className="flex gap-2 mb-4 min-w-0">
               <input type="text" value={addCompanionName} onChange={(e) => setAddCompanionName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCompanion(); } }}
