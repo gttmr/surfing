@@ -121,7 +121,7 @@ export function ProfileImageUploader({
         </div>
 
         <label
-          className={`brand-chip-dark absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--brand-surface-elevated)] shadow-lg transition-transform active:scale-95 ${
+          className={`absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--brand-surface-elevated)] bg-[#7FB5FF] text-[var(--brand-primary-foreground)] shadow-lg transition-transform active:scale-95 ${
             isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
           }`}
         >
