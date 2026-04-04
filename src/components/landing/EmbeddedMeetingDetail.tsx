@@ -153,10 +153,12 @@ export default function EmbeddedMeetingDetail({
           {participants.length ? (
             <div className="overflow-hidden rounded-2xl bg-[#f9f9f9] shadow-[inset_0_0_0_1px_rgba(205,199,170,0.15)]">
               {(() => {
-                let regularIndex = 0;
-                return participants.map((participant) => {
+                return participants.map((participant, index) => {
                   const isCompanion = participant.companionId !== null;
-                  if (!isCompanion) regularIndex += 1;
+                  const displayIndex = index + 1;
+                  const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반")
+                    ? null
+                    : participant.note;
 
                   return (
                     <div
@@ -164,7 +166,7 @@ export default function EmbeddedMeetingDetail({
                       className={`flex items-start gap-3 border-b border-[var(--brand-primary-border)] px-4 py-3 last:border-b-0 ${isCompanion ? "bg-white/60 pl-9" : ""}`}
                     >
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompanion ? "bg-[#fff1d6] text-[#915b00]" : "bg-white text-[#4b4732]"}`}>
-                        {isCompanion ? "+" : regularIndex}
+                        {displayIndex}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -173,7 +175,7 @@ export default function EmbeddedMeetingDetail({
                           {participant.hasLesson ? <span className="rounded bg-[var(--brand-primary-soft-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">강습</span> : null}
                           {participant.hasBus ? <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text-strong)]">버스</span> : null}
                         </div>
-                        {participant.note ? <p className="mt-1 text-sm text-[#4b4732]/70">{participant.note}</p> : null}
+                        {visibleNote ? <p className="mt-1 text-sm text-[#4b4732]/70">{visibleNote}</p> : null}
                       </div>
                     </div>
                   );
