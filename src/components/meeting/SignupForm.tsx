@@ -53,11 +53,13 @@ function KakaoIcon() {
 
 function OptionToggle({
   label,
+  icon,
   checked,
   onChange,
   disabled,
 }: {
   label: string;
+  icon?: string;
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
@@ -67,7 +69,7 @@ function OptionToggle({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all disabled:opacity-50 ${
+      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
         checked ? "brand-toggle-active" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
       }`}
     >
@@ -80,7 +82,10 @@ function OptionToggle({
           </svg>
         )}
       </div>
-      {label}
+      <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+        {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
+        <span>{label}</span>
+      </span>
     </button>
   );
 }
@@ -462,16 +467,18 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </div>
 
             <div className="brand-panel rounded-xl p-4">
-              <p className="text-xs font-semibold text-slate-600 mb-3">내 참가 옵션 변경</p>
+              <p className="mb-3 text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
               <div className="flex gap-2">
                 <OptionToggle
                   label="강습"
+                  icon="🎓"
                   checked={linkedStatus.participant.hasLesson}
                   onChange={() => handleUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
                   disabled={updatingLinked}
                 />
                 <OptionToggle
                   label="버스"
+                  icon="🚌"
                   checked={linkedStatus.participant.hasBus}
                   onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
                   disabled={updatingLinked}
@@ -575,6 +582,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <div className="flex gap-2 pl-8">
                       <OptionToggle
                         label="강습"
+                        icon="🎓"
                         checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
                         onChange={() => isSignedUp
                           ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
@@ -584,6 +592,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       />
                       <OptionToggle
                         label="버스"
+                        icon="🚌"
                         checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
                         onChange={() => isSignedUp
                           ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
@@ -670,10 +679,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       {/* 내 참가 옵션 */}
       <div className="brand-panel rounded-xl p-3">
-        <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션</p>
+        <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
         <div className="flex gap-2">
-          <OptionToggle label="강습" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
-          <OptionToggle label="버스" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
+          <OptionToggle label="강습" icon="🎓" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
+          <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
         </div>
       </div>
 
@@ -732,9 +741,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                   </button>
                   {isSelected && (
-                    <div className="mt-2 flex gap-2 pl-14">
-                      <OptionToggle label="강습" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
-                      <OptionToggle label="버스" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
+                  <div className="mt-2 flex gap-2 pl-14">
+                      <OptionToggle label="강습" icon="🎓" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
+                      <OptionToggle label="버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -745,7 +754,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
         {/* 새 동반인 입력 */}
         <div>
-          <p className="mb-2 text-xs text-slate-500">새 동반인 직접 입력</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
             <input
               type="text"
@@ -780,8 +788,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
                   <div className="flex gap-2 pl-8">
-                    <OptionToggle label="강습" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
-                    <OptionToggle label="버스" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
+                    <OptionToggle label="강습" icon="🎓" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
+                    <OptionToggle label="버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                   </div>
                 </div>
               ))}

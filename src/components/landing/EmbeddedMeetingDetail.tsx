@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
 import type { MeetingWithCounts } from "@/lib/types";
-import WaveForecastSummary from "./WaveForecastSummary";
 
 type ParticipantItem = {
   id: number;
@@ -143,10 +142,6 @@ export default function EmbeddedMeetingDetail({
                 {meeting.description}
               </p>
             ) : null}
-          </div>
-
-          <div className="rounded-2xl border border-[#ece7d1] bg-white p-3">
-            <WaveForecastSummary date={meeting.date} location={meeting.location} />
           </div>
 
           <div className="rounded-2xl border border-[#ece7d1] bg-white p-3">
