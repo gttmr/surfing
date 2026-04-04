@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
@@ -13,6 +14,7 @@ interface UserProfile {
   kakaoProfileImage: string | null;
   customProfileImageUrl: string | null;
   phoneNumber: string | null;
+  role: string;
   memberType: string;
   penaltyCount: number;
   createdAt: string;
@@ -56,6 +58,24 @@ const MEMBER_TYPE_COLORS: Record<string, string> = {
   REGULAR: "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]",
   COMPANION: "bg-orange-50 text-orange-600",
 };
+
+function HeaderProfileButton({ name, image }: { name: string; image: string | null }) {
+  const fallbackText = (name || "U").trim().slice(0, 1) || "U";
+
+  return (
+    <div className="flex items-center">
+      <span className="sr-only">프로필</span>
+      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--brand-primary)] bg-[#1a1c1c] shadow-sm">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img alt={name} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={image} />
+        ) : (
+          <span className="text-sm font-extrabold text-white">{fallbackText}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePageWrapper() {
   return (
@@ -267,14 +287,16 @@ function ProfilePage() {
   );
 
   const isRegular = (user?.memberType ?? "REGULAR") === "REGULAR";
-  const profileImageSource = user?.customProfileImageUrl ? "custom" : user?.kakaoProfileImage ? "kakao" : "none";
+  const isAdmin = user?.role === "ADMIN";
+  const profileDisplayName = user?.name || "이름 없음";
+  const profileInitial = (profileDisplayName || "U").trim().slice(0, 1) || "U";
 
   // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
   const companionSetupValid = setupMemberType === "REGULAR" ||
     (!!selectedOwnerKakaoId && (!!selectedCompanionId || !!newCompanionName.trim()));
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-[#f9f9f9] pb-12 text-[#1a1c1c]">
       {/* 첫 로그인 설정 모달 */}
       {showSetup && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 overflow-y-auto py-8">
@@ -407,54 +429,49 @@ function ProfilePage() {
         </div>
       )}
 
-      {/* 헤더 */}
-      <header className="bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)]">
-        <div className="max-w-lg mx-auto px-4 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
-            </Link>
-            <h1 className="font-bold text-lg">내 프로필</h1>
+      <header className="fixed inset-x-0 top-0 z-50 bg-white/70 shadow-[0_8px_24px_rgba(26,28,28,0.06)] backdrop-blur-xl">
+        <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
+          <Link href="/" className="flex h-12 items-center">
+            <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
+          </Link>
+          <div className="flex items-center gap-2">
+            {isAdmin ? (
+              <Link
+                className="rounded-xl bg-[var(--brand-primary-soft-strong)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-accent)]"
+                href="/admin"
+              >
+                관리자
+              </Link>
+            ) : null}
+            <HeaderProfileButton image={user?.profileImage ?? null} name={profileDisplayName} />
           </div>
-          <button onClick={handleLogout} className="text-[var(--brand-primary-text)] hover:text-[var(--brand-primary-foreground)] text-sm transition-colors">로그아웃</button>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* 프로필 카드 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-            {user?.profileImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-3xl text-slate-300">👤</span>
-            )}
+      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
+        <section className="flex flex-col items-center pt-2">
+          <ProfileImageUploader
+            currentImage={user?.profileImage ?? null}
+            fallbackText={profileInitial}
+            onUpdated={(updatedUser) => {
+              setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
+            }}
+          />
+          <h1 className="mt-4 text-xl font-extrabold text-slate-900">{profileDisplayName}</h1>
+          <p className="mt-1 text-xs text-slate-400">가입일 {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {user?.memberType ? (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "bg-slate-50 text-slate-500"}`}>
+                {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
+              </span>
+            ) : null}
+            <span className="rounded-full bg-[var(--brand-primary-soft-strong)] px-2 py-0.5 text-xs font-bold text-[var(--brand-primary-text)]">
+              모임 {user?._count?.participants ?? 0}회
+            </span>
+            {companions.length > 0 ? <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-600">동반인 {companions.length}명</span> : null}
+            {(user?.penaltyCount ?? 0) > 0 ? <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">패널티 {user?.penaltyCount}회</span> : null}
           </div>
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900">{user?.name || "이름 없음"}</h2>
-            <p className="text-xs text-slate-400 mt-1">가입일: {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {user?.memberType && (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "bg-slate-50 text-slate-500"}`}>
-                  {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
-                </span>
-              )}
-              <span className="text-xs bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)] px-2 py-0.5 rounded-full font-bold">모임 {user?._count?.participants ?? 0}회</span>
-              {companions.length > 0 && <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-bold">동반인 {companions.length}명</span>}
-              {(user?.penaltyCount ?? 0) > 0 && <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">패널티 {user?.penaltyCount}회</span>}
-            </div>
-          </div>
-        </div>
-
-        <ProfileImageUploader
-          currentImage={user?.profileImage ?? null}
-          currentSource={profileImageSource}
-          onUpdated={(updatedUser) => {
-            setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
-          }}
-        />
+        </section>
 
         <form onSubmit={handleSave} className="space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -545,6 +562,14 @@ function ProfilePage() {
             )}
           </div>
         )}
+
+        <button
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700"
+          onClick={handleLogout}
+          type="button"
+        >
+          로그아웃
+        </button>
       </main>
     </div>
   );
