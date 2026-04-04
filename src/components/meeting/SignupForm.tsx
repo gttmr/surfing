@@ -72,7 +72,7 @@ function OptionToggle({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
+      className={`flex w-full items-center gap-2 rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all disabled:opacity-50 ${
         checked ? "brand-toggle-active" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
       }`}
     >
@@ -85,7 +85,7 @@ function OptionToggle({
           </svg>
         )}
       </div>
-      <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+      <span className="flex items-center gap-1.5 whitespace-nowrap">
         {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
         <span>{label}</span>
       </span>
@@ -473,7 +473,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
             <div className="brand-panel rounded-xl p-4">
               <p className="mb-3 text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <OptionToggle
                   label="강습"
                   icon="🏄‍♂️"
@@ -490,7 +490,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 />
                 <OptionToggle
                   label="장비 대여"
-                  icon="🏄"
+                  icon="🩳"
                   checked={linkedStatus.participant.hasRental}
                   onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
                   disabled={updatingLinked}
@@ -591,7 +591,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       )}
                     </div>
                     {/* 옵션 토글 */}
-                    <div className="flex gap-2 pl-8">
+                    <div className="flex flex-col gap-2 pl-8">
                       <OptionToggle
                         label="강습"
                         icon="🏄‍♂️"
@@ -614,7 +614,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       />
                       <OptionToggle
                         label="장비 대여"
-                        icon="🏄"
+                        icon="🩳"
                         checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
                         onChange={() => isSignedUp
                           ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
@@ -702,10 +702,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
       {/* 내 참가 옵션 */}
       <div className="brand-panel rounded-xl p-3">
         <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <OptionToggle label="강습" icon="🏄‍♂️" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
           <OptionToggle label="버스" icon="🚌" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
-          <OptionToggle label="장비 대여" icon="🏄" checked={hasRental} onChange={() => setHasRental((v) => !v)} disabled={submitting} />
+          <OptionToggle label="장비 대여" icon="🩳" checked={hasRental} onChange={() => setHasRental((v) => !v)} disabled={submitting} />
         </div>
       </div>
 
@@ -764,10 +764,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                   </button>
                   {isSelected && (
-                  <div className="mt-2 flex gap-2 pl-14">
+                    <div className="mt-2 flex flex-col gap-2 pl-14">
                       <OptionToggle label="강습" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <OptionToggle label="버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
-                      <OptionToggle label="장비 대여" icon="🏄" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
+                      <OptionToggle label="장비 대여" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -811,10 +811,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
-                  <div className="flex gap-2 pl-8">
+                  <div className="flex flex-col gap-2 pl-8">
                     <OptionToggle label="강습" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <OptionToggle label="버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
-                    <OptionToggle label="장비 대여" icon="🏄" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
+                    <OptionToggle label="장비 대여" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
                   </div>
                 </div>
               ))}
