@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 
-// 기본 서핑 스팟 좌표 (양양 서피비치)
+// 기본 서핑 스팟 좌표 (고성 송지호 비치)
 // 관리자 설정에서 변경 가능하도록 Setting에 surf_lat, surf_lon 추가 가능
-const DEFAULT_LAT = 38.1483;
-const DEFAULT_LON = 128.6358;
+const DEFAULT_LAT = 38.331158;
+const DEFAULT_LON = 128.52644;
 
 interface WaveData {
   times: string[];
@@ -181,7 +181,7 @@ export default function WaveChart({ date, location }: { date: string; location: 
           <span className="text-lg">🌊</span>
           <h3 className="text-sm font-bold text-slate-800">파도 예보</h3>
         </div>
-        <span className="text-[11px] text-slate-400">양양 서피비치 기준</span>
+        <span className="text-[11px] text-slate-400">{location} 기준</span>
       </div>
 
       {/* 요약 통계 */}

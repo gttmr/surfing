@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionFromRequest } from "@/lib/session";
+import { withResolvedProfileImage } from "@/lib/profile-image";
 
 // 내 프로필 정보 가져오기
 export async function GET(req: NextRequest) {
@@ -9,8 +10,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.user.upsert({
     where: { kakaoId: session.kakaoId },
+    update: {
+      profileImage: session.profileImage || null,
+    },
+    create: {
+      kakaoId: session.kakaoId,
+      name: session.nickname || null,
+      profileImage: session.profileImage || null,
+      role: "MEMBER",
+    },
     include: {
       _count: {
         select: {
@@ -20,11 +30,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (!user) {
-    return NextResponse.json({ error: "회원 정보를 찾을 수 없습니다" }, { status: 404 });
-  }
-
-  return NextResponse.json(user);
+  return NextResponse.json(withResolvedProfileImage(user));
 }
 
 // 내 프로필 수정
@@ -35,7 +41,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, phoneNumber, memberType } = body;
+  const { name, phoneNumber, memberType, customProfileImageUrl } = body;
 
   const trimmedName = name !== undefined ? (name.trim() || null) : undefined;
 
@@ -49,6 +55,7 @@ export async function PUT(req: NextRequest) {
       ...(trimmedName !== undefined && { name: trimmedName }),
       ...(phoneNumber !== undefined && { phoneNumber: phoneNumber.trim() || null }),
       ...(canSetMemberType && { memberType }),
+      ...(customProfileImageUrl !== undefined && { customProfileImageUrl: customProfileImageUrl || null }),
     },
     include: {
       _count: {
@@ -67,5 +74,5 @@ export async function PUT(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(user);
+  return NextResponse.json(withResolvedProfileImage(user));
 }

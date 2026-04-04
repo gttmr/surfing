@@ -77,7 +77,7 @@ export default async function ConfirmPage({
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mb-4">모임 페이지에서 참가를 취소할 수도 있습니다.</p>
+          <p className="text-xs text-slate-400 mb-4">홈 화면에서 참가 상태를 확인하거나 취소할 수 있습니다.</p>
 
           <Link
             href="/"

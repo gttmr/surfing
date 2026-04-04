@@ -4,69 +4,96 @@ import { useState } from "react";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
 
+const DAYS_EN = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
-const MONTH_NAMES = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+const MONTH_NAMES_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
-function MeetingTypeBadge({ type }: { type: string }) {
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-      type === "비정기" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
-    }`}>
-      {type}
-    </span>
-  );
-}
-
-function MeetingRow({ meeting, today }: { meeting: MeetingWithCounts; today: string }) {
+// ── 모임 상세 카드 ──────────────────────────────────────────────
+function MeetingDetailCard({
+  meeting,
+  today,
+}: {
+  meeting: MeetingWithCounts;
+  today: string;
+}) {
+  const [, month, day] = meeting.date.split("-");
   const isClosed = !meeting.isOpen;
   const isPast = meeting.date < today;
-  const date = new Date(meeting.date + "T00:00:00");
-  const dayName = DAY_KO[date.getDay()];
-  const [, month, day] = meeting.date.split("-");
+  const dateObj = new Date(meeting.date + "T00:00:00");
+  const dayName = DAY_KO[dateObj.getDay()];
 
   return (
-    <Link href={`/meeting/${meeting.id}`} className={`block bg-white rounded-xl border border-slate-200 p-4 hover:border-blue-300 transition-colors ${isClosed || isPast ? "opacity-60" : ""}`}>
-      <div className="flex items-center gap-4">
-        <div className="text-center min-w-[52px]">
-          <p className="text-xs text-slate-500">{parseInt(month, 10)}월</p>
-          <p className="text-2xl font-extrabold text-slate-900 leading-none">{parseInt(day, 10)}</p>
-          <p className="text-xs text-slate-500">{dayName}요일</p>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-sm font-semibold text-slate-800">
-              {meeting.startTime} – {meeting.endTime}
-            </span>
-            <MeetingTypeBadge type={meeting.meetingType} />
-            {isClosed && (
-              <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">마감</span>
-            )}
+    <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-1">날짜</p>
+            <p className="text-lg font-bold font-headline">
+              {parseInt(month, 10)}월 {parseInt(day, 10)}일 ({dayName})
+            </p>
           </div>
-          <p className="text-xs text-slate-500 truncate">📍 {meeting.location}</p>
-          <p className="text-xs text-slate-400 mt-1">참가자 {meeting.approvedCount}명</p>
-        </div>
-        {!isPast && !isClosed && (
-          <div className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600">
-            신청
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-1">참가자</p>
+            <p className="text-lg font-bold text-primary">{meeting.approvedCount}명</p>
           </div>
+        </div>
+
+        <div className="space-y-2 mb-5">
+          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-base">schedule</span>
+            <span>{meeting.startTime} – {meeting.endTime}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined text-base">location_on</span>
+            <span>{meeting.location}</span>
+          </div>
+          {meeting.description && (
+            <div className="flex items-start gap-2 text-sm text-on-surface-variant">
+              <span className="material-symbols-outlined text-base mt-0.5">info</span>
+              <span className="line-clamp-2">{meeting.description}</span>
+            </div>
+          )}
+        </div>
+
+        {isClosed || isPast ? (
+          <div className="w-full py-3.5 bg-surface-container-low text-on-surface-variant/50 font-bold font-headline rounded-xl flex items-center justify-center gap-2 text-sm">
+            {isClosed ? "모집 마감" : "지난 모임"}
+          </div>
+        ) : (
+          <Link
+            href={`/?date=${encodeURIComponent(meeting.date)}`}
+            className="w-full py-3.5 bg-primary hover:bg-primary/90 text-on-primary font-extrabold font-headline rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
+          >
+            🏄 모임 참가
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </Link>
         )}
       </div>
-    </Link>
+    </div>
   );
 }
 
-// 달력 뷰
-function CalendarView({ meetings, today }: { meetings: MeetingWithCounts[]; today: string }) {
+// ── 메인 ScheduleView ───────────────────────────────────────────
+export default function ScheduleView({
+  meetings,
+  isLoggedIn,
+}: {
+  meetings: MeetingWithCounts[];
+  isLoggedIn?: boolean;
+  isAdmin?: boolean;
+}) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const today = now.toISOString().split("T")[0];
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startDow = firstDay.getDay(); // 0=일
+  const startDow = firstDay.getDay();
   const totalDays = lastDay.getDate();
 
-  // meetings indexed by date string
+  // 날짜별 모임 인덱스
   const meetingsByDate: Record<string, MeetingWithCounts[]> = {};
   for (const m of meetings) {
     if (!meetingsByDate[m.date]) meetingsByDate[m.date] = [];
@@ -74,178 +101,156 @@ function CalendarView({ meetings, today }: { meetings: MeetingWithCounts[]; toda
   }
 
   function prevMonth() {
-    if (month === 0) { setYear(y => y - 1); setMonth(11); }
-    else setMonth(m => m - 1);
+    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
+    else setMonth((m) => m - 1);
+    setSelectedDate(null);
   }
   function nextMonth() {
-    if (month === 11) { setYear(y => y + 1); setMonth(0); }
-    else setMonth(m => m + 1);
+    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
+    else setMonth((m) => m + 1);
+    setSelectedDate(null);
   }
 
+  // 달력 셀 배열
   const cells: (number | null)[] = [
     ...Array(startDow).fill(null),
     ...Array.from({ length: totalDays }, (_, i) => i + 1),
   ];
-  // pad to 6 rows
   while (cells.length % 7 !== 0) cells.push(null);
 
+  const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const selectedMeetings = selectedDate
+    ? (meetingsByDate[selectedDate] ?? [])
+    : meetings.filter((m) => m.date.startsWith(monthStr));
+
   return (
-    <div className="space-y-4">
-      {/* 월 네비게이션 */}
-      <div className="flex items-center justify-between bg-white rounded-xl border border-slate-200 px-4 py-3">
-        <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
-          ‹
-        </button>
-        <span className="font-bold text-slate-800">{year}년 {MONTH_NAMES[month]}</span>
-        <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
-          ›
-        </button>
+    <div className="space-y-6">
+      {/* 월 헤더 */}
+      <div className="flex justify-between items-end">
+        <h1 className="text-4xl font-extrabold font-headline tracking-tighter leading-none">
+          {MONTH_NAMES_KO[month]}
+          <span className="text-base font-medium text-on-surface-variant ml-2">{year}</span>
+        </h1>
+        <div className="flex gap-2">
+          <button
+            onClick={prevMonth}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low transition-transform active:scale-90 hover:bg-surface-container-high"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">chevron_left</span>
+          </button>
+          <button
+            onClick={nextMonth}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low transition-transform active:scale-90 hover:bg-surface-container-high"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+          </button>
+        </div>
       </div>
 
       {/* 달력 그리드 */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 border-b border-slate-100">
-          {DAY_KO.map((d, i) => (
-            <div key={d} className={`text-center text-xs font-semibold py-2 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-500"}`}>
+      <div className="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+        <div className="grid grid-cols-7 gap-y-3 text-center">
+          {DAYS_EN.map((d, i) => (
+            <div
+              key={i}
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: i === 0 ? "#ef4444" : i === 6 ? "#3b82f6" : "rgba(75, 71, 50, 0.4)" }}
+            >
               {d}
             </div>
           ))}
-        </div>
 
-        {/* 날짜 셀 */}
-        <div className="grid grid-cols-7 divide-x divide-y divide-slate-100">
           {cells.map((day, idx) => {
-            if (!day) {
-              return <div key={idx} className="min-h-[52px] bg-slate-50/50" />;
-            }
+            if (!day) return <div key={idx} />;
+
             const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const dayMeetings = meetingsByDate[dateStr] ?? [];
+            const hasMeeting = !!meetingsByDate[dateStr];
             const isToday = dateStr === today;
+            const isSelected = dateStr === selectedDate;
             const isPast = dateStr < today;
             const dow = (startDow + day - 1) % 7;
 
             return (
-              <div key={idx} className={`min-h-[52px] p-1 ${isPast ? "bg-slate-50/50" : ""}`}>
-                <p className={`text-xs font-semibold text-center mb-0.5 w-6 mx-auto rounded-full leading-6 ${
-                  isToday ? "bg-blue-600 text-white" :
-                  dow === 0 ? "text-red-500" :
-                  dow === 6 ? "text-blue-500" :
-                  "text-slate-700"
-                }`}>
+              <div
+                key={idx}
+                className="relative flex flex-col items-center cursor-pointer"
+                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+              >
+                <div
+                  className={`text-sm w-8 h-8 flex items-center justify-center rounded-full transition-colors font-medium
+                    ${isSelected ? "bg-primary text-on-primary font-bold" :
+                      isToday ? "bg-primary-container text-on-primary-fixed font-bold" :
+                      isPast ? "opacity-30" :
+                      dow === 0 ? "text-red-500" :
+                      dow === 6 ? "text-blue-500" : ""}
+                  `}
+                >
                   {day}
-                </p>
-                <div className="space-y-0.5">
-                  {dayMeetings.map((m) => (
-                    <Link key={m.id} href={`/meeting/${m.id}`} className={`block text-[9px] rounded px-1 py-0.5 truncate font-medium leading-tight ${
-                      m.meetingType === "비정기" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
-                    }`}>
-                      {m.startTime} {m.meetingType}
-                    </Link>
-                  ))}
                 </div>
+                {hasMeeting && (
+                  <div
+                    className={`absolute -bottom-1 w-1.5 h-1.5 rounded-full ${
+                      isSelected ? "bg-on-primary" : "bg-primary"
+                    }`}
+                  />
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* 해당 월 모임 목록 */}
-      {(() => {
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-        const monthMeetings = meetings.filter((m) => m.date.startsWith(monthStr));
-        if (monthMeetings.length === 0) return (
-          <div className="text-center py-8 text-slate-400 text-sm">이 달의 모임이 없습니다</div>
-        );
-        return (
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">이달의 모임</h3>
-            {monthMeetings.map((m) => (
-              <MeetingRow key={m.id} meeting={m} today={today} />
+      {/* 비정기 모임 생성 버튼 (로그인한 경우) */}
+      {isLoggedIn ? (
+        <Link
+          href="/meeting/create"
+          className="w-full py-3 bg-primary-container text-on-primary-container font-bold font-headline rounded-xl border border-primary/20 transition-all hover:bg-primary-container/80 flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-lg">add_circle</span>
+          비정기모임 생성하기
+        </Link>
+      ) : (
+        /* 미로그인 시 로그인 유도 배너 */
+        <Link
+          href="/api/auth/kakao?returnTo=/"
+          className="w-full py-3.5 bg-black hover:bg-neutral-800 text-white font-bold font-headline rounded-xl transition-all flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-lg">login</span>
+          로그인하고 모임 참가하기
+        </Link>
+      )}
+
+      {/* 모임 상세/목록 */}
+      <section>
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-xl font-bold font-headline tracking-tight">
+            {selectedDate
+              ? `${parseInt(selectedDate.split("-")[1], 10)}월 ${parseInt(selectedDate.split("-")[2], 10)}일 모임`
+              : "이달의 모임"}
+          </h2>
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="text-xs text-primary font-semibold"
+            >
+              전체보기
+            </button>
+          )}
+        </div>
+
+        {selectedMeetings.length === 0 ? (
+          <div className="text-center py-12 text-on-surface-variant/50">
+            <span className="material-symbols-outlined text-4xl mb-2 block">event_busy</span>
+            <p className="text-sm">이 {selectedDate ? "날" : "달"}의 모임이 없습니다</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {selectedMeetings.map((m) => (
+              <MeetingDetailCard key={m.id} meeting={m} today={today} />
             ))}
           </div>
-        );
-      })()}
-    </div>
-  );
-}
-
-// 리스트 뷰
-function ListView({ meetings, today }: { meetings: MeetingWithCounts[]; today: string }) {
-  const upcoming = meetings.filter((m) => m.date >= today);
-  const past = meetings.filter((m) => m.date < today).reverse();
-
-  return (
-    <div className="space-y-8">
-      {upcoming.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">예정된 모임</h2>
-          <div className="space-y-3">
-            {upcoming.map((m) => <MeetingRow key={m.id} meeting={m} today={today} />)}
-          </div>
-        </section>
-      )}
-      {past.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">지난 모임</h2>
-          <div className="space-y-3">
-            {past.map((m) => <MeetingRow key={m.id} meeting={m} today={today} />)}
-          </div>
-        </section>
-      )}
-      {meetings.length === 0 && (
-        <div className="text-center py-16 text-slate-400">
-          <p className="text-4xl mb-3">📅</p>
-          <p className="font-medium">등록된 일정이 없습니다</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ScheduleView({
-  meetings,
-  isLoggedIn,
-}: {
-  meetings: MeetingWithCounts[];
-  isLoggedIn?: boolean;
-}) {
-  const [view, setView] = useState<"list" | "calendar">("list");
-  const today = new Date().toISOString().split("T")[0];
-
-  return (
-    <div className="space-y-4">
-      {/* 뷰 전환 + 비정기 모임 등록 */}
-      <div className="flex items-center justify-between">
-        <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
-          <button
-            onClick={() => setView("list")}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${view === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            📋 목록
-          </button>
-          <button
-            onClick={() => setView("calendar")}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${view === "calendar" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            📅 달력
-          </button>
-        </div>
-        {isLoggedIn && (
-          <Link
-            href="/meeting/create"
-            className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors"
-          >
-            + 비정기 모임
-          </Link>
         )}
-      </div>
-
-      {view === "list" ? (
-        <ListView meetings={meetings} today={today} />
-      ) : (
-        <CalendarView meetings={meetings} today={today} />
-      )}
+      </section>
     </div>
   );
 }

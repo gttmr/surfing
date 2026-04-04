@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { withResolvedProfileImage } from "@/lib/profile-image";
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) {
@@ -18,5 +19,5 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json(users);
+  return NextResponse.json(users.map((user) => withResolvedProfileImage(user)));
 }

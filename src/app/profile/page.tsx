@@ -3,12 +3,15 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
 
 interface UserProfile {
   id: number;
   kakaoId: string;
   name: string | null;
   profileImage: string | null;
+  kakaoProfileImage: string | null;
+  customProfileImageUrl: string | null;
   phoneNumber: string | null;
   memberType: string;
   penaltyCount: number;
@@ -50,7 +53,7 @@ const MEMBER_TYPE_LABELS: Record<string, string> = {
   COMPANION: "동반인",
 };
 const MEMBER_TYPE_COLORS: Record<string, string> = {
-  REGULAR: "bg-blue-50 text-blue-600",
+  REGULAR: "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]",
   COMPANION: "bg-orange-50 text-orange-600",
 };
 
@@ -98,7 +101,15 @@ function ProfilePage() {
   useEffect(() => {
     fetch("/api/profile")
       .then((r) => {
-        if (r.status === 401) { setNotLoggedIn(true); setLoading(false); return null; }
+        if (r.status === 401) {
+          setNotLoggedIn(true);
+          setLoading(false);
+          return null;
+        }
+        if (!r.ok) {
+          setLoading(false);
+          return null;
+        }
         return r.json();
       })
       .then((data) => {
@@ -243,7 +254,7 @@ function ProfilePage() {
         <p className="text-sm text-slate-500 mb-6">카카오 로그인 후 나의 프로필을 관리할 수 있습니다.</p>
         <button
           onClick={() => window.location.href = `/api/auth/kakao?returnTo=/profile`}
-          className="w-full h-12 inline-flex items-center gap-2 bg-[#FEE500] hover:bg-[#f0d800] text-[#3C1E1E] font-bold rounded-xl transition-colors justify-center text-sm"
+          className="brand-button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors"
         >
           <KakaoIcon />
           카카오로 로그인
@@ -256,6 +267,7 @@ function ProfilePage() {
   );
 
   const isRegular = (user?.memberType ?? "REGULAR") === "REGULAR";
+  const profileImageSource = user?.customProfileImageUrl ? "custom" : user?.kakaoProfileImage ? "kakao" : "none";
 
   // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
   const companionSetupValid = setupMemberType === "REGULAR" ||
@@ -282,7 +294,7 @@ function ProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="동호회에서 사용할 이름"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors"
+                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                   autoFocus
                 />
               </div>
@@ -296,7 +308,7 @@ function ProfilePage() {
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setSetupMemberType("REGULAR"); setSelectedOwnerKakaoId(null); }}
                     className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
-                      setupMemberType === "REGULAR" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      setupMemberType === "REGULAR" ? "border-[var(--brand-primary-border-strong)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                     }`}>
                     정회원
                   </button>
@@ -330,7 +342,7 @@ function ProfilePage() {
                             onClick={() => setSelectedOwnerKakaoId(m.kakaoId)}
                             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                               selectedOwnerKakaoId === m.kakaoId
-                                ? "bg-blue-50 text-blue-700 font-semibold"
+                                ? "bg-[var(--brand-primary-soft)] text-[var(--brand-primary-text)] font-semibold"
                                 : "hover:bg-slate-50 text-slate-700"
                             }`}>
                             {m.name || "이름 없음"}
@@ -369,7 +381,7 @@ function ProfilePage() {
                               value={newCompanionName}
                               onChange={(e) => { setNewCompanionName(e.target.value); setSelectedCompanionId(null); }}
                               placeholder="내 이름 입력"
-                              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-orange-400 transition-colors"
+                              className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                             />
                           </div>
                         </div>
@@ -383,10 +395,10 @@ function ProfilePage() {
             <button
               onClick={handleSetupSave}
               disabled={saving || linking || !name.trim() || !companionSetupValid}
-              className={`w-full mt-6 py-3 rounded-xl font-bold text-white text-sm transition-all ${
+              className={`w-full mt-6 py-3 rounded-xl font-bold text-sm transition-all ${
                 saving || linking || !name.trim() || !companionSetupValid
-                  ? "bg-slate-300 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
+                  ? "bg-slate-300 cursor-not-allowed text-white"
+                  : "brand-button-primary active:scale-[0.99]"
               }`}
             >
               {saving || linking ? "저장 중..." : "시작하기"}
@@ -396,16 +408,16 @@ function ProfilePage() {
       )}
 
       {/* 헤더 */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-500 text-white">
+      <header className="bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)]">
         <div className="max-w-lg mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.svg" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
+              <img src="/logo.png" alt="홈" className="w-9 h-9 rounded-lg object-contain bg-black/30" />
             </Link>
             <h1 className="font-bold text-lg">내 프로필</h1>
           </div>
-          <button onClick={handleLogout} className="text-blue-200 hover:text-white text-sm transition-colors">로그아웃</button>
+          <button onClick={handleLogout} className="text-[var(--brand-primary-text)] hover:text-[var(--brand-primary-foreground)] text-sm transition-colors">로그아웃</button>
         </div>
       </header>
 
@@ -429,12 +441,20 @@ function ProfilePage() {
                   {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
                 </span>
               )}
-              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">모임 {user?._count.participants}회</span>
+              <span className="text-xs bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)] px-2 py-0.5 rounded-full font-bold">모임 {user?._count?.participants ?? 0}회</span>
               {companions.length > 0 && <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-bold">동반인 {companions.length}명</span>}
               {(user?.penaltyCount ?? 0) > 0 && <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">패널티 {user?.penaltyCount}회</span>}
             </div>
           </div>
         </div>
+
+        <ProfileImageUploader
+          currentImage={user?.profileImage ?? null}
+          currentSource={profileImageSource}
+          onUpdated={(updatedUser) => {
+            setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
+          }}
+        />
 
         <form onSubmit={handleSave} className="space-y-6">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -445,12 +465,12 @@ function ProfilePage() {
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">이름(닉네임)</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">연락처 <span className="text-slate-400 font-normal">(선택)</span></label>
                 <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="010-0000-0000"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors" />
+                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
               </div>
               {/* 회원 유형 - 읽기 전용 */}
               <div>
@@ -458,7 +478,7 @@ function ProfilePage() {
                   회원 유형 <span className="font-normal text-slate-400 ml-1 text-xs">(변경 불가 · 관리자 문의)</span>
                 </label>
                 <div className={`px-4 py-2.5 rounded-xl border text-sm font-semibold ${
-                  user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-blue-200 bg-blue-50 text-blue-700"
+                  user?.memberType === "COMPANION" ? "border-orange-200 bg-orange-50 text-orange-700" : "border-[var(--brand-primary-border)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]"
                 }`}>
                   {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
                 </div>
@@ -467,8 +487,8 @@ function ProfilePage() {
           </div>
 
           <button type="submit" disabled={saving}
-            className={`w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all ${
-              saving ? "bg-slate-300 cursor-not-allowed" : saved ? "bg-green-500" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
+            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
+              saving ? "bg-slate-300 cursor-not-allowed text-white" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
             }`}>
             {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
           </button>
@@ -485,10 +505,10 @@ function ProfilePage() {
               <input type="text" value={addCompanionName} onChange={(e) => setAddCompanionName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCompanion(); } }}
                 placeholder="동반인 이름 입력"
-                className="min-w-0 flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors" />
+                className="brand-input min-w-0 flex-1 rounded-xl px-4 py-2.5 text-sm outline-none" />
               <button type="button" onClick={handleAddCompanion} disabled={addingCompanion || !addCompanionName.trim()}
-                className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all ${
-                  addingCompanion || !addCompanionName.trim() ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
+                className={`shrink-0 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  addingCompanion || !addCompanionName.trim() ? "bg-slate-300 cursor-not-allowed text-white" : "brand-button-primary active:scale-[0.99]"
                 }`}>
                 {addingCompanion ? "..." : "추가"}
               </button>

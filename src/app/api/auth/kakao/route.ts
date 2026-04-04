@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const clientId = process.env.KAKAO_CLIENT_ID;
-  const redirectUri = process.env.KAKAO_REDIRECT_URI;
+  const redirectUri = process.env.KAKAO_REDIRECT_URI?.trim() || new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
 
-  if (!clientId || !redirectUri) {
+  if (!clientId) {
     return NextResponse.json({ error: "카카오 앱이 설정되지 않았습니다" }, { status: 500 });
   }
 

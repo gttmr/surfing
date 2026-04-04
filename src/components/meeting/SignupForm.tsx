@@ -55,31 +55,24 @@ function OptionToggle({
   label,
   checked,
   onChange,
-  color = "blue",
   disabled,
 }: {
   label: string;
   checked: boolean;
   onChange: () => void;
-  color?: "blue" | "green";
   disabled?: boolean;
 }) {
-  const activeClass = color === "blue"
-    ? "bg-blue-50 border-blue-400 text-blue-700"
-    : "bg-green-50 border-green-400 text-green-700";
-  const checkClass = color === "blue" ? "bg-blue-500 border-blue-500" : "bg-green-500 border-green-500";
-
   return (
     <button
       type="button"
       onClick={onChange}
       disabled={disabled}
       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all disabled:opacity-50 ${
-        checked ? activeClass : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+        checked ? "brand-toggle-active" : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
       }`}
     >
       <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 ${
-        checked ? checkClass : "border-slate-300"
+        checked ? "brand-check-active" : "border-slate-300"
       }`}>
         {checked && (
           <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,6 +89,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isClosed = !meeting.isOpen;
+  const meetingHomeUrl = `/?date=${encodeURIComponent(meeting.date)}`;
 
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -231,9 +225,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
     const authError = searchParams.get("auth_error");
     if (authError) {
       alert(`카카오 로그인 중 오류가 발생했습니다.\n에러 코드: ${authError}`);
-      window.history.replaceState({}, "", `/meeting/${meeting.id}`);
+      window.history.replaceState({}, "", meetingHomeUrl);
     }
-  }, [searchParams, meeting.id]);
+  }, [meetingHomeUrl, searchParams]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -418,15 +412,14 @@ export function SignupForm({ meeting }: SignupFormProps) {
   }
 
   if (!user) {
-    const returnTo = `/meeting/${meeting.id}`;
     return (
       <div className="space-y-4">
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 text-center space-y-3">
           <p className="text-sm text-slate-600">카카오 계정으로 간편하게 신청할 수 있습니다</p>
           <button
             type="button"
-            onClick={() => kakaoLogin(returnTo)}
-            className="w-full h-12 inline-flex items-center gap-2 bg-[#FEE500] hover:bg-[#f0d800] text-[#3C1E1E] font-bold rounded-xl transition-colors justify-center text-sm"
+            onClick={() => kakaoLogin(meetingHomeUrl)}
+            className="brand-button-primary w-full h-12 inline-flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors"
           >
             <KakaoIcon />
             카카오로 로그인하여 신청하기
@@ -447,7 +440,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800 space-y-2">
           <p className="font-semibold">동반인 연동 필요</p>
           <p className="text-xs">프로필 페이지에서 정회원과 연동해주세요. 연동 후 참가 여부를 확인할 수 있습니다.</p>
-          <a href="/profile" className="inline-block text-xs font-bold text-blue-600 hover:underline">프로필로 이동 &rarr;</a>
+          <a href="/profile" className="brand-link inline-block text-xs font-bold hover:underline">프로필로 이동 &rarr;</a>
         </div>
       );
     }
@@ -461,28 +454,26 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
         {linkedStatus.participant ? (
           <div className="space-y-3">
-            <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "bg-green-50 border border-green-200" : "bg-blue-50 border border-blue-200"}`}>
+            <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "bg-green-50 border border-green-200" : "brand-panel"}`}>
               <div className="text-2xl mb-1">✓</div>
               <p className="font-bold text-slate-800 text-sm">
                 {linkedStatus.participant.status === "APPROVED" ? "참가 확정" : "대기 중"}
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <div className="brand-panel rounded-xl p-4">
               <p className="text-xs font-semibold text-slate-600 mb-3">내 참가 옵션 변경</p>
               <div className="flex gap-2">
                 <OptionToggle
                   label="강습"
                   checked={linkedStatus.participant.hasLesson}
                   onChange={() => handleUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
-                  color="blue"
                   disabled={updatingLinked}
                 />
                 <OptionToggle
                   label="버스"
                   checked={linkedStatus.participant.hasBus}
                   onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
-                  color="green"
                   disabled={updatingLinked}
                 />
               </div>
@@ -514,7 +505,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         </div>
         <button
           onClick={() => { setCancelResult(null); router.refresh(); }}
-          className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors"
+          className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-colors"
         >
           다시 신청하기
         </button>
@@ -543,7 +534,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
         {/* 동반인 참가 관리 */}
         {companions.length > 0 ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div className="brand-panel rounded-xl p-4">
             <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
               <span className="text-base">👥</span> 동반인 참가 관리
             </p>
@@ -574,7 +565,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                           type="button"
                           disabled={isLoading}
                           onClick={() => handleAddCompanionToMeeting(c.id)}
-                          className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                          className="brand-button-secondary rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
                         >
                           {isLoading ? "..." : "추가"}
                         </button>
@@ -589,7 +580,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                           ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
                           : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
                         }
-                        color="blue"
                         disabled={isLoading}
                       />
                       <OptionToggle
@@ -599,7 +589,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                           ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
                           : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
                         }
-                        color="green"
                         disabled={isLoading}
                       />
                     </div>
@@ -609,9 +598,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </div>
           </div>
         ) : (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+          <div className="brand-panel rounded-xl p-4 flex items-center justify-between">
             <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
-            <a href="/profile" className="text-xs text-blue-600 hover:text-blue-700 font-semibold">동반인 등록 &rarr;</a>
+            <a href="/profile" className="brand-link text-xs font-semibold">동반인 등록 &rarr;</a>
           </div>
         )}
 
@@ -646,7 +635,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // ─── 신청 폼 (정회원) ─────────────────────────────────────────────────────────────────────────────
   const totalCompanionCount = selectedCompanions.size + newCompanions.length;
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {duplicate && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
           이 모임에 이미 신청하셨습니다.
@@ -672,19 +661,19 @@ export function SignupForm({ meeting }: SignupFormProps) {
           onChange={profileName ? undefined : (e) => { setName(e.target.value); setNameError(""); }}
           placeholder="홍길동"
           disabled={submitting}
-          className={`w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors
-            ${nameError ? "border-red-400 bg-red-50" : profileName ? "border-slate-200 bg-slate-50 text-slate-600" : "border-slate-200 focus:border-blue-500"}
+          className={`w-full px-4 py-2.5 rounded-lg text-sm outline-none
+            ${nameError ? "border border-red-400 bg-red-50" : profileName ? "border border-slate-200 bg-slate-50 text-slate-600" : "brand-input"}
             disabled:bg-slate-50 disabled:text-slate-400`}
         />
         {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
       </div>
 
       {/* 내 참가 옵션 */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-        <p className="text-sm font-semibold text-slate-700 mb-3">내 참가 옵션</p>
+      <div className="brand-panel rounded-xl p-3">
+        <p className="mb-2.5 text-sm font-semibold text-slate-700">내 참가 옵션</p>
         <div className="flex gap-2">
-          <OptionToggle label="강습" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} color="blue" disabled={submitting} />
-          <OptionToggle label="버스" checked={hasBus} onChange={() => setHasBus((v) => !v)} color="green" disabled={submitting} />
+          <OptionToggle label="강습" checked={hasLesson} onChange={() => setHasLesson((v) => !v)} disabled={submitting} />
+          <OptionToggle label="버스" checked={hasBus} onChange={() => setHasBus((v) => !v)} disabled={submitting} />
         </div>
       </div>
 
@@ -699,13 +688,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
           placeholder="처음 참가합니다, 주차 문의 등..."
           rows={2}
           disabled={submitting}
-          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors resize-none disabled:bg-slate-50 disabled:text-slate-400"
+          className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400"
         />
         <p className="mt-1 text-xs text-slate-400 text-right">{note.length}/100</p>
       </div>
 
       {/* 동반인 신청 */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+      <div className="brand-panel rounded-xl p-3 space-y-3">
         <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
           <span className="text-base">👥</span> 동반인 함께 신청
         </p>
@@ -717,7 +706,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               const isSelected = selectedCompanions.has(c.id);
               const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false };
               return (
-                <div key={c.id} className={`rounded-lg border-2 p-3 transition-all ${isSelected ? "bg-blue-50 border-blue-300" : "bg-white border-slate-200"}`}>
+                <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "bg-white border-slate-200"}`}>
                   <button
                     type="button"
                     onClick={() => {
@@ -730,7 +719,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     disabled={submitting}
                     className="w-full flex items-center gap-3 text-left"
                   >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-blue-500 border-blue-500" : "border-slate-300"}`}>
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "brand-check-active" : "border-slate-300"}`}>
                       {isSelected && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -743,9 +732,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
                   </button>
                   {isSelected && (
-                    <div className="flex gap-2 mt-2 pl-14">
-                      <OptionToggle label="강습" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} color="blue" disabled={submitting} />
-                      <OptionToggle label="버스" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} color="green" disabled={submitting} />
+                    <div className="mt-2 flex gap-2 pl-14">
+                      <OptionToggle label="강습" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
+                      <OptionToggle label="버스" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -756,8 +745,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
         {/* 새 동반인 입력 */}
         <div>
-          <p className="text-xs text-slate-500 mb-2">새 동반인 직접 입력</p>
-          <div className="flex gap-2">
+          <p className="mb-2 text-xs text-slate-500">새 동반인 직접 입력</p>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-2">
             <input
               type="text"
               value={newCompanionInput}
@@ -765,34 +754,34 @@ export function SignupForm({ meeting }: SignupFormProps) {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNewCompanion(); } }}
               placeholder="동반인 이름"
               disabled={submitting}
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors disabled:bg-slate-50"
+              className="brand-input min-w-0 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-slate-50"
             />
             <button
               type="button"
               onClick={handleAddNewCompanion}
               disabled={submitting || !newCompanionInput.trim()}
-              className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300 shrink-0"
+              className="brand-button-primary shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition-colors"
             >
               추가
             </button>
           </div>
 
           {newCompanions.length > 0 && (
-            <div className="space-y-2 mt-2">
+            <div className="mt-2 space-y-2">
               {newCompanions.map((nc, idx) => (
-                <div key={idx} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                      <span className="text-blue-500 text-xs font-bold">+</span>
+                <div key={idx} className="brand-panel-strong rounded-lg p-2.5">
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-soft-accent)]">
+                      <span className="text-xs font-bold text-[var(--brand-primary-text)]">+</span>
                     </div>
                     <span className="text-sm font-semibold text-slate-800 flex-1">{nc.name}</span>
-                    <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">신규</span>
+                    <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">신규</span>
                     <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
                   </div>
                   <div className="flex gap-2 pl-8">
-                    <OptionToggle label="강습" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} color="blue" disabled={submitting} />
-                    <OptionToggle label="버스" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} color="green" disabled={submitting} />
+                    <OptionToggle label="강습" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
+                    <OptionToggle label="버스" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                   </div>
                 </div>
               ))}
@@ -804,8 +793,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
       <button
         type="submit"
         disabled={submitting || !name.trim()}
-        className={`w-full py-3 rounded-xl font-bold text-white text-sm transition-all
-          ${submitting || !name.trim() ? "bg-slate-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"}`}
+        className="brand-button-primary w-full rounded-xl py-2.5 text-sm font-bold transition-all active:scale-[0.99] disabled:cursor-not-allowed"
       >
         {submitting ? (
           <span className="flex items-center justify-center gap-2">

@@ -60,6 +60,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "필수 항목을 입력해주세요" }, { status: 400 });
   }
 
+  if (meetingType === "비정기") {
+    const existingMeeting = await prisma.meeting.findFirst({
+      where: { date },
+      select: { id: true },
+    });
+
+    if (existingMeeting) {
+      return NextResponse.json({ error: "이미 해당 날짜에 모임이 있어 비정기 모임을 생성할 수 없습니다" }, { status: 409 });
+    }
+  }
+
   const meeting = await prisma.meeting.create({
     data: {
       date,

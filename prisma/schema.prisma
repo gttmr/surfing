@@ -57,6 +57,7 @@ model User {
   kakaoId      String        @unique
   name         String?       // 카카오 또는 유저가 정한 이름
   profileImage String?
+  customProfileImageUrl String?
   phoneNumber  String?
   role         String        @default("MEMBER")   // ADMIN, MEMBER, BANNED
   memberType   String        @default("REGULAR")  // REGULAR | COMPANION
