@@ -109,19 +109,19 @@ export function ProfileImageUploader({
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
-        <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-[0_18px_40px_rgba(26,28,28,0.10)]">
+        <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--brand-surface-elevated)] bg-[var(--brand-surface)] shadow-[0_18px_40px_var(--brand-shadow)]">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="프로필 사진" className="h-full w-full object-cover" src={activeImage} />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-[#1a1c1c] text-3xl font-extrabold text-white">
+            <div className="brand-avatar-shell flex h-full w-full items-center justify-center text-3xl font-extrabold">
               {fallbackText}
             </div>
           )}
         </div>
 
         <label
-          className={`absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)] shadow-lg transition-transform active:scale-95 ${
+          className={`brand-chip-dark absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--brand-surface-elevated)] shadow-lg transition-transform active:scale-95 ${
             isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
           }`}
         >

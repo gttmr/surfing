@@ -103,12 +103,12 @@ export default function EmbeddedMeetingDetail({
   }, [meetingId]);
 
   if (loading) {
-    return <div className="min-h-[34rem] animate-pulse rounded-2xl bg-white shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10" />;
+    return <div className="brand-card min-h-[34rem] animate-pulse rounded-2xl" />;
   }
 
   if (error || !meeting) {
     return (
-      <div className="rounded-2xl bg-white px-5 py-6 text-sm font-medium text-[#4b4732]/70 shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
+      <div className="brand-card rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
         모임 상세 정보를 불러오지 못했습니다.
       </div>
     );
@@ -121,14 +121,14 @@ export default function EmbeddedMeetingDetail({
   const participants = sortWithCompanions(meeting.participantsList);
 
   return (
-    <section className="min-h-[34rem] space-y-3 rounded-[24px] bg-white p-4 shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
+    <section className="brand-card min-h-[34rem] space-y-3 rounded-[24px] p-4">
       {activeTab === "apply" ? (
         <div className="space-y-3">
-          <div className="rounded-2xl bg-[#f9f9f9] p-3.5">
+          <div className="brand-inset-panel rounded-2xl p-3.5">
             <div className="mb-3">
               <h3 className="font-headline text-[1.2rem] font-extrabold tracking-[-0.03em]">{displayDate}</h3>
             </div>
-            <div className="space-y-2 text-sm text-[#4b4732]/80">
+            <div className="brand-text-muted space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">location_on</span>
                 <span>{meeting.location}</span>
@@ -139,20 +139,20 @@ export default function EmbeddedMeetingDetail({
               </div>
             </div>
             {meeting.description ? (
-              <p className="mt-3 rounded-xl bg-white px-3 py-2 text-sm text-[#4b4732]/80 shadow-[inset_0_0_0_1px_rgba(205,199,170,0.15)]">
+              <p className="brand-panel-strong mt-3 rounded-xl px-3 py-2 text-sm brand-text-muted">
                 {meeting.description}
               </p>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-[#ece7d1] bg-white p-3">
+          <div className="brand-card-soft rounded-2xl p-3">
             <SignupForm meeting={meeting} />
           </div>
         </div>
       ) : (
         <div>
           {participants.length ? (
-            <div className="overflow-hidden rounded-2xl bg-[#f9f9f9] shadow-[inset_0_0_0_1px_rgba(205,199,170,0.15)]">
+            <div className="brand-inset-panel overflow-hidden rounded-2xl">
               {(() => {
                 return participants.map((participant, index) => {
                   const isCompanion = participant.companionId !== null;
@@ -164,20 +164,20 @@ export default function EmbeddedMeetingDetail({
                   return (
                     <div
                       key={participant.id}
-                      className={`flex gap-3 border-b border-[var(--brand-primary-border)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-white/60 pl-9" : ""}`}
+                      className={`flex gap-3 border-b border-[var(--brand-divider)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-[var(--brand-surface-elevated)] pl-9" : ""}`}
                     >
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompanion ? "bg-[#fff1d6] text-[#915b00]" : "bg-white text-[#4b4732]"}`}>
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${isCompanion ? "brand-chip-accent" : "brand-chip-dark"}`}>
                         {displayIndex}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-semibold text-[#1a1c1c]">{participant.name}</p>
-                          {isCompanion ? <span className="rounded bg-[#fff1d6] px-1.5 py-0.5 text-[10px] font-bold text-[#915b00]">동반</span> : null}
-                          {participant.hasLesson ? <span className="rounded bg-[var(--brand-primary-soft-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">강습+장비대여</span> : null}
-                          {participant.hasBus ? <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text-strong)]">셔틀 버스</span> : null}
-                          {participant.hasRental ? <span className="rounded bg-[#e8f3ff] px-1.5 py-0.5 text-[10px] font-bold text-[#1d4ed8]">장비 대여만</span> : null}
+                          <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
+                          {isCompanion ? <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
+                          {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
+                          {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
+                          {participant.hasRental ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
                         </div>
-                        {visibleNote ? <p className="mt-1 text-sm text-[#4b4732]/70">{visibleNote}</p> : null}
+                        {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
                       </div>
                     </div>
                   );
@@ -185,7 +185,7 @@ export default function EmbeddedMeetingDetail({
               })()}
             </div>
           ) : (
-            <div className="rounded-2xl bg-[#f9f9f9] px-4 py-6 text-center text-sm font-medium text-[#4b4732]/70 shadow-[inset_0_0_0_1px_rgba(205,199,170,0.15)]">
+            <div className="brand-inset-panel rounded-2xl px-4 py-6 text-center text-sm font-medium brand-text-muted">
               아직 참가 신청자가 없습니다.
             </div>
           )}

@@ -116,7 +116,7 @@ function findDefaultDateForMonth(meetings: MeetingWithCounts[], year: number, mo
 }
 
 function meetingTypeClass(meetingType: string) {
-  return meetingType === "비정기" ? "bg-[#fff1d6] text-[#915b00]" : "bg-[#f3f3f3] text-[#4b4732]";
+  return meetingType === "비정기" ? "brand-chip-accent" : "brand-chip-soft";
 }
 
 function Icon({
@@ -139,12 +139,12 @@ function ProfileButton({ user }: { user: HomeUser }) {
   return (
     <Link href="/profile" className="flex items-center">
       <span className="sr-only">프로필</span>
-      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--brand-primary)] bg-[#1a1c1c] shadow-sm">
+      <div className="brand-avatar-shell flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img alt={user.nickname} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={user.profileImage} />
         ) : (
-          <span className="text-sm font-extrabold text-white">{user.nickname.slice(0, 1)}</span>
+          <span className="text-sm font-extrabold">{user.nickname.slice(0, 1)}</span>
         )}
       </div>
     </Link>
@@ -165,7 +165,7 @@ function MeetingAction({
 
   if (isPast || isClosed) {
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f3f3f3] px-4 py-4 font-headline text-base font-extrabold text-[#4b4732]/60">
+      <div className="brand-panel flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold brand-text-subtle">
         {isPast ? "지난 모임" : "모집 마감"}
       </div>
     );
@@ -175,7 +175,7 @@ function MeetingAction({
     const returnTo = `/?date=${meeting.date}`;
     return (
       <a
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-foreground)] shadow-sm transition-all hover:bg-[var(--brand-primary-hover)] active:scale-[0.99]"
+        className="brand-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold transition-all active:scale-[0.99]"
         href={`/api/auth/kakao?returnTo=${encodeURIComponent(returnTo)}`}
       >
         로그인 후 참가하기
@@ -205,11 +205,11 @@ function MeetingCard({
   const [, month, day] = meeting.date.split("-");
 
   return (
-    <article className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
+    <article className="brand-card overflow-hidden rounded-2xl">
       <div className="p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.32em] text-[#4b4732]/40">날짜</p>
+            <p className="brand-text-subtle mb-1 text-[10px] font-bold uppercase tracking-[0.32em]">날짜</p>
             <p className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">
               {parseInt(month, 10)}월 {parseInt(day, 10)}일 ({dayName})
             </p>
@@ -218,23 +218,23 @@ function MeetingCard({
             <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${meetingTypeClass(meeting.meetingType)}`}>
               {meeting.meetingType}
             </span>
-            <span className="rounded-full bg-[#f3f3f3] px-2.5 py-1 text-[10px] font-bold text-[#4b4732]">
+            <span className="brand-chip-dark rounded-full px-2.5 py-1 text-[10px] font-bold">
               참가자 {meeting.approvedCount}명
             </span>
           </div>
         </div>
 
         <div className="mb-6 space-y-2.5">
-          <div className="flex items-center gap-2 text-sm text-[#4b4732]/80">
+          <div className="brand-text-muted flex items-center gap-2 text-sm">
             <Icon className="text-[18px]" name="schedule" />
             <span>{meeting.startTime} - {meeting.endTime}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-[#4b4732]/80">
+          <div className="brand-text-muted flex items-center gap-2 text-sm">
             <Icon className="text-[18px]" name="location_on" />
             <span>{meeting.location}</span>
           </div>
           {meeting.description ? (
-            <div className="flex items-start gap-2 text-sm text-[#4b4732]/80">
+            <div className="brand-text-muted flex items-start gap-2 text-sm">
               <Icon className="mt-0.5 text-[18px]" name="info" />
               <span className="line-clamp-3">{meeting.description}</span>
             </div>
@@ -308,8 +308,8 @@ export default function SurfClubLandingPage({
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f9] text-[#1a1c1c]">
-      <header className="fixed inset-x-0 top-0 z-50 bg-white/70 shadow-[0_8px_24px_rgba(26,28,28,0.06)] backdrop-blur-xl">
+    <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
+      <header className="fixed inset-x-0 top-0 z-50 bg-[var(--brand-surface-elevated)] shadow-[0_8px_24px_var(--brand-shadow)]">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <div className="flex h-12 items-center">
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
@@ -347,12 +347,12 @@ export default function SurfClubLandingPage({
               <h1 className="font-headline text-[2.25rem] font-extrabold leading-none tracking-[-0.06em]">
                 {MONTH_NAMES_KO[month]}
               </h1>
-              <p className="mt-1 text-xs font-semibold text-[#4b4732]/45">{year}</p>
+              <p className="brand-text-subtle mt-1 text-xs font-semibold">{year}</p>
             </div>
             <div className="flex gap-2">
               <button
                 aria-label="이전 달"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f3f3] text-[#4b4732] transition-transform active:scale-95"
+                className="brand-panel flex h-10 w-10 items-center justify-center rounded-xl transition-transform active:scale-95"
                 onClick={() => moveMonth(-1)}
                 type="button"
               >
@@ -360,7 +360,7 @@ export default function SurfClubLandingPage({
               </button>
               <button
                 aria-label="다음 달"
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f3f3] text-[#4b4732] transition-transform active:scale-95"
+                className="brand-panel flex h-10 w-10 items-center justify-center rounded-xl transition-transform active:scale-95"
                 onClick={() => moveMonth(1)}
                 type="button"
               >
@@ -369,13 +369,13 @@ export default function SurfClubLandingPage({
             </div>
           </div>
 
-          <div className="overflow-visible rounded-xl bg-white p-5 shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[#cdc7aa]/10">
+          <div className="brand-card-soft overflow-visible rounded-xl p-5">
             <div className="grid grid-cols-7 gap-y-4 text-center">
               {DAY_LABELS.map((day, index) => (
                 <div
                   key={day + index}
                   className="text-[10px] font-bold uppercase tracking-[0.32em]"
-                  style={{ color: index === 0 ? "#ef4444" : index === 6 ? "#2563eb" : "rgba(75,71,50,0.4)" }}
+                  style={{ color: index === 0 ? "#ef4444" : index === 6 ? "#2563eb" : "var(--brand-text-subtle)" }}
                 >
                   {day}
                 </div>
@@ -407,8 +407,8 @@ export default function SurfClubLandingPage({
                                 ? "text-red-500"
                                 : dow === 6
                                   ? "text-blue-500"
-                                  : "text-[#1a1c1c]"
-                              : "text-[#4b4732]/25"
+                                  : "text-[var(--brand-text)]"
+                              : "text-[var(--brand-text-subtle)]"
                       }`}
                     >
                       {cell.day}
@@ -425,12 +425,12 @@ export default function SurfClubLandingPage({
 
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
           <section>
-            <div className="flex items-end border-b border-[#ddd7bb]">
+            <div className="flex items-end border-b border-[var(--brand-divider-strong)]">
               <button
                 className={`flex-1 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
                   activeMeetingTab === "apply"
-                    ? "border-[var(--brand-primary)] text-[#1a1c1c]"
-                    : "border-transparent text-[#4b4732]/45"
+                    ? "border-[var(--brand-primary)] text-[var(--brand-text)]"
+                    : "border-transparent text-[var(--brand-text-subtle)]"
                 }`}
                 onClick={() => setActiveMeetingTab("apply")}
                 type="button"
@@ -440,14 +440,14 @@ export default function SurfClubLandingPage({
               <button
                 className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
                   activeMeetingTab === "status"
-                    ? "border-[var(--brand-primary)] text-[#1a1c1c]"
-                    : "border-transparent text-[#4b4732]/45"
+                    ? "border-[var(--brand-primary)] text-[var(--brand-text)]"
+                    : "border-transparent text-[var(--brand-text-subtle)]"
                 }`}
                 onClick={() => setActiveMeetingTab("status")}
                 type="button"
               >
                 신청 현황
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#1a1c1c] px-1.5 text-[11px] font-bold text-white">
+                <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
                   {selectedParticipantBadge}
                 </span>
               </button>

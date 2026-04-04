@@ -69,7 +69,7 @@ function sortWithCompanions(participants: Participant[]): Participant[] {
 
 function KakaoBadge({ nickname }: { nickname: string }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs bg-[#FEE500]/30 text-[#3C1E1E] px-1.5 py-0.5 rounded-full">
+    <span className="brand-chip-accent inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs">
       <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor">
         <path d="M12 3C6.477 3 2 6.477 2 10.857c0 2.713 1.584 5.1 3.988 6.577L5 21l4.29-2.287C10.145 18.9 11.058 19 12 19c5.523 0 10-3.477 10-7.143C22 6.477 17.523 3 12 3z" />
       </svg>
@@ -140,7 +140,7 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
   if (loading || !meeting) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-16 text-slate-400">불러오는 중...</div>
+        <div className="brand-text-subtle flex items-center justify-center py-16">불러오는 중...</div>
       </AdminLayout>
     );
   }
@@ -165,10 +165,10 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
     <AdminLayout>
       {/* 상단 정보 */}
       <div className="flex items-start gap-3 mb-4">
-        <Link href="/admin/meetings" className="text-slate-400 hover:text-slate-600 text-xl mt-0.5">&larr;</Link>
+        <Link href="/admin/meetings" className="brand-text-subtle brand-link mt-0.5 text-xl">&larr;</Link>
         <div className="flex-1">
-          <h1 className="text-xl font-extrabold text-slate-900">{displayDate}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl font-extrabold text-[var(--brand-text)]">{displayDate}</h1>
+          <p className="brand-text-muted mt-0.5 text-sm">
             {meeting.startTime}–{meeting.endTime} · {meeting.location}
           </p>
         </div>
@@ -177,7 +177,7 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
             onClick={handleToggleOpen}
             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
               ${meeting.isOpen
-                ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                ? "brand-button-secondary"
                 : "bg-green-100 text-green-700 hover:bg-green-200"
               }`}
           >
@@ -194,21 +194,21 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
 
       <div className="mb-4 flex items-center gap-2">
         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-          meeting.meetingType === "비정기" ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
+          meeting.meetingType === "비정기" ? "brand-chip-accent" : "brand-chip-soft"
         }`}>
           {meeting.meetingType}
         </span>
-        <span className="text-sm text-slate-500">참가자 {meeting.approvedCount}명</span>
+        <span className="brand-text-muted text-sm">참가자 {meeting.approvedCount}명</span>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-4 overflow-x-auto">
+      <div className="brand-panel mb-4 flex gap-1 overflow-x-auto rounded-xl p-1">
         {(["approved", "waitlisted", "cancelled", "all"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors
-              ${activeTab === tab ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
+              ${activeTab === tab ? "bg-[var(--brand-surface-elevated)] shadow-sm text-[var(--brand-text)]" : "text-[var(--brand-text-subtle)] hover:text-[var(--brand-text)]"}`}
           >
             {TAB_LABELS[tab]} {counts[tab] > 0 && `(${counts[tab]})`}
           </button>
@@ -218,38 +218,38 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
       {/* 신청자 목록 */}
       <div className="space-y-3">
         {filteredParticipants.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-10">해당 상태의 신청자가 없습니다</p>
+          <p className="brand-text-subtle py-10 text-center text-sm">해당 상태의 신청자가 없습니다</p>
         ) : (
           sortWithCompanions(filteredParticipants).map((p) => {
             const isCompanion = p.companionId !== null;
             return (
-            <div key={p.id} className={`bg-white rounded-xl border border-slate-200 p-4 ${isCompanion ? "ml-6 border-l-2 border-l-orange-300" : ""}`}>
+            <div key={p.id} className={`brand-card-soft rounded-xl p-4 ${isCompanion ? "ml-6 border-l-2 border-l-[var(--brand-primary-border-strong)]" : ""}`}>
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900">{p.name}</span>
+                    <span className="font-semibold text-[var(--brand-text)]">{p.name}</span>
                     {isCompanion && (
-                      <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">동반</span>
+                      <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span>
                     )}
                     <StatusBadge status={p.status} waitlistPosition={p.waitlistPosition} size="sm" />
                     {p.isPenalized && (
                       <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">패널티</span>
                     )}
                     {p.hasLesson && (
-                      <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">강습+장비대여</span>
+                      <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span>
                     )}
                     {p.hasBus && (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded font-bold">셔틀 버스</span>
+                      <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span>
                     )}
                     {p.hasRental && (
-                      <span className="text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded font-bold">장비 대여만</span>
+                      <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span>
                     )}
                   </div>
                   <KakaoBadge nickname={p.kakaoNickname} />
                   {p.note && (
-                    <p className="text-xs text-slate-500 mt-1 bg-slate-50 rounded px-2 py-1">{p.note}</p>
+                    <p className="brand-panel mt-1 rounded px-2 py-1 text-xs brand-text-muted">{p.note}</p>
                   )}
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="brand-text-subtle mt-1 text-xs">
                     {new Date(p.submittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     {p.cancelledAt && (
                       <span className="text-red-400 ml-2">

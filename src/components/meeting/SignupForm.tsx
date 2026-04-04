@@ -69,16 +69,16 @@ function OptionPricingHelp({ guide }: { guide: string }) {
         onClick={() => setOpen((value) => !value)}
         className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
           open
-            ? "border-[var(--brand-primary)] bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)]"
-            : "border-slate-300 bg-white text-slate-500 hover:border-slate-400"
+            ? "brand-chip-dark border-[var(--brand-primary)]"
+            : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] hover:border-[var(--brand-primary-border-strong)]"
         }`}
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[14px] leading-none">info</span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-[var(--brand-primary-border)] bg-white p-3 text-left shadow-[0_12px_30px_rgba(26,28,28,0.08)]">
-          <p className="mb-2 text-xs font-bold text-[#1a1c1c]">가격 안내</p>
-          <p className="whitespace-pre-line text-xs leading-5 text-[#4b4732]/80">{guide}</p>
+        <div className="brand-card-soft absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl p-3 text-left">
+          <p className="mb-2 text-xs font-bold text-[var(--brand-text)]">가격 안내</p>
+          <p className="brand-text-muted whitespace-pre-line text-xs leading-5">{guide}</p>
         </div>
       ) : null}
     </div>
@@ -103,11 +103,11 @@ function RadioOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-300 bg-white transition-colors">
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
         {checked ? (
-          <svg className="h-2.5 w-2.5 text-[#000000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         ) : null}
@@ -138,11 +138,11 @@ function CheckboxOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-all hover:border-slate-300 disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-300 bg-white transition-colors">
+      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
         {checked ? (
-          <svg className="h-2.5 w-2.5 text-[#000000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         ) : null}
@@ -542,21 +542,21 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
   if (isClosed) {
     return (
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-slate-500">
+      <div className="brand-panel rounded-xl p-6 text-center brand-text-muted">
         이 모임의 신청이 마감되었습니다.
       </div>
     );
   }
 
   if (user === undefined) {
-    return <div className="py-8 text-center text-slate-400 text-sm">불러오는 중...</div>;
+    return <div className="brand-text-subtle py-8 text-center text-sm">불러오는 중...</div>;
   }
 
   if (!user) {
     return (
       <div className="space-y-4">
-        <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 text-center space-y-3">
-          <p className="text-sm text-slate-600">카카오 계정으로 간편하게 신청할 수 있습니다</p>
+        <div className="brand-card-soft rounded-xl p-5 text-center space-y-3">
+          <p className="brand-text-muted text-sm">카카오 계정으로 간편하게 신청할 수 있습니다</p>
           <button
             type="button"
             onClick={() => kakaoLogin(meetingHomeUrl)}
@@ -573,14 +573,14 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // ─── COMPANION 계정 뷰 ─────────────────────────────────────────────────────────────────────────────
   if (userProfile?.memberType === "COMPANION") {
     if (!linkedStatus) {
-      return <div className="py-4 text-center text-slate-400 text-sm">불러오는 중...</div>;
+      return <div className="brand-text-subtle py-4 text-center text-sm">불러오는 중...</div>;
     }
 
     if (!linkedStatus.linked) {
       return (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800 space-y-2">
-          <p className="font-semibold">동반인 연동 필요</p>
-          <p className="text-xs">프로필 페이지에서 정회원과 연동해주세요. 연동 후 참가 여부를 확인할 수 있습니다.</p>
+        <div className="brand-panel rounded-xl p-5 text-sm space-y-2">
+          <p className="font-semibold text-[var(--brand-text)]">동반인 연동 필요</p>
+          <p className="brand-text-muted text-xs">프로필 페이지에서 정회원과 연동해주세요. 연동 후 참가 여부를 확인할 수 있습니다.</p>
           <a href="/profile" className="brand-link inline-block text-xs font-bold hover:underline">프로필로 이동 &rarr;</a>
         </div>
       );
@@ -588,23 +588,23 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
     return (
       <div className="space-y-4">
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm">
-          <p className="text-xs text-slate-400 mb-1">정회원: {linkedStatus.companion?.owner.name ?? "알 수 없음"}</p>
-          <p className="font-semibold text-slate-800">{linkedStatus.companion?.name}</p>
+        <div className="brand-panel rounded-xl p-4 text-sm">
+          <p className="brand-text-subtle mb-1 text-xs">정회원: {linkedStatus.companion?.owner.name ?? "알 수 없음"}</p>
+          <p className="font-semibold text-[var(--brand-text)]">{linkedStatus.companion?.name}</p>
         </div>
 
         {linkedStatus.participant ? (
           <div className="space-y-3">
             <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "bg-green-50 border border-green-200" : "brand-panel"}`}>
               <div className="text-2xl mb-1">✓</div>
-              <p className="font-bold text-slate-800 text-sm">
+              <p className="text-sm font-bold text-[var(--brand-text)]">
                 {linkedStatus.participant.status === "APPROVED" ? "참가 확정" : "대기 중"}
               </p>
             </div>
 
             <div className="brand-panel rounded-xl p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-700">내 참가 옵션 변경 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+                <p className="text-sm font-semibold text-[var(--brand-text)]">내 참가 옵션 변경 <span className="brand-text-subtle text-xs font-normal">(선택)</span></p>
                 <OptionPricingHelp guide={participantOptionPricingGuide} />
               </div>
               <div className="space-y-2">
@@ -633,9 +633,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
             </div>
           </div>
         ) : (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-500 text-center">
+          <div className="brand-panel rounded-xl p-4 text-center text-sm brand-text-muted">
             아직 이 모임에 신청되지 않았습니다.<br />
-            <span className="text-xs text-slate-400">정회원이 동반인 추가 시 자동 등록됩니다.</span>
+            <span className="brand-text-subtle text-xs">정회원이 동반인 추가 시 자동 등록됩니다.</span>
           </div>
         )}
       </div>
@@ -646,11 +646,11 @@ export function SignupForm({ meeting }: SignupFormProps) {
   if (cancelResult) {
     return (
       <div className="space-y-4">
-        <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}>
+        <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "border border-red-200 bg-red-50" : "brand-panel"}`}>
           <div className="text-3xl mb-3">{cancelResult.penalty ? "⚠️" : "✓"}</div>
-          <p className="font-bold text-slate-800 mb-2">참가가 취소되었습니다</p>
+          <p className="mb-2 font-bold text-[var(--brand-text)]">참가가 취소되었습니다</p>
           {cancelResult.cancelledCompanions > 0 && (
-            <p className="text-sm text-slate-600 mb-2">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
+            <p className="brand-text-muted mb-2 text-sm">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
           )}
           {cancelResult.penalty && cancelResult.penaltyMessage && (
             <div className="bg-red-100 rounded-lg p-3 mt-3 text-sm text-red-700">{cancelResult.penaltyMessage}</div>
@@ -688,7 +688,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
         {/* 동반인 참가 관리 */}
         {companions.length > 0 ? (
           <div className="brand-panel rounded-xl p-4">
-            <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 mb-3">
+            <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
               <span className="text-base">👥</span> 동반인 참가 관리
             </p>
             <div className="space-y-3">
@@ -698,12 +698,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 const isLoading = companionActionLoading === c.id;
                 const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
                 return (
-                  <div key={c.id} className={`p-3 rounded-lg border ${isSignedUp ? "bg-green-50 border-green-200" : "bg-white border-slate-200"}`}>
+                  <div key={c.id} className={`rounded-lg border p-3 ${isSignedUp ? "border-green-200 bg-green-50" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                        <span className="text-orange-400 text-xs font-bold">+</span>
+                      <div className="brand-chip-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                        <span className="text-xs font-bold">+</span>
                       </div>
-                      <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
+                      <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
                       {isSignedUp ? (
                         <button
                           type="button"
@@ -764,7 +764,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           </div>
         ) : (
           <div className="brand-panel rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm text-slate-500">등록된 동반인이 없습니다</span>
+            <span className="brand-text-muted text-sm">등록된 동반인이 없습니다</span>
             <a href="/profile" className="brand-link text-xs font-semibold">동반인 등록 &rarr;</a>
           </div>
         )}
@@ -778,11 +778,11 @@ export function SignupForm({ meeting }: SignupFormProps) {
             )}
             <div className="flex gap-2">
               <button onClick={handleCancel} disabled={cancelling}
-                className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors disabled:bg-slate-300">
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]">
                 {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
               </button>
               <button onClick={() => setShowCancelConfirm(false)}
-                className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors">
+                className="brand-button-secondary px-4 py-2.5 rounded-lg text-sm transition-colors">
                 돌아가기
               </button>
             </div>
@@ -802,7 +802,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {duplicate && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <div className="brand-panel rounded-xl p-4 text-sm text-[var(--brand-text)]">
           이 모임에 이미 신청하셨습니다.
         </div>
       )}
@@ -812,11 +812,11 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       {/* 이름 */}
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+        <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
           이름 <span className="text-red-500">*</span>
           {profileName
-            ? <span className="font-normal text-slate-400 ml-1 text-xs">(프로필에서 변경 가능)</span>
-            : <span className="font-normal text-amber-500 ml-1 text-xs">(프로필에서 이름을 설정해 주세요)</span>
+            ? <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 변경 가능)</span>
+            : <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 이름을 설정해 주세요)</span>
           }
         </label>
         <input
@@ -827,8 +827,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
           placeholder="홍길동"
           disabled={submitting}
           className={`w-full px-4 py-2.5 rounded-lg text-sm outline-none
-            ${nameError ? "border border-red-400 bg-red-50" : profileName ? "border border-slate-200 bg-slate-50 text-slate-600" : "brand-input"}
-            disabled:bg-slate-50 disabled:text-slate-400`}
+            ${nameError ? "border border-red-400 bg-red-50" : profileName ? "border border-[var(--brand-divider)] bg-[var(--brand-surface)] text-[var(--brand-text-muted)]" : "brand-input"}
+            disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]`}
         />
         {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
       </div>
@@ -836,7 +836,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
       {/* 내 참가 옵션 */}
       <div className="brand-panel rounded-xl p-3">
         <div className="mb-2.5 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-slate-700">내 참가 옵션 <span className="text-xs font-normal text-slate-400">(선택)</span></p>
+          <p className="text-sm font-semibold text-[var(--brand-text)]">내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span></p>
           <OptionPricingHelp guide={participantOptionPricingGuide} />
         </div>
         <div className="space-y-2">
@@ -848,8 +848,8 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       {/* 비고 */}
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-          비고 <span className="text-slate-400 font-normal">(선택)</span>
+        <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+          비고 <span className="brand-text-subtle font-normal">(선택)</span>
         </label>
         <textarea
           value={note}
@@ -857,14 +857,14 @@ export function SignupForm({ meeting }: SignupFormProps) {
           placeholder="처음 참가합니다, 주차 문의 등..."
           rows={2}
           disabled={submitting}
-          className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-400"
+          className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]"
         />
-        <p className="mt-1 text-xs text-slate-400 text-right">{note.length}/100</p>
+        <p className="brand-text-subtle mt-1 text-right text-xs">{note.length}/100</p>
       </div>
 
       {/* 동반인 신청 */}
       <div className="brand-panel rounded-xl p-3 space-y-3">
-        <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
           <span className="text-base">👥</span> 동반인 함께 신청
         </p>
 
@@ -875,7 +875,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               const isSelected = selectedCompanions.has(c.id);
               const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
               return (
-                <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "bg-white border-slate-200"}`}>
+                <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
                   <button
                     type="button"
                     onClick={() => {
@@ -888,17 +888,17 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     disabled={submitting}
                     className="w-full flex items-center gap-3 text-left"
                   >
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "brand-check-active" : "border-slate-300"}`}>
+                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? "brand-check-active" : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)]"}`}>
                       {isSelected && (
-                        <svg className="w-3 h-3 text-[#000000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
                     </div>
-                    <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-                      <span className="text-orange-400 text-xs font-bold">+</span>
+                    <div className="brand-chip-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                      <span className="text-xs font-bold">+</span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-800 flex-1">{c.name}</span>
+                    <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
                   </button>
                   {isSelected && (
                     <div className="mt-2 space-y-2 pl-14">
@@ -923,7 +923,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNewCompanion(); } }}
               placeholder="동반인 이름"
               disabled={submitting}
-              className="brand-input min-w-0 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-slate-50"
+              className="brand-input min-w-0 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-[var(--brand-surface)]"
             />
             <button
               type="button"
@@ -943,10 +943,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-soft-accent)]">
                       <span className="text-xs font-bold text-[var(--brand-primary-text)]">+</span>
                     </div>
-                    <span className="text-sm font-semibold text-slate-800 flex-1">{nc.name}</span>
+                    <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{nc.name}</span>
                     <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">신규</span>
                     <button type="button" onClick={() => setNewCompanions((prev) => prev.filter((_, i) => i !== idx))}
-                      className="text-xs text-slate-400 hover:text-red-500 transition-colors ml-1">✕</button>
+                      className="brand-text-subtle ml-1 text-xs transition-colors hover:text-red-500">✕</button>
                   </div>
                   <div className="space-y-2 pl-8">
                     <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
