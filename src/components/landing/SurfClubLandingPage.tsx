@@ -207,7 +207,7 @@ function MeetingCard({
   const [, month, day] = meeting.date.split("-");
 
   return (
-    <article className="brand-card overflow-hidden rounded-2xl">
+    <article className="overflow-hidden rounded-2xl border border-[var(--brand-primary-border)] bg-[var(--brand-surface-elevated)] shadow-[0_10px_30px_var(--brand-shadow)]">
       <div className="p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
