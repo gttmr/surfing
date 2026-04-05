@@ -124,13 +124,15 @@ export async function POST(req: NextRequest) {
   });
 
   if (existing?.customProfileImageUrl) {
+    const existingImageUrl = existing.customProfileImageUrl;
+
     if (isLocalUploadUrl(existing.customProfileImageUrl)) {
       void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
         console.error("Failed to delete previous local profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
       void loadBlobApi()
-        .then(({ del }) => del(existing.customProfileImageUrl))
+        .then(({ del }) => del(existingImageUrl))
         .catch((error) => {
           console.error("Failed to delete previous custom profile image", error);
         });
@@ -171,13 +173,15 @@ export async function DELETE(req: NextRequest) {
   });
 
   if (existing?.customProfileImageUrl) {
+    const existingImageUrl = existing.customProfileImageUrl;
+
     if (isLocalUploadUrl(existing.customProfileImageUrl)) {
       void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
         console.error("Failed to delete local profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
       void loadBlobApi()
-        .then(({ del }) => del(existing.customProfileImageUrl))
+        .then(({ del }) => del(existingImageUrl))
         .catch((error) => {
           console.error("Failed to delete custom profile image", error);
         });
