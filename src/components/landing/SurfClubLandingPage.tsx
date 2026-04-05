@@ -16,6 +16,7 @@ type HomeUser = {
 type NoticeItem = {
   title: string;
   body: string;
+  updatedAt: string;
 };
 
 type CalendarCell = {
@@ -271,7 +272,10 @@ export default function SurfClubLandingPage({
   const [month, setMonth] = useState(initialView.month);
   const [selectedDate, setSelectedDate] = useState<string | null>(initialView.selectedDate);
   const [activeMeetingTab, setActiveMeetingTab] = useState<"apply" | "status">("apply");
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
   const sortedMeetings = sortMeetings(meetings);
+
+  const hasPinnedNotice = Boolean(pinnedNotice);
 
   useEffect(() => {
     const nextView = findInitialView(meetings, today, requestedDate);
@@ -297,7 +301,6 @@ export default function SurfClubLandingPage({
   const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
   const calendarCells = buildCalendarCells(year, month);
-  const topOffsetClass = pinnedNotice ? "pt-36" : "pt-24";
   const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);
 
   function moveMonth(direction: -1 | 1) {
@@ -317,6 +320,16 @@ export default function SurfClubLandingPage({
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
           </div>
           <div className="flex items-center gap-2">
+            {hasPinnedNotice ? (
+              <button
+                aria-label="공지사항 열기"
+                className="brand-link flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-70"
+                onClick={() => setIsNoticeOpen(true)}
+                type="button"
+              >
+                <Icon className="text-[16px]" name="notifications" />
+              </button>
+            ) : null}
             {isAdmin ? (
               <Link
                 className="rounded-xl bg-[var(--brand-primary-soft-strong)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-accent)]"
@@ -330,19 +343,59 @@ export default function SurfClubLandingPage({
         </div>
       </header>
 
-      {pinnedNotice ? (
-        <div className="fixed inset-x-0 top-16 z-40 bg-[var(--brand-primary)]">
-          <div className="mx-auto flex max-w-[390px] items-start gap-2 px-4 py-3">
-            <span className="pt-0.5 text-sm font-extrabold text-[var(--brand-primary-foreground)]">공지</span>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-[var(--brand-primary-foreground)]">{pinnedNotice.title}</p>
-              <p className="line-clamp-1 text-xs font-medium text-[var(--brand-primary-foreground)] opacity-75">{pinnedNotice.body}</p>
+      {hasPinnedNotice && isNoticeOpen ? (
+        <div className="fixed inset-0 z-[60] bg-[rgba(0,29,110,0.24)] px-4 py-6" onClick={() => setIsNoticeOpen(false)}>
+          <div
+            className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="brand-chip-strong flex h-10 w-10 items-center justify-center rounded-full">
+                  <Icon className="text-[20px]" name="notifications" />
+                </div>
+                <p className="text-sm font-extrabold text-[var(--brand-text)]">공지사항</p>
+              </div>
+              <button
+                aria-label="공지사항 닫기"
+                className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
+                onClick={() => setIsNoticeOpen(false)}
+                type="button"
+              >
+                <Icon className="text-[18px]" name="close" />
+              </button>
+            </div>
+
+            <div className="brand-panel-white rounded-2xl px-4 py-4">
+              <p className="text-base font-bold text-[var(--brand-text)]">{pinnedNotice.title}</p>
+              <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice.body}</p>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <div className="flex gap-3">
+                {user ? (
+                  <Link
+                    className="brand-button-secondary rounded-2xl px-5 py-3 text-sm font-bold"
+                    href="/settlement"
+                    onClick={() => setIsNoticeOpen(false)}
+                  >
+                    정산 확인하기
+                  </Link>
+                ) : null}
+                <button
+                  className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
+                  onClick={() => setIsNoticeOpen(false)}
+                  type="button"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
 
-      <main className={`mx-auto flex w-full max-w-[390px] flex-col gap-10 px-4 pb-12 ${topOffsetClass}`}>
+      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
         <section>
           <div className="mb-6 flex items-end justify-between">
             <div>

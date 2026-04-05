@@ -53,3 +53,61 @@ export async function PUT(
 
   return NextResponse.json(user);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const userId = parseInt(id);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, kakaoId: true, name: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const ownedCompanions = await tx.companion.findMany({
+      where: { ownerKakaoId: user.kakaoId },
+      select: { id: true },
+    });
+    const ownedCompanionIds = ownedCompanions.map((companion) => companion.id);
+
+    if (ownedCompanionIds.length) {
+      await tx.participant.deleteMany({
+        where: {
+          companionId: { in: ownedCompanionIds },
+        },
+      });
+
+      await tx.companion.deleteMany({
+        where: {
+          id: { in: ownedCompanionIds },
+        },
+      });
+    }
+
+    await tx.participant.deleteMany({
+      where: { kakaoId: user.kakaoId },
+    });
+
+    await tx.companion.updateMany({
+      where: { linkedKakaoId: user.kakaoId },
+      data: { linkedKakaoId: null },
+    });
+
+    await tx.user.delete({
+      where: { id: user.id },
+    });
+  });
+
+  return NextResponse.json({ ok: true });
+}

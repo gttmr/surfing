@@ -35,8 +35,8 @@ const ROLE_LABELS: Record<string, string> = {
   BANNED: "차단됨",
 };
 const ROLE_COLORS: Record<string, string> = {
-  ADMIN: "bg-purple-100 text-purple-700",
-  MEMBER: "bg-green-100 text-green-700",
+  ADMIN: "brand-chip-dark",
+  MEMBER: "brand-chip-soft",
   BANNED: "bg-red-100 text-red-700",
 };
 
@@ -45,8 +45,8 @@ const MEMBER_TYPE_LABELS: Record<string, string> = {
   COMPANION: "동반인",
 };
 const MEMBER_TYPE_COLORS: Record<string, string> = {
-  REGULAR: "bg-blue-100 text-blue-700",
-  COMPANION: "bg-orange-100 text-orange-700",
+  REGULAR: "brand-chip-soft",
+  COMPANION: "brand-chip-companion",
 };
 
 export default function AdminMembersPage() {
@@ -107,6 +107,25 @@ export default function AdminMembersPage() {
     }
   }
 
+  async function handleDeleteUser(userId: number) {
+    const target = users.find((u) => u.id === userId);
+    const confirmed = confirm(
+      `${target?.name || "이 회원"}을(를) 삭제하시겠습니까?\n참가 기록과 소유한 동반인 정보도 함께 정리됩니다.`
+    );
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/admin/members/${userId}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) return;
+
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    if (selectedUser?.id === userId) {
+      setSelectedUser(null);
+    }
+  }
+
   const filtered = users.filter((u) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -124,13 +143,16 @@ export default function AdminMembersPage() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-extrabold text-slate-900">회원 관리</h1>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">회원 관리</h1>
+          <p className="brand-text-muted mt-1 text-sm">회원 유형, 권한, 활동 이력을 한 화면에서 관리합니다.</p>
+        </div>
         <div className="flex gap-2 text-xs font-semibold">
-          <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">전체 {totalCount}</span>
-          {adminCount > 0 && <span className="bg-purple-100 text-purple-600 px-2.5 py-1 rounded-full">관리자 {adminCount}</span>}
-          {penaltyCount > 0 && <span className="bg-red-100 text-red-600 px-2.5 py-1 rounded-full">패널티 {penaltyCount}</span>}
-          {bannedCount > 0 && <span className="bg-red-100 text-red-600 px-2.5 py-1 rounded-full">차단 {bannedCount}</span>}
+          <span className="brand-chip-accent rounded-full px-2.5 py-1">전체 {totalCount}</span>
+          {adminCount > 0 && <span className="brand-chip-dark rounded-full px-2.5 py-1">관리자 {adminCount}</span>}
+          {penaltyCount > 0 && <span className="rounded-full bg-red-100 px-2.5 py-1 text-red-600">패널티 {penaltyCount}</span>}
+          {bannedCount > 0 && <span className="rounded-full bg-red-100 px-2.5 py-1 text-red-600">차단 {bannedCount}</span>}
         </div>
       </div>
 
@@ -140,7 +162,7 @@ export default function AdminMembersPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="이름, 카카오ID, 연락처로 검색..."
-          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-blue-500 transition-colors"
+          className="brand-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition-colors"
         />
       </div>
 
@@ -148,51 +170,51 @@ export default function AdminMembersPage() {
         {/* 회원 리스트 */}
         <div className="flex-1">
           {loading ? (
-            <div className="text-center py-16 text-slate-400 text-sm">불러오는 중...</div>
+            <div className="brand-text-subtle py-16 text-center text-sm">불러오는 중...</div>
           ) : filtered.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100">
+            <div className="brand-card-soft rounded-3xl p-8 text-center">
               <div className="text-4xl mb-3">👤</div>
-              <p className="text-slate-500 font-medium">등록된 회원이 없습니다</p>
-              <p className="text-sm text-slate-400 mt-1">카카오 로그인을 한 사용자가 자동으로 등록됩니다</p>
+              <p className="brand-text-muted font-medium">등록된 회원이 없습니다</p>
+              <p className="brand-text-subtle mt-1 text-sm">카카오 로그인을 한 사용자가 자동으로 등록됩니다</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 divide-y">
+            <div className="brand-card-soft overflow-hidden rounded-3xl">
               {filtered.map((user) => (
                 <button
                   key={user.id}
                   onClick={() => loadDetail(user.id)}
-                  className={`w-full p-4 flex items-center gap-3 text-left hover:bg-blue-50/50 transition-colors ${
-                    selectedUser?.id === user.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
+                  className={`brand-list-row flex w-full items-center gap-3 p-4 text-left transition-colors last:border-b-0 ${
+                    selectedUser?.id === user.id ? "brand-list-item-active" : "hover:bg-[var(--brand-primary-soft)]/40"
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="brand-avatar-shell flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full">
                     {user.profileImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-slate-400 text-lg">👤</span>
+                      <span className="text-lg">🏄</span>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                      <span className="font-bold text-slate-800 text-sm truncate">{user.name || "이름 없음"}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ROLE_COLORS[user.role] || "bg-slate-100 text-slate-500"}`}>
+                      <span className="truncate text-sm font-bold text-[var(--brand-text)]">{user.name || "이름 없음"}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${ROLE_COLORS[user.role] || "brand-chip-accent"}`}>
                         {ROLE_LABELS[user.role] || user.role}
                       </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${MEMBER_TYPE_COLORS[user.memberType] || "bg-slate-100 text-slate-500"}`}>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "brand-chip-accent"}`}>
                         {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
                       </span>
                       {user.penaltyCount > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">
+                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
                           패널티 {user.penaltyCount}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <p className="brand-text-subtle flex items-center gap-1.5 text-xs">
                       모임 {user._count.participants}회
                     </p>
                   </div>
-                  <span className="text-slate-300 text-sm">›</span>
+                  <span className="brand-text-subtle text-sm">›</span>
                 </button>
               ))}
             </div>
@@ -202,32 +224,32 @@ export default function AdminMembersPage() {
         {/* 회원 상세 패널 */}
         {selectedUser && (
           <div className="lg:w-96 shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-20">
+            <div className="brand-card-soft sticky top-24 rounded-3xl p-6">
               {detailLoading ? (
-                <div className="text-center py-8 text-slate-400 text-sm">불러오는 중...</div>
+                <div className="brand-text-subtle py-8 text-center text-sm">불러오는 중...</div>
               ) : (
                 <>
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="brand-avatar-shell flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full">
                       {selectedUser.profileImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={selectedUser.profileImage} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-3xl text-slate-300">👤</span>
+                        <span className="text-3xl">🏄</span>
                       )}
                     </div>
                     <div>
-                      <h2 className="text-lg font-extrabold text-slate-900">{selectedUser.name || "이름 없음"}</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">카카오 ID: {selectedUser.kakaoId}</p>
-                      <p className="text-xs text-slate-400">가입일: {new Date(selectedUser.createdAt).toLocaleDateString("ko-KR")}</p>
+                      <h2 className="text-lg font-extrabold text-[var(--brand-text)]">{selectedUser.name || "이름 없음"}</h2>
+                      <p className="brand-text-subtle mt-0.5 text-xs">카카오 ID: {selectedUser.kakaoId}</p>
+                      <p className="brand-text-subtle text-xs">가입일: {new Date(selectedUser.createdAt).toLocaleDateString("ko-KR")}</p>
                       {selectedUser.penaltyCount > 0 && (
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
                             패널티 {selectedUser.penaltyCount}회
                           </span>
                           <button
                             onClick={() => handleResetPenalty(selectedUser.id)}
-                            className="text-xs text-slate-400 hover:text-blue-600 underline"
+                            className="brand-link text-xs underline"
                           >
                             초기화
                           </button>
@@ -238,18 +260,16 @@ export default function AdminMembersPage() {
 
                   {/* 회원 유형 변경 (관리자 전용) */}
                   <div className="mb-4">
-                    <label className="block text-xs font-bold text-slate-500 mb-2">회원 유형</label>
+                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 유형</label>
                     <div className="flex gap-2">
                       {(["REGULAR", "COMPANION"] as const).map((mt) => (
                         <button
                           key={mt}
                           onClick={() => handleMemberTypeChange(selectedUser.id, mt)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                             selectedUser.memberType === mt
-                              ? mt === "COMPANION"
-                                ? "bg-orange-500 text-white shadow-sm"
-                                : "bg-blue-600 text-white shadow-sm"
-                              : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200"
+                              ? "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)] shadow-sm"
+                              : "brand-button-secondary"
                           }`}
                         >
                           {MEMBER_TYPE_LABELS[mt]}
@@ -260,20 +280,20 @@ export default function AdminMembersPage() {
 
                   {/* 권한 변경 */}
                   <div className="mb-6">
-                    <label className="block text-xs font-bold text-slate-500 mb-2">회원 등급</label>
+                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 등급</label>
                     <div className="flex gap-2 flex-wrap">
                       {(["MEMBER", "ADMIN", "BANNED"] as const).map((role) => (
                         <button
                           key={role}
                           onClick={() => handleRoleChange(selectedUser.id, role)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                             selectedUser.role === role
                               ? role === "BANNED"
                                 ? "bg-red-600 text-white shadow-sm"
                                 : role === "ADMIN"
-                                ? "bg-purple-600 text-white shadow-sm"
-                                : "bg-green-600 text-white shadow-sm"
-                              : "bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200"
+                                ? "brand-chip-dark"
+                                : "brand-chip-soft"
+                              : "brand-button-secondary"
                           }`}
                         >
                           {ROLE_LABELS[role]}
@@ -282,18 +302,29 @@ export default function AdminMembersPage() {
                     </div>
                   </div>
 
+                  <div className="mb-6">
+                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 삭제</label>
+                    <button
+                      onClick={() => handleDeleteUser(selectedUser.id)}
+                      className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+                      type="button"
+                    >
+                      회원 삭제하기
+                    </button>
+                  </div>
+
                   {/* 활동 이력 */}
                   <div>
-                    <h3 className="text-xs font-bold text-slate-500 mb-3">활동 이력</h3>
+                    <h3 className="brand-text-muted mb-3 text-xs font-bold">활동 이력</h3>
                     <div className="space-y-2 max-h-72 overflow-y-auto">
                       {selectedUser.participants.length === 0 ? (
-                        <p className="text-xs text-slate-400 text-center py-4">활동 내역이 없습니다</p>
+                        <p className="brand-text-subtle py-4 text-center text-xs">활동 내역이 없습니다</p>
                       ) : (
                         selectedUser.participants.map((p) => (
-                          <div key={p.id} className="bg-slate-50 rounded-lg p-3 text-xs">
+                          <div key={p.id} className="brand-list-item rounded-xl p-3 text-xs">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-blue-500 font-bold">모임</span>
-                              <span className={`px-1.5 py-0.5 rounded font-bold ${
+                              <span className="brand-link font-bold">모임</span>
+                              <span className={`rounded px-1.5 py-0.5 font-bold ${
                                 p.status === "APPROVED" ? "bg-green-100 text-green-600" :
                                 p.status === "WAITLISTED" ? "bg-blue-100 text-blue-600" :
                                 "bg-slate-100 text-slate-500"
@@ -301,10 +332,10 @@ export default function AdminMembersPage() {
                                 {p.status === "APPROVED" ? "참석" : p.status === "WAITLISTED" ? "대기" : "취소"}
                               </span>
                               {p.isPenalized && (
-                                <span className="px-1.5 py-0.5 rounded font-bold bg-red-100 text-red-600">패널티</span>
+                                <span className="rounded bg-red-100 px-1.5 py-0.5 font-bold text-red-600">패널티</span>
                               )}
                             </div>
-                            <p className="text-slate-600">{p.meeting.date} · {p.meeting.startTime} · {p.meeting.location}</p>
+                            <p className="brand-text-muted">{p.meeting.date} · {p.meeting.startTime} · {p.meeting.location}</p>
                           </div>
                         ))
                       )}

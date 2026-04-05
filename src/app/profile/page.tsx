@@ -42,6 +42,18 @@ interface OwnerCompanion {
   linkedKakaoId: string | null;
 }
 
+interface LinkedCompanionInfo {
+  linked: boolean;
+  companion?: {
+    id: number;
+    name: string;
+    owner: {
+      kakaoId: string;
+      name: string | null;
+    };
+  };
+}
+
 function KakaoIcon() {
   return (
     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
@@ -95,6 +107,7 @@ function ProfilePage() {
   const [selectedCompanionId, setSelectedCompanionId] = useState<number | null>(null);
   const [newCompanionName, setNewCompanionName] = useState("");
   const [linking, setLinking] = useState(false);
+  const [linkedCompanionInfo, setLinkedCompanionInfo] = useState<LinkedCompanionInfo | null>(null);
 
   // 동반인 관리 (정회원용)
   const [companions, setCompanions] = useState<CompanionItem[]>([]);
@@ -140,6 +153,25 @@ function ProfilePage() {
         .catch(() => {});
     }
   }, [setupMemberType]);
+
+  useEffect(() => {
+    if ((user?.memberType ?? "REGULAR") !== "COMPANION") return;
+
+    fetch("/api/members")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRegularMembers(data))
+      .catch(() => {});
+
+    fetch("/api/profile/companion-link")
+      .then((r) => r.ok ? r.json() : { linked: false })
+      .then((data: LinkedCompanionInfo) => {
+        setLinkedCompanionInfo(data);
+        if (data.linked && data.companion) {
+          setSelectedOwnerKakaoId(data.companion.owner.kakaoId);
+        }
+      })
+      .catch(() => setLinkedCompanionInfo({ linked: false }));
+  }, [user?.memberType]);
 
   // 정회원 선택 시 해당 정회원의 동반인 목록 로드
   useEffect(() => {
@@ -207,6 +239,20 @@ function ProfilePage() {
     if (res.ok) {
       const updated = await res.json();
       setUser(updated);
+
+      if ((updated.memberType ?? user?.memberType) === "COMPANION" && selectedOwnerKakaoId && name.trim()) {
+        const linkRes = await fetch("/api/profile/companion-link", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ownerKakaoId: selectedOwnerKakaoId, name: name.trim() }),
+        });
+
+        if (linkRes.ok) {
+          const linked = await linkRes.json();
+          setLinkedCompanionInfo(linked);
+        }
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
@@ -273,6 +319,7 @@ function ProfilePage() {
   const isAdmin = user?.role === "ADMIN";
   const profileDisplayName = user?.name || "이름 없음";
   const profileFallbackSeed = user?.kakaoId ?? profileDisplayName;
+  const profileSaveValid = !!name.trim() && (isRegular || !!selectedOwnerKakaoId);
 
   // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
   const companionSetupValid = setupMemberType === "REGULAR" ||
@@ -510,18 +557,56 @@ function ProfilePage() {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                      회원 유형 <span className="brand-text-subtle ml-1 text-xs font-normal">(변경 불가 · 관리자 문의)</span>
+                      회원 유형
                     </label>
                     <div className="brand-input-dimmed rounded-xl px-4 py-2.5 text-sm font-semibold">
                       {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
                     </div>
                   </div>
+
+                  {!isRegular ? (
+                    <div>
+                      <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+                        소속 정회원 <span className="text-red-400">*</span>
+                      </label>
+                      <p className="brand-text-subtle mb-2 text-xs">
+                        동반인은 여기에서 소속 정회원을 다시 선택할 수 있습니다.
+                      </p>
+                      {regularMembers.length === 0 ? (
+                        <div className="brand-panel-white rounded-xl px-4 py-3">
+                          <p className="brand-text-subtle text-center text-xs">등록된 정회원이 없습니다</p>
+                        </div>
+                      ) : (
+                        <div className="brand-list-scroll h-[12.25rem] snap-y snap-mandatory space-y-1.5 overflow-y-auto rounded-xl px-2 py-2.5 scroll-py-[10px]">
+                          {regularMembers.map((member) => (
+                            <button
+                              key={member.kakaoId}
+                              type="button"
+                              onClick={() => setSelectedOwnerKakaoId(member.kakaoId)}
+                              className={`flex min-h-[2.5rem] w-full snap-start items-center rounded-xl px-3 text-left text-sm leading-none transition-colors ${
+                                selectedOwnerKakaoId === member.kakaoId
+                                  ? "bg-[var(--brand-primary-soft-strong)] font-semibold text-[var(--brand-primary-text)]"
+                                  : "brand-list-item brand-list-item-hover"
+                              }`}
+                            >
+                              <span className="block truncate text-[var(--brand-text)]">{member.name || "이름 없음"}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {linkedCompanionInfo?.linked && linkedCompanionInfo.companion ? (
+                        <p className="brand-text-subtle mt-2 text-xs">
+                          현재 연결: {linkedCompanionInfo.companion.owner.name || "이름 없음"}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               <button type="submit" disabled={saving}
                 className={`hidden w-full rounded-xl py-3.5 text-sm font-bold transition-all sm:block ${
-                  saving ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+                  saving || !profileSaveValid ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
                 }`}>
                 {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
               </button>
@@ -578,9 +663,9 @@ function ProfilePage() {
           <div className="mx-auto w-full max-w-[390px] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
             <button
               className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${
-                saving ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+                saving || !profileSaveValid ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
               }`}
-              disabled={saving}
+              disabled={saving || !profileSaveValid}
               form="profile-form"
               type="submit"
             >

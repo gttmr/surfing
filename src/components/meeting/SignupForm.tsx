@@ -203,6 +203,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [mySignupHasLesson, setMySignupHasLesson] = useState(false);
   const [mySignupHasBus, setMySignupHasBus] = useState(false);
   const [mySignupHasRental, setMySignupHasRental] = useState(false);
+  const [expandedManagedCompanions, setExpandedManagedCompanions] = useState<Set<number>>(new Set());
 
   // 동반인 관련
   const [companions, setCompanions] = useState<CompanionItem[]>([]);
@@ -449,6 +450,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setMySignupSaved(false);
     setServerError("");
     setSubmissionResult(null);
+    setExpandedManagedCompanions(new Set());
     setShowMySignupDetails(false);
   }
 
@@ -760,6 +762,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 <OptionPricingHelp guide={participantOptionPricingGuide} />
               </div>
               <div className="space-y-2">
+                <CheckboxOptionItem
+                  label="셔틀 버스"
+                  icon="🚌"
+                  checked={linkedStatus.participant.hasBus}
+                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                  disabled={updatingLinked}
+                />
                 <RadioOptionItem
                   label="강습+장비대여"
                   icon="🏄‍♂️"
@@ -772,13 +781,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   icon="🩳"
                   checked={linkedStatus.participant.hasRental}
                   onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
-                  disabled={updatingLinked}
-                />
-                <CheckboxOptionItem
-                  label="셔틀 버스"
-                  icon="🚌"
-                  checked={linkedStatus.participant.hasBus}
-                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
                   disabled={updatingLinked}
                 />
               </div>
@@ -913,6 +915,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     <OptionPricingHelp guide={participantOptionPricingGuide} />
                   </div>
                   <div className="space-y-2">
+                    <CheckboxOptionItem
+                      label="셔틀 버스"
+                      icon="🚌"
+                      checked={mySignupHasBus}
+                      onChange={() => toggleMySignupOption("hasBus")}
+                      disabled={savingMySignup}
+                    />
                     <RadioOptionItem
                       label="강습+장비대여"
                       icon="🏄‍♂️"
@@ -925,13 +934,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       icon="🩳"
                       checked={mySignupHasRental}
                       onChange={() => toggleMySignupOption("hasRental")}
-                      disabled={savingMySignup}
-                    />
-                    <CheckboxOptionItem
-                      label="셔틀 버스"
-                      icon="🚌"
-                      checked={mySignupHasBus}
-                      onChange={() => toggleMySignupOption("hasBus")}
                       disabled={savingMySignup}
                     />
                   </div>
@@ -964,11 +966,33 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     const cData = signedUpCompanionData[c.id];
                     const isSignedUp = !!cData;
                     const isLoading = companionActionLoading === c.id;
+                    const isExpanded = expandedManagedCompanions.has(c.id);
                     const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
                     return (
                       <div key={c.id} className={`rounded-lg p-3 ${isSignedUp ? "border border-green-200 bg-green-50" : "brand-list-item"}`}>
                         <div className="mb-2 flex items-center gap-2">
-                          <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
+                          <button
+                            className="flex flex-1 items-center gap-3 text-left"
+                            disabled={isLoading}
+                            onClick={() => {
+                              setExpandedManagedCompanions((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(c.id)) next.delete(c.id);
+                                else next.add(c.id);
+                                return next;
+                              });
+                            }}
+                            type="button"
+                          >
+                            <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isExpanded ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+                              {isExpanded ? (
+                                <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : null}
+                            </div>
+                            <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
+                          </button>
                           {isSignedUp ? (
                             <button
                               className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
@@ -989,38 +1013,40 @@ export function SignupForm({ meeting }: SignupFormProps) {
                             </button>
                           )}
                         </div>
-                        <div className="space-y-2">
-                          <RadioOptionItem
-                            label="강습+장비대여"
-                            icon="🏄‍♂️"
-                            checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
-                            onChange={() => isSignedUp
-                              ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
-                              : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
-                            }
-                            disabled={isLoading}
-                          />
-                          <RadioOptionItem
-                            label="장비 대여만"
-                            icon="🩳"
-                            checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
-                            onChange={() => isSignedUp
-                              ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
-                              : setCompanionOpt(c.id, "hasRental", !opts.hasRental)
-                            }
-                            disabled={isLoading}
-                          />
-                          <CheckboxOptionItem
-                            label="셔틀 버스"
-                            icon="🚌"
-                            checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
-                            onChange={() => isSignedUp
-                              ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
-                              : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
-                            }
-                            disabled={isLoading}
-                          />
-                        </div>
+                        {isExpanded ? (
+                          <div className="space-y-2">
+                            <CheckboxOptionItem
+                              label="셔틀 버스"
+                              icon="🚌"
+                              checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
+                                : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                              }
+                              disabled={isLoading}
+                            />
+                            <RadioOptionItem
+                              label="강습+장비대여"
+                              icon="🏄‍♂️"
+                              checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
+                                : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
+                              }
+                              disabled={isLoading}
+                            />
+                            <RadioOptionItem
+                              label="장비 대여만"
+                              icon="🩳"
+                              checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
+                                : setCompanionOpt(c.id, "hasRental", !opts.hasRental)
+                              }
+                              disabled={isLoading}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -1128,9 +1154,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <OptionPricingHelp guide={participantOptionPricingGuide} />
         </div>
         <div className="space-y-2">
+          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
           <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
           <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
-          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
         </div>
       </div>
 
@@ -1187,9 +1213,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   </button>
                   {isSelected && (
                     <div className="mt-2 space-y-2 pl-8">
+                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                       <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <RadioOptionItem label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
-                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -1231,9 +1257,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       className="brand-text-subtle ml-1 text-xs transition-colors hover:text-red-500">✕</button>
                   </div>
                   <div className="space-y-2 pl-0">
+                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                     <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <RadioOptionItem label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
-                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                   </div>
                 </div>
               ))}
