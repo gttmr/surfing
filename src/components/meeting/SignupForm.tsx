@@ -489,6 +489,15 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       const data = await res.json();
       const compCount = data.companions?.length ?? 0;
+      setMyParticipant({
+        id: data.id,
+        status: data.status,
+        waitlistPosition: data.waitlistPosition ?? null,
+        note,
+        hasLesson,
+        hasBus,
+        hasRental,
+      });
       setSubmissionResult({
         status: data.status,
         waitlistPosition: data.waitlistPosition ?? null,
