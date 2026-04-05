@@ -474,7 +474,7 @@ export default function SurfClubLandingPage({
                 {selectedMeetings.map((meeting) => (
                   <EmbeddedMeetingDetail
                     activeTab={activeMeetingTab}
-                    key={`${meeting.id}-${meeting.approvedCount}-${meeting.isOpen ? 1 : 0}`}
+                    key={meeting.id}
                     meetingId={meeting.id}
                   />
                 ))}
