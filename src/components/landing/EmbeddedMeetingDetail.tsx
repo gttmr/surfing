@@ -138,7 +138,7 @@ export default function EmbeddedMeetingDetail({
   }
 
   return (
-    <section className="brand-card min-h-[34rem] space-y-3 rounded-[24px] p-4">
+    <section className={`brand-card space-y-3 rounded-[24px] p-4 ${activeTab === "status" ? "min-h-[34rem]" : ""}`}>
       {activeTab === "apply" ? (
         <div className="space-y-3">
           <div className="brand-inset-panel rounded-2xl p-3.5">
