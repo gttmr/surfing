@@ -47,16 +47,16 @@ function ForecastCard({
   accent?: boolean;
 }) {
   return (
-    <article className="rounded-2xl bg-[#f9f9f9] p-2.5 shadow-[inset_0_0_0_1px_rgba(205,199,170,0.12)]">
+    <article className="brand-inset-panel rounded-2xl p-2.5">
       <div className="mb-2 flex justify-between">
         <Icon className={`text-[18px] ${accent ? "text-[var(--brand-primary-text)]" : "text-[var(--brand-primary-text-strong)]"}`} name={icon} />
       </div>
-      <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.28em] text-[#4b4732]/40">{label}</p>
+      <p className="brand-text-subtle mb-1 text-[9px] font-bold uppercase tracking-[0.28em]">{label}</p>
       <div className="flex items-baseline gap-1">
         <h3 className="font-headline text-[1.5rem] font-extrabold leading-none tracking-[-0.05em]">{value}</h3>
-        {suffix ? <span className="text-xs font-medium text-[#4b4732]/60">{suffix}</span> : null}
+        {suffix ? <span className="brand-text-muted text-xs font-medium">{suffix}</span> : null}
       </div>
-      {meta ? <p className="mt-1.5 text-[11px] font-semibold text-[#4b4732]/60">{meta}</p> : null}
+      {meta ? <p className="brand-text-muted mt-1.5 text-[11px] font-semibold">{meta}</p> : null}
     </article>
   );
 }
@@ -140,18 +140,18 @@ export default function WaveForecastSummary({
       <div className="mb-2.5 flex items-end justify-between gap-4">
         <div>
           <h2 className="font-headline text-base font-bold tracking-[-0.03em]">파도 예보</h2>
-          <p className="mt-0.5 text-[11px] font-semibold text-[#4b4732]/55">{location} · {date}</p>
+          <p className="brand-text-muted mt-0.5 text-[11px] font-semibold">{location} · {date}</p>
         </div>
       </div>
 
       {loading ? (
         <div className="grid grid-cols-3 gap-2">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-[88px] animate-pulse rounded-2xl bg-[#f3f3f3]" />
+            <div key={index} className="brand-panel-white h-[88px] animate-pulse rounded-2xl" />
           ))}
         </div>
       ) : error || !summary ? (
-        <div className="rounded-2xl bg-[#f9f9f9] px-3 py-3 text-sm font-medium text-[#4b4732]/70 shadow-[inset_0_0_0_1px_rgba(205,199,170,0.12)]">
+        <div className="brand-inset-panel brand-text-muted rounded-2xl px-3 py-3 text-sm font-medium">
           아직 예보가 없습니다.
         </div>
       ) : (

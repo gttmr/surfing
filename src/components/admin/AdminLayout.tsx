@@ -8,9 +8,10 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "대시보드", icon: "📊", exact: true },
+  { href: "/admin", label: "메시지관리", icon: "📢", exact: true },
   { href: "/admin/meetings", label: "모임관리", icon: "👥", exact: false },
   { href: "/admin/members", label: "회원관리", icon: "🧑‍💼", exact: false },
+  { href: "/admin/pricing", label: "비용책정", icon: "💳", exact: false },
   { href: "/admin/settings", label: "설정", icon: "⚙️", exact: false },
 ];
 
@@ -29,36 +30,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* 상단 헤더 */}
-      <header className="bg-hero-gradient text-white sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
+      <header className="brand-header-surface sticky top-0 z-20">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-blue-200 hover:text-white text-sm transition-colors">&larr; 사이트</Link>
-            <span className="text-blue-300">|</span>
-            <span className="font-bold">관리자</span>
+            <Link href="/" className="brand-link text-sm font-semibold transition-colors">&larr; 사이트</Link>
+            <span className="brand-text-subtle">|</span>
+            <span className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</span>
           </div>
           <button
             onClick={handleLogout}
-            className="text-blue-200 hover:text-white text-sm transition-colors"
+            className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
           >
             로그아웃
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col md:flex-row max-w-6xl mx-auto w-full">
-        {/* 사이드바 (데스크탑) */}
-        <aside className="hidden md:block w-52 shrink-0 p-4">
-          <nav className="space-y-1 sticky top-16">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:flex-row">
+        <aside className="hidden w-56 shrink-0 p-4 md:block md:p-6">
+          <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors
                   ${isActive(item)
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-600 hover:bg-white hover:text-slate-900"
+                    ? "brand-chip-dark"
+                    : "brand-list-item brand-list-item-hover"
                   }`}
               >
                 <span>{item.icon}</span>
@@ -68,21 +67,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </nav>
         </aside>
 
-        {/* 메인 콘텐츠 */}
-        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6">
+        <main className="flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">
           {children}
         </main>
       </div>
 
-      {/* 하단 탭 (모바일) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-10">
+      <nav className="brand-bottom-dock fixed bottom-0 left-0 right-0 z-20 md:hidden">
         <div className="flex">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center py-2 text-xs font-medium transition-colors
-                ${isActive(item) ? "text-blue-600" : "text-slate-400"}`}
+              className={`flex flex-1 flex-col items-center py-2 text-xs font-semibold transition-colors
+                ${isActive(item) ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
             >
               <span className="text-xl">{item.icon}</span>
               {item.label}

@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
-import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 
 interface UserProfile {
   id: number;
@@ -43,6 +42,18 @@ interface OwnerCompanion {
   linkedKakaoId: string | null;
 }
 
+interface LinkedCompanionInfo {
+  linked: boolean;
+  companion?: {
+    id: number;
+    name: string;
+    owner: {
+      kakaoId: string;
+      name: string | null;
+    };
+  };
+}
+
 function KakaoIcon() {
   return (
     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
@@ -59,32 +70,6 @@ const MEMBER_TYPE_COLORS: Record<string, string> = {
   REGULAR: "brand-chip-soft",
   COMPANION: "brand-chip-companion",
 };
-
-function HeaderProfileButton({
-  name,
-  image,
-  fallbackSeed,
-}: {
-  name: string;
-  image: string | null;
-  fallbackSeed?: string | null;
-}) {
-  const fallbackEmoji = pickSurfAvatarEmoji(fallbackSeed ?? name);
-
-  return (
-    <div className="flex items-center">
-      <span className="sr-only">프로필</span>
-      <div className="brand-avatar-shell flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm">
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt={name} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={image} />
-        ) : (
-          <span className="text-sm font-extrabold">{fallbackEmoji}</span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function ProfilePageWrapper() {
   return (
@@ -122,6 +107,7 @@ function ProfilePage() {
   const [selectedCompanionId, setSelectedCompanionId] = useState<number | null>(null);
   const [newCompanionName, setNewCompanionName] = useState("");
   const [linking, setLinking] = useState(false);
+  const [linkedCompanionInfo, setLinkedCompanionInfo] = useState<LinkedCompanionInfo | null>(null);
 
   // 동반인 관리 (정회원용)
   const [companions, setCompanions] = useState<CompanionItem[]>([]);
@@ -167,6 +153,25 @@ function ProfilePage() {
         .catch(() => {});
     }
   }, [setupMemberType]);
+
+  useEffect(() => {
+    if ((user?.memberType ?? "REGULAR") !== "COMPANION") return;
+
+    fetch("/api/members")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setRegularMembers(data))
+      .catch(() => {});
+
+    fetch("/api/profile/companion-link")
+      .then((r) => r.ok ? r.json() : { linked: false })
+      .then((data: LinkedCompanionInfo) => {
+        setLinkedCompanionInfo(data);
+        if (data.linked && data.companion) {
+          setSelectedOwnerKakaoId(data.companion.owner.kakaoId);
+        }
+      })
+      .catch(() => setLinkedCompanionInfo({ linked: false }));
+  }, [user?.memberType]);
 
   // 정회원 선택 시 해당 정회원의 동반인 목록 로드
   useEffect(() => {
@@ -234,6 +239,20 @@ function ProfilePage() {
     if (res.ok) {
       const updated = await res.json();
       setUser(updated);
+
+      if ((updated.memberType ?? user?.memberType) === "COMPANION" && selectedOwnerKakaoId && name.trim()) {
+        const linkRes = await fetch("/api/profile/companion-link", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ownerKakaoId: selectedOwnerKakaoId, name: name.trim() }),
+        });
+
+        if (linkRes.ok) {
+          const linked = await linkRes.json();
+          setLinkedCompanionInfo(linked);
+        }
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
@@ -300,6 +319,7 @@ function ProfilePage() {
   const isAdmin = user?.role === "ADMIN";
   const profileDisplayName = user?.name || "이름 없음";
   const profileFallbackSeed = user?.kakaoId ?? profileDisplayName;
+  const profileSaveValid = !!name.trim() && (isRegular || !!selectedOwnerKakaoId);
 
   // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
   const companionSetupValid = setupMemberType === "REGULAR" ||
@@ -310,7 +330,7 @@ function ProfilePage() {
       {/* 첫 로그인 설정 모달 */}
       {showSetup && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 overflow-y-auto py-8">
-          <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6 shadow-xl">
+          <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6">
             <div className="text-center mb-5">
               <div className="text-4xl mb-2">🏄‍♂️</div>
               <h2 className="text-xl font-extrabold text-[var(--brand-text)]">환영합니다!</h2>
@@ -339,14 +359,14 @@ function ProfilePage() {
                 </label>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setSetupMemberType("REGULAR"); setSelectedOwnerKakaoId(null); }}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
-                      setupMemberType === "REGULAR" ? "brand-toggle-active" : "brand-button-secondary hover:border-[var(--brand-primary-border-strong)]"
+                    className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                      setupMemberType === "REGULAR" ? "brand-toggle-active" : "brand-button-secondary"
                     }`}>
                     정회원
                   </button>
                   <button type="button" onClick={() => setSetupMemberType("COMPANION")}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
-                      setupMemberType === "COMPANION" ? "border-[var(--brand-primary-border-strong)] bg-[var(--brand-primary-soft-accent)] text-[var(--brand-text)]" : "brand-button-secondary hover:border-[var(--brand-primary-border-strong)]"
+                    className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                      setupMemberType === "COMPANION" ? "brand-list-item-active" : "brand-button-secondary"
                     }`}>
                     동반인
                   </button>
@@ -368,7 +388,7 @@ function ProfilePage() {
                     {regularMembers.length === 0 ? (
                       <p className="brand-text-subtle py-3 text-center text-xs">등록된 정회원이 없습니다</p>
                     ) : (
-                      <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-xl border border-[var(--brand-divider)] p-2">
+                      <div className="brand-list-scroll max-h-36 space-y-1.5 overflow-y-auto rounded-xl p-2">
                         {regularMembers.map((m) => (
                           <button key={m.kakaoId} type="button"
                             onClick={() => setSelectedOwnerKakaoId(m.kakaoId)}
@@ -397,10 +417,10 @@ function ProfilePage() {
                           {ownerCompanions.filter((c) => !c.linkedKakaoId).map((c) => (
                             <button key={c.id} type="button"
                               onClick={() => { setSelectedCompanionId(selectedCompanionId === c.id ? null : c.id); setNewCompanionName(""); }}
-                              className={`w-full text-left px-3 py-2.5 rounded-xl border-2 text-sm transition-all ${
+                              className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
                                 selectedCompanionId === c.id
-                                  ? "border-[var(--brand-primary-border-strong)] bg-[var(--brand-primary-soft-accent)] text-[var(--brand-text)] font-semibold"
-                                  : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] hover:border-[var(--brand-primary-border-strong)]"
+                                  ? "brand-list-item-active font-semibold"
+                                  : "text-[var(--brand-text)]"
                               }`}>
                               {c.name}
                             </button>
@@ -439,7 +459,7 @@ function ProfilePage() {
         </div>
       )}
 
-      <header className="fixed inset-x-0 top-0 z-50 bg-[var(--brand-surface-elevated)] shadow-[0_8px_24px_var(--brand-shadow)]">
+      <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <Link href="/" className="flex h-12 items-center">
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
@@ -453,13 +473,19 @@ function ProfilePage() {
                 관리자
               </Link>
             ) : null}
-            <HeaderProfileButton fallbackSeed={profileFallbackSeed} image={user?.profileImage ?? null} name={profileDisplayName} />
+            <button
+              className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold transition-colors"
+              onClick={handleLogout}
+              type="button"
+            >
+              로그아웃
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
-        <section className="flex flex-col items-center pt-2">
+      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
+        <section className="flex flex-col items-center pt-0 sm:pt-2">
           <ProfileImageUploader
             currentImage={user?.profileImage ?? null}
             fallbackSeed={profileFallbackSeed}
@@ -467,9 +493,9 @@ function ProfilePage() {
               setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
             }}
           />
-          <h1 className="mt-4 text-xl font-extrabold text-[var(--brand-text)]">{profileDisplayName}</h1>
+          <h1 className="mt-3 text-xl font-extrabold text-[var(--brand-text)] sm:mt-4">{profileDisplayName}</h1>
           <p className="brand-text-subtle mt-1 text-xs">가입일 {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <div className="mt-2 flex flex-wrap justify-center gap-2 sm:mt-3">
             {user?.memberType ? (
               <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "brand-chip-soft"}`}>
                 {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
@@ -484,11 +510,11 @@ function ProfilePage() {
         </section>
 
         {isRegular ? (
-          <div className="border-b border-[var(--brand-divider)]">
+          <div className="brand-tab-bar">
             <div className="flex">
               <button
                 className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-                  activeTab === "profile" ? "border-[var(--brand-primary)] text-[var(--brand-text)]" : "border-transparent text-[var(--brand-text-subtle)]"
+                  activeTab === "profile" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveTab("profile")}
                 type="button"
@@ -500,7 +526,7 @@ function ProfilePage() {
               </button>
               <button
                 className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-                  activeTab === "companions" ? "border-[var(--brand-primary)] text-[var(--brand-text)]" : "border-transparent text-[var(--brand-text-subtle)]"
+                  activeTab === "companions" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveTab("companions")}
                 type="button"
@@ -514,10 +540,10 @@ function ProfilePage() {
           </div>
         ) : null}
 
-        <div className={isRegular ? "min-h-[27rem]" : ""}>
+        <div className={isRegular ? "min-h-[23rem] sm:min-h-[27rem]" : ""}>
           {(!isRegular || activeTab === "profile") ? (
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="brand-card-soft rounded-2xl p-6">
+            <form id="profile-form" onSubmit={handleSave} className="space-y-4 sm:space-y-6">
+              <div className="brand-card-soft rounded-2xl p-5 sm:p-6">
                 <div className="space-y-4">
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름(닉네임)</label>
@@ -531,18 +557,56 @@ function ProfilePage() {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                      회원 유형 <span className="brand-text-subtle ml-1 text-xs font-normal">(변경 불가 · 관리자 문의)</span>
+                      회원 유형
                     </label>
                     <div className="brand-input-dimmed rounded-xl px-4 py-2.5 text-sm font-semibold">
                       {MEMBER_TYPE_LABELS[user?.memberType ?? "REGULAR"] ?? "정회원"}
                     </div>
                   </div>
+
+                  {!isRegular ? (
+                    <div>
+                      <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+                        소속 정회원 <span className="text-red-400">*</span>
+                      </label>
+                      <p className="brand-text-subtle mb-2 text-xs">
+                        동반인은 여기에서 소속 정회원을 다시 선택할 수 있습니다.
+                      </p>
+                      {regularMembers.length === 0 ? (
+                        <div className="brand-panel-white rounded-xl px-4 py-3">
+                          <p className="brand-text-subtle text-center text-xs">등록된 정회원이 없습니다</p>
+                        </div>
+                      ) : (
+                        <div className="brand-list-scroll h-[12.25rem] snap-y snap-mandatory space-y-1.5 overflow-y-auto rounded-xl px-2 py-2.5 scroll-py-[10px]">
+                          {regularMembers.map((member) => (
+                            <button
+                              key={member.kakaoId}
+                              type="button"
+                              onClick={() => setSelectedOwnerKakaoId(member.kakaoId)}
+                              className={`flex min-h-[2.5rem] w-full snap-start items-center rounded-xl px-3 text-left text-sm leading-none transition-colors ${
+                                selectedOwnerKakaoId === member.kakaoId
+                                  ? "bg-[var(--brand-primary-soft-strong)] font-semibold text-[var(--brand-primary-text)]"
+                                  : "brand-list-item brand-list-item-hover"
+                              }`}
+                            >
+                              <span className="block truncate text-[var(--brand-text)]">{member.name || "이름 없음"}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {linkedCompanionInfo?.linked && linkedCompanionInfo.companion ? (
+                        <p className="brand-text-subtle mt-2 text-xs">
+                          현재 연결: {linkedCompanionInfo.companion.owner.name || "이름 없음"}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               <button type="submit" disabled={saving}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
-                  saving ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+                className={`hidden w-full rounded-xl py-3.5 text-sm font-bold transition-all sm:block ${
+                  saving || !profileSaveValid ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
                 }`}>
                 {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
               </button>
@@ -572,7 +636,7 @@ function ProfilePage() {
               ) : (
                 <div className="space-y-2">
                   {companions.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 rounded-xl border border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)] p-3">
+                    <div key={c.id} className="brand-list-item flex items-center gap-3 rounded-xl p-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[var(--brand-text)]">{c.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -593,14 +657,23 @@ function ProfilePage() {
           ) : null}
         </div>
 
-        <button
-          className="brand-button-secondary rounded-2xl px-4 py-3 text-sm font-semibold transition-colors hover:border-[var(--brand-primary-border-strong)]"
-          onClick={handleLogout}
-          type="button"
-        >
-          로그아웃
-        </button>
       </main>
+      {(!isRegular || activeTab === "profile") ? (
+        <div className="brand-bottom-dock fixed inset-x-0 bottom-0 z-40 backdrop-blur sm:hidden">
+          <div className="mx-auto w-full max-w-[390px] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+            <button
+              className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${
+                saving || !profileSaveValid ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+              }`}
+              disabled={saving || !profileSaveValid}
+              form="profile-form"
+              type="submit"
+            >
+              {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

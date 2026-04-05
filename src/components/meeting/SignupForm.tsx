@@ -8,6 +8,7 @@ import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
 } from "@/lib/settings";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface SessionUser {
   kakaoId: string;
@@ -36,6 +37,23 @@ interface NewCompanionEntry {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+}
+
+interface MyParticipantData {
+  id: number;
+  status: string;
+  waitlistPosition: number | null;
+  note: string;
+  hasLesson: boolean;
+  hasBus: boolean;
+  hasRental: boolean;
+}
+
+interface SubmissionResult {
+  status: "APPROVED" | "WAITLISTED" | "CANCELLED";
+  waitlistPosition: number | null;
+  name: string;
+  companions: number;
 }
 
 // 참가 후 동반인 관리용 (participantId 포함)
@@ -67,10 +85,10 @@ function OptionPricingHelp({ guide }: { guide: string }) {
         type="button"
         aria-label="참가 옵션 가격 안내"
         onClick={() => setOpen((value) => !value)}
-        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
+        className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
           open
-            ? "brand-chip-dark border-[var(--brand-primary)]"
-            : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] hover:border-[var(--brand-primary-border-strong)]"
+            ? "brand-chip-dark brand-help-trigger-active"
+            : "brand-choice"
         }`}
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[14px] leading-none">info</span>
@@ -103,9 +121,9 @@ function RadioOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
+      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
+      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
         {checked ? (
           <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -138,9 +156,9 @@ function CheckboxOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
+      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
+      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
         {checked ? (
           <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -176,11 +194,16 @@ export function SignupForm({ meeting }: SignupFormProps) {
   const [duplicate, setDuplicate] = useState(false);
 
   // 이미 신청한 참가 정보
-  const [myParticipant, setMyParticipant] = useState<{
-    id: number;
-    status: string;
-    waitlistPosition: number | null;
-  } | null>(null);
+  const [myParticipant, setMyParticipant] = useState<MyParticipantData | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
+  const [showMySignupDetails, setShowMySignupDetails] = useState(false);
+  const [savingMySignup, setSavingMySignup] = useState(false);
+  const [mySignupSaved, setMySignupSaved] = useState(false);
+  const [mySignupNote, setMySignupNote] = useState("");
+  const [mySignupHasLesson, setMySignupHasLesson] = useState(false);
+  const [mySignupHasBus, setMySignupHasBus] = useState(false);
+  const [mySignupHasRental, setMySignupHasRental] = useState(false);
+  const [expandedManagedCompanions, setExpandedManagedCompanions] = useState<Set<number>>(new Set());
 
   // 동반인 관련
   const [companions, setCompanions] = useState<CompanionItem[]>([]);
@@ -269,28 +292,38 @@ export function SignupForm({ meeting }: SignupFormProps) {
   }, [user, userProfile]);
 
   // 참가 상태 + 동반인 참가 데이터
-  const refreshParticipants = useCallback(() => {
+  const refreshParticipants = useCallback(async () => {
     if (!user?.kakaoId) return;
-    fetch(`/api/meetings/${meeting.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.participants) return;
-        const mine = data.participants.find(
-          (p: { kakaoId: string; status: string; companionId: number | null }) =>
-            p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
-        );
-        setMyParticipant(mine ? { id: mine.id, status: mine.status, waitlistPosition: mine.waitlistPosition } : null);
 
-        // 동반인 참가 데이터 (participantId + hasLesson/hasBus)
-        const data2: Record<number, SignedUpCompanionData> = {};
-        for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[]) {
-          if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
-            data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus, hasRental: p.hasRental };
-          }
+    try {
+      const response = await fetch(`/api/meetings/${meeting.id}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!data.participants) return;
+
+      const mine = data.participants.find(
+        (p: { kakaoId: string; status: string; companionId: number | null }) =>
+          p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
+      );
+      setMyParticipant(mine ? {
+        id: mine.id,
+        status: mine.status,
+        waitlistPosition: mine.waitlistPosition,
+        note: mine.note ?? "",
+        hasLesson: !!mine.hasLesson,
+        hasBus: !!mine.hasBus,
+        hasRental: !!mine.hasRental,
+      } : null);
+
+      const data2: Record<number, SignedUpCompanionData> = {};
+      for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[]) {
+        if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
+          data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus, hasRental: p.hasRental };
         }
-        setSignedUpCompanionData(data2);
-      })
-      .catch(() => {});
+      }
+      setSignedUpCompanionData(data2);
+    } catch {
+      // keep current UI state when refresh fails
+    }
   }, [user, meeting.id]);
 
   // 연동 동반인 모임 상태 새로고침
@@ -302,7 +335,23 @@ export function SignupForm({ meeting }: SignupFormProps) {
       .catch(() => {});
   }, [user, userProfile, meeting.id]);
 
-  useEffect(() => { refreshParticipants(); }, [refreshParticipants]);
+  useEffect(() => { void refreshParticipants(); }, [refreshParticipants]);
+
+  useEffect(() => {
+    if (!myParticipant) {
+      setShowMySignupDetails(false);
+      setMySignupNote("");
+      setMySignupHasLesson(false);
+      setMySignupHasBus(false);
+      setMySignupHasRental(false);
+      return;
+    }
+
+    setMySignupNote(myParticipant.note ?? "");
+    setMySignupHasLesson(myParticipant.hasLesson);
+    setMySignupHasBus(myParticipant.hasBus);
+    setMySignupHasRental(myParticipant.hasRental);
+  }, [myParticipant]);
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -370,6 +419,41 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setHasBus((current) => !current);
   }
 
+  function toggleMySignupOption(field: "hasLesson" | "hasBus" | "hasRental") {
+    if (field === "hasLesson") {
+      setMySignupHasLesson((current) => {
+        const next = !current;
+        if (next) setMySignupHasRental(false);
+        return next;
+      });
+      return;
+    }
+    if (field === "hasRental") {
+      setMySignupHasRental((current) => {
+        const next = !current;
+        if (next) setMySignupHasLesson(false);
+        return next;
+      });
+      return;
+    }
+    setMySignupHasBus((current) => !current);
+  }
+
+  function closeMySignupDetails() {
+    if (myParticipant) {
+      setMySignupNote(myParticipant.note ?? "");
+      setMySignupHasLesson(myParticipant.hasLesson);
+      setMySignupHasBus(myParticipant.hasBus);
+      setMySignupHasRental(myParticipant.hasRental);
+    }
+    setShowCancelConfirm(false);
+    setMySignupSaved(false);
+    setServerError("");
+    setSubmissionResult(null);
+    setExpandedManagedCompanions(new Set());
+    setShowMySignupDetails(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { setNameError("이름을 입력해주세요"); return; }
@@ -407,9 +491,35 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       const data = await res.json();
       const compCount = data.companions?.length ?? 0;
-      router.push(
-        `/signup/confirm?status=${data.status}&waitlist=${data.waitlistPosition ?? ""}&meetingId=${meeting.id}&name=${encodeURIComponent(name)}&companions=${compCount}`
-      );
+      setMyParticipant({
+        id: data.id,
+        status: data.status,
+        waitlistPosition: data.waitlistPosition ?? null,
+        note,
+        hasLesson,
+        hasBus,
+        hasRental,
+      });
+      setSubmissionResult({
+        status: data.status,
+        waitlistPosition: data.waitlistPosition ?? null,
+        name,
+        companions: compCount,
+      });
+      setShowMySignupDetails(false);
+      setShowCancelConfirm(false);
+      setSelectedCompanions(new Set());
+      setCompanionOptions({});
+      setNewCompanions([]);
+      setNewCompanionInput("");
+      setNote("");
+      setHasLesson(false);
+      setHasBus(false);
+      setHasRental(false);
+      await refreshParticipants();
+      router.refresh();
+      setSubmitting(false);
+      return;
     } catch {
       setServerError("네트워크 오류가 발생했습니다.");
       setSubmitting(false);
@@ -538,6 +648,50 @@ export function SignupForm({ meeting }: SignupFormProps) {
     }
   }
 
+  async function handleSaveMySignup() {
+    if (!myParticipant) return;
+
+    setSavingMySignup(true);
+    setMySignupSaved(false);
+    setServerError("");
+
+    try {
+      const res = await fetch(`/api/participants/${myParticipant.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: mySignupNote,
+          hasLesson: mySignupHasLesson,
+          hasBus: mySignupHasBus,
+          hasRental: mySignupHasRental,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setServerError(data.error ?? "신청 정보 저장 중 오류가 발생했습니다.");
+        setSavingMySignup(false);
+        return;
+      }
+
+      const updated = await res.json();
+      setMyParticipant((prev) => prev ? {
+        ...prev,
+        note: updated.note ?? "",
+        hasLesson: !!updated.hasLesson,
+        hasBus: !!updated.hasBus,
+        hasRental: !!updated.hasRental,
+      } : prev);
+      setMySignupSaved(true);
+      setTimeout(() => setMySignupSaved(false), 2500);
+      router.refresh();
+    } catch {
+      setServerError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSavingMySignup(false);
+    }
+  }
+
   // ───────────────────────────────────────────── render ─────────────────────────────────────────────
 
   if (isClosed) {
@@ -608,6 +762,13 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 <OptionPricingHelp guide={participantOptionPricingGuide} />
               </div>
               <div className="space-y-2">
+                <CheckboxOptionItem
+                  label="셔틀 버스"
+                  icon="🚌"
+                  checked={linkedStatus.participant.hasBus}
+                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+                  disabled={updatingLinked}
+                />
                 <RadioOptionItem
                   label="강습+장비대여"
                   icon="🏄‍♂️"
@@ -620,13 +781,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   icon="🩳"
                   checked={linkedStatus.participant.hasRental}
                   onChange={() => handleUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
-                  disabled={updatingLinked}
-                />
-                <CheckboxOptionItem
-                  label="셔틀 버스"
-                  icon="🚌"
-                  checked={linkedStatus.participant.hasBus}
-                  onChange={() => handleUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
                   disabled={updatingLinked}
                 />
               </div>
@@ -669,126 +823,289 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // ─── 이미 신청한 상태 (정회원) ────────────────────────────────────────────────────────────────────
   if (myParticipant) {
     const signedUpCount = Object.keys(signedUpCompanionData).length;
+    const dateObj = new Date(`${meeting.date}T00:00:00`);
+    const dayName = ["일", "월", "화", "수", "목", "금", "토"][dateObj.getDay()];
+    const [, month, day] = meeting.date.split("-");
+    const meetingDisplay = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName}) ${meeting.startTime}`;
     return (
       <div className="space-y-4">
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-          <div className="text-3xl mb-2">✓</div>
-          <p className="font-bold text-green-800">
-            {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
-          </p>
-          {signedUpCount > 0 && (
-            <p className="text-sm text-green-600 mt-1">동반인 {signedUpCount}명도 함께 신청되었습니다</p>
-          )}
-        </div>
+        {submissionResult ? (
+          <div className="brand-panel-white rounded-2xl p-5 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
+              </svg>
+            </div>
+            <h3 className="mb-1 text-lg font-extrabold text-[var(--brand-text)]">신청이 완료되었습니다!</h3>
+            <p className="brand-text-muted mb-4 text-sm">
+              {submissionResult.status === "APPROVED"
+                ? "모임 참가가 확정되었습니다."
+                : submissionResult.status === "WAITLISTED"
+                  ? `정원 초과로 대기자 ${submissionResult.waitlistPosition ?? "-"}번째로 등록되었습니다.`
+                  : "참가가 취소되었습니다."}
+            </p>
+            <div className="brand-inset-panel space-y-3 rounded-xl p-4 text-left">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">이름</span>
+                <span className="font-semibold text-[var(--brand-text)]">{submissionResult.name}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">모임</span>
+                <span className="font-semibold text-[var(--brand-text)]">{meetingDisplay}</span>
+              </div>
+              {submissionResult.companions > 0 ? (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="brand-text-subtle">동반인</span>
+                  <span className="font-semibold text-[var(--brand-text)]">{submissionResult.companions}명 함께 신청</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">상태</span>
+                <StatusBadge
+                  size="sm"
+                  status={submissionResult.status}
+                  waitlistPosition={submissionResult.waitlistPosition}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+            <div className="text-3xl mb-2">✓</div>
+            <p className="font-bold text-green-800">
+              {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
+            </p>
+            {signedUpCount > 0 && (
+              <p className="text-sm text-green-600 mt-1">동반인 {signedUpCount}명도 함께 신청되었습니다</p>
+            )}
+          </div>
+        )}
 
         {serverError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{serverError}</div>
         )}
 
-        {/* 동반인 참가 관리 */}
-        {companions.length > 0 ? (
-          <div className="brand-panel-white rounded-xl p-4">
-            <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
-              <span className="text-base">👥</span> 동반인 참가 관리
-            </p>
-            <div className="space-y-3">
-              {companions.map((c) => {
-                const cData = signedUpCompanionData[c.id];
-                const isSignedUp = !!cData;
-                const isLoading = companionActionLoading === c.id;
-                const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
-                return (
-                  <div key={c.id} className={`rounded-lg border p-3 ${isSignedUp ? "border-green-200 bg-green-50" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
-                      {isSignedUp ? (
-                        <button
-                          type="button"
-                          disabled={isLoading}
-                          onClick={() => handleCancelCompanion(c.id)}
-                          className="text-xs font-bold text-red-500 hover:text-red-600 px-2 py-1 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                        >
-                          {isLoading ? "..." : "취소"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={isLoading}
-                          onClick={() => handleAddCompanionToMeeting(c.id)}
-                          className="brand-button-secondary rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
-                        >
-                          {isLoading ? "..." : "추가"}
-                        </button>
-                      )}
-                    </div>
-                    {/* 옵션 토글 */}
-                    <div className="space-y-2 pl-0">
-                      <RadioOptionItem
-                        label="강습+장비대여"
-                        icon="🏄‍♂️"
-                        checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
-                        onChange={() => isSignedUp
-                          ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
-                          : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
-                        }
-                        disabled={isLoading}
-                      />
-                      <RadioOptionItem
-                        label="장비 대여만"
-                        icon="🩳"
-                        checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
-                        onChange={() => isSignedUp
-                          ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
-                          : setCompanionOpt(c.id, "hasRental", !opts.hasRental)
-                        }
-                        disabled={isLoading}
-                      />
-                      <CheckboxOptionItem
-                        label="셔틀 버스"
-                        icon="🚌"
-                        checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
-                        onChange={() => isSignedUp
-                          ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
-                          : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
-                        }
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="brand-panel-white rounded-xl p-4 flex items-center justify-between">
-            <span className="brand-text-muted text-sm">등록된 동반인이 없습니다</span>
-            <a href="/profile" className="brand-link text-xs font-semibold">동반인 등록 &rarr;</a>
-          </div>
-        )}
-
-        {showCancelConfirm ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
-            <p className="text-sm font-semibold text-red-800">정말 참가를 취소하시겠습니까?</p>
-            <p className="text-xs text-red-600">화요일 18시 이후 취소 시 패널티가 부과될 수 있습니다.</p>
-            {signedUpCount > 0 && (
-              <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
-            )}
-            <div className="flex gap-2">
-              <button onClick={handleCancel} disabled={cancelling}
-                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]">
-                {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
-              </button>
-              <button onClick={() => setShowCancelConfirm(false)}
-                className="brand-button-secondary px-4 py-2.5 rounded-lg text-sm transition-colors">
-                돌아가기
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setShowCancelConfirm(true)}
-            className="w-full py-3 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-colors">
-            참가 취소하기
+        {!showMySignupDetails ? (
+          <button
+            className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-all active:scale-[0.99]"
+            onClick={() => {
+              setSubmissionResult(null);
+              setShowCancelConfirm(false);
+              setServerError("");
+              setShowMySignupDetails(true);
+            }}
+            type="button"
+          >
+            참가 내역 보기
           </button>
+        ) : (
+          <>
+            <div className="brand-panel-white rounded-xl p-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름</label>
+                  <div className="brand-input-dimmed rounded-lg px-4 py-2.5 text-sm font-semibold">
+                    {profileName ?? name}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[var(--brand-text)]">내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span></p>
+                    <OptionPricingHelp guide={participantOptionPricingGuide} />
+                  </div>
+                  <div className="space-y-2">
+                    <CheckboxOptionItem
+                      label="셔틀 버스"
+                      icon="🚌"
+                      checked={mySignupHasBus}
+                      onChange={() => toggleMySignupOption("hasBus")}
+                      disabled={savingMySignup}
+                    />
+                    <RadioOptionItem
+                      label="강습+장비대여"
+                      icon="🏄‍♂️"
+                      checked={mySignupHasLesson}
+                      onChange={() => toggleMySignupOption("hasLesson")}
+                      disabled={savingMySignup}
+                    />
+                    <RadioOptionItem
+                      label="장비 대여만"
+                      icon="🩳"
+                      checked={mySignupHasRental}
+                      onChange={() => toggleMySignupOption("hasRental")}
+                      disabled={savingMySignup}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+                    비고 <span className="brand-text-subtle font-normal">(선택)</span>
+                  </label>
+                  <textarea
+                    className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]"
+                    disabled={savingMySignup}
+                    onChange={(e) => setMySignupNote(e.target.value.slice(0, 100))}
+                    placeholder="처음 참가합니다, 주차 문의 등..."
+                    rows={2}
+                    value={mySignupNote}
+                  />
+                  <p className="brand-text-subtle mt-1 text-right text-xs">{mySignupNote.length}/100</p>
+                </div>
+              </div>
+            </div>
+
+            {companions.length > 0 ? (
+              <div className="brand-panel-white rounded-xl p-4">
+                <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
+                  <span className="text-base">👥</span> 동반인 참가 관리
+                </p>
+                <div className="space-y-3">
+                  {companions.map((c) => {
+                    const cData = signedUpCompanionData[c.id];
+                    const isSignedUp = !!cData;
+                    const isLoading = companionActionLoading === c.id;
+                    const isExpanded = expandedManagedCompanions.has(c.id);
+                    const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
+                    return (
+                      <div key={c.id} className={`rounded-lg p-3 ${isSignedUp ? "border border-green-200 bg-green-50" : "brand-list-item"}`}>
+                        <div className="mb-2 flex items-center gap-2">
+                          <button
+                            className="flex flex-1 items-center gap-3 text-left"
+                            disabled={isLoading}
+                            onClick={() => {
+                              setExpandedManagedCompanions((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(c.id)) next.delete(c.id);
+                                else next.add(c.id);
+                                return next;
+                              });
+                            }}
+                            type="button"
+                          >
+                            <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isExpanded ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+                              {isExpanded ? (
+                                <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : null}
+                            </div>
+                            <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
+                          </button>
+                          {isSignedUp ? (
+                            <button
+                              className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                              disabled={isLoading}
+                              onClick={() => handleCancelCompanion(c.id)}
+                              type="button"
+                            >
+                              {isLoading ? "..." : "취소"}
+                            </button>
+                          ) : (
+                            <button
+                              className="brand-button-secondary rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
+                              disabled={isLoading}
+                              onClick={() => handleAddCompanionToMeeting(c.id)}
+                              type="button"
+                            >
+                              {isLoading ? "..." : "추가"}
+                            </button>
+                          )}
+                        </div>
+                        {isExpanded ? (
+                          <div className="space-y-2">
+                            <CheckboxOptionItem
+                              label="셔틀 버스"
+                              icon="🚌"
+                              checked={isSignedUp ? (cData?.hasBus ?? false) : opts.hasBus}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasBus", !(cData?.hasBus ?? false))
+                                : setCompanionOpt(c.id, "hasBus", !opts.hasBus)
+                              }
+                              disabled={isLoading}
+                            />
+                            <RadioOptionItem
+                              label="강습+장비대여"
+                              icon="🏄‍♂️"
+                              checked={isSignedUp ? (cData?.hasLesson ?? false) : opts.hasLesson}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasLesson", !(cData?.hasLesson ?? false))
+                                : setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)
+                              }
+                              disabled={isLoading}
+                            />
+                            <RadioOptionItem
+                              label="장비 대여만"
+                              icon="🩳"
+                              checked={isSignedUp ? (cData?.hasRental ?? false) : opts.hasRental}
+                              onChange={() => isSignedUp
+                                ? handleUpdateCompanionOption(c.id, "hasRental", !(cData?.hasRental ?? false))
+                                : setCompanionOpt(c.id, "hasRental", !opts.hasRental)
+                              }
+                              disabled={isLoading}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="brand-panel-white rounded-xl p-4 flex items-center justify-between">
+                <span className="brand-text-muted text-sm">등록된 동반인이 없습니다</span>
+                <a href="/profile" className="brand-link text-xs font-semibold">동반인 등록 &rarr;</a>
+              </div>
+            )}
+
+            {showCancelConfirm ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-5 space-y-3">
+                <p className="text-sm font-semibold text-red-800">정말 참가를 취소하시겠습니까?</p>
+                <p className="text-xs text-red-600">화요일 18시 이후 취소 시 패널티가 부과될 수 있습니다.</p>
+                {signedUpCount > 0 && (
+                  <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={handleCancel} disabled={cancelling}
+                    className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]">
+                    {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
+                  </button>
+                  <button onClick={() => setShowCancelConfirm(false)}
+                    className="brand-button-secondary px-4 py-2.5 rounded-lg text-sm transition-colors">
+                    돌아가기
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${
+                  savingMySignup ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : mySignupSaved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+                }`}
+                disabled={savingMySignup}
+                onClick={handleSaveMySignup}
+                type="button"
+              >
+                {savingMySignup ? "저장 중..." : mySignupSaved ? "저장 완료!" : "저장하기"}
+              </button>
+              <button
+                className="brand-button-secondary w-full rounded-xl py-3 text-sm font-bold transition-colors"
+                onClick={closeMySignupDetails}
+                type="button"
+              >
+                닫기
+              </button>
+            </div>
+
+            {!showCancelConfirm ? (
+              <button onClick={() => setShowCancelConfirm(true)}
+                className="w-full py-3 rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold text-sm transition-colors">
+                참가 취소하기
+              </button>
+            ) : null}
+          </>
         )}
       </div>
     );
@@ -837,9 +1154,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <OptionPricingHelp guide={participantOptionPricingGuide} />
         </div>
         <div className="space-y-2">
+          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
           <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => toggleMainOption("hasLesson")} disabled={submitting} />
           <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => toggleMainOption("hasRental")} disabled={submitting} />
-          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => toggleMainOption("hasBus")} disabled={submitting} />
         </div>
       </div>
 
@@ -872,7 +1189,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               const isSelected = selectedCompanions.has(c.id);
               const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
               return (
-                <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
+                <div key={c.id} className={`brand-select-card rounded-lg p-2.5 transition-all ${isSelected ? "brand-select-card-active" : ""}`}>
                   <button
                     type="button"
                     onClick={() => {
@@ -885,7 +1202,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     disabled={submitting}
                     className="w-full flex items-center gap-3 text-left"
                   >
-                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? "brand-check-active" : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)]"}`}>
+                    <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isSelected ? "brand-check-active brand-choice-indicator-active" : ""}`}>
                       {isSelected && (
                         <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -896,9 +1213,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                   </button>
                   {isSelected && (
                     <div className="mt-2 space-y-2 pl-8">
+                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                       <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={opts.hasLesson} onChange={() => setCompanionOpt(c.id, "hasLesson", !opts.hasLesson)} disabled={submitting} />
                       <RadioOptionItem label="장비 대여만" icon="🩳" checked={opts.hasRental} onChange={() => setCompanionOpt(c.id, "hasRental", !opts.hasRental)} disabled={submitting} />
-                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={opts.hasBus} onChange={() => setCompanionOpt(c.id, "hasBus", !opts.hasBus)} disabled={submitting} />
                     </div>
                   )}
                 </div>
@@ -940,9 +1257,9 @@ export function SignupForm({ meeting }: SignupFormProps) {
                       className="brand-text-subtle ml-1 text-xs transition-colors hover:text-red-500">✕</button>
                   </div>
                   <div className="space-y-2 pl-0">
+                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                     <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={nc.hasLesson} onChange={() => updateNewCompanion(idx, "hasLesson", !nc.hasLesson)} disabled={submitting} />
                     <RadioOptionItem label="장비 대여만" icon="🩳" checked={nc.hasRental} onChange={() => updateNewCompanion(idx, "hasRental", !nc.hasRental)} disabled={submitting} />
-                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={nc.hasBus} onChange={() => updateNewCompanion(idx, "hasBus", !nc.hasBus)} disabled={submitting} />
                   </div>
                 </div>
               ))}

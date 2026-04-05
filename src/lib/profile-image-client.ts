@@ -16,7 +16,13 @@ type CompressProfileImageOptions = {
   targetSize?: number;
 };
 
-function loadImage(src: string) {
+export type ProfileImageCrop = {
+  offsetX: number;
+  offsetY: number;
+  zoom: number;
+};
+
+export function loadImage(src: string) {
   const image = new Image();
   image.decoding = "async";
   image.src = src;
@@ -40,6 +46,79 @@ export function formatBytes(bytes: number) {
 export function percentSaved(original: number, compressed: number) {
   if (original <= 0) return "0%";
   return `${Math.max(0, Math.round((1 - compressed / original) * 100))}%`;
+}
+
+export async function loadImageFromFile(file: File) {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImage(objectUrl);
+    return {
+      image,
+      objectUrl,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      originalBytes: file.size,
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+export async function createProfileImageFromCrop(
+  image: HTMLImageElement,
+  originalBytes: number,
+  crop: ProfileImageCrop,
+  {
+    targetSize = 320,
+    quality = 0.78,
+    mimeType = "image/webp",
+  }: CompressProfileImageOptions = {},
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = targetSize;
+  canvas.height = targetSize;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("브라우저 캔버스를 사용할 수 없습니다.");
+  }
+
+  const coverScale = Math.max(
+    targetSize / image.naturalWidth,
+    targetSize / image.naturalHeight,
+  ) * crop.zoom;
+  const drawWidth = image.naturalWidth * coverScale;
+  const drawHeight = image.naturalHeight * coverScale;
+  const drawX = (targetSize - drawWidth) / 2 + crop.offsetX * (targetSize / 240);
+  const drawY = (targetSize - drawHeight) / 2 + crop.offsetY * (targetSize / 240);
+
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (result) => {
+        if (!result) {
+          reject(new Error("이미지 압축에 실패했습니다."));
+          return;
+        }
+        resolve(result);
+      },
+      mimeType,
+      quality,
+    );
+  });
+
+  return {
+    blob,
+    compressedBytes: blob.size,
+    height: image.naturalHeight,
+    originalBytes,
+    previewUrl: URL.createObjectURL(blob),
+    targetSize,
+    width: image.naturalWidth,
+  } satisfies CompressedProfileImage;
 }
 
 export async function compressProfileImageFile(

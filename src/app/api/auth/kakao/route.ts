@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
+function getKakaoRedirectUri(req: NextRequest) {
+  const configured = process.env.KAKAO_REDIRECT_URI?.trim();
+  const isLocal =
+    req.nextUrl.hostname === "localhost" ||
+    req.nextUrl.hostname === "127.0.0.1";
+
+  if (isLocal) {
+    return new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
+  }
+
+  return configured || new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
+}
+
 export async function GET(req: NextRequest) {
   const clientId = process.env.KAKAO_CLIENT_ID;
-  const redirectUri = process.env.KAKAO_REDIRECT_URI?.trim() || new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
+  const redirectUri = getKakaoRedirectUri(req);
 
   if (!clientId) {
     return NextResponse.json({ error: "카카오 앱이 설정되지 않았습니다" }, { status: 500 });
