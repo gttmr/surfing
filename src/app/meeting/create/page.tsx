@@ -95,7 +95,7 @@ function CreateMeetingPageContent() {
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-[0_8px_24px_rgba(26,28,28,0.06)] flex items-center gap-4 px-6 py-2 h-16">
+        <header className="brand-header-surface fixed top-0 z-50 flex h-16 w-full items-center gap-4 px-6 py-2 backdrop-blur-xl">
           <Link href="/" className="w-9 h-9 flex items-center justify-center rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors">
             <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
           </Link>
@@ -118,7 +118,7 @@ function CreateMeetingPageContent() {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Stitch 헤더 */}
-      <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-[0_8px_24px_rgba(26,28,28,0.06)] flex items-center gap-4 px-6 py-2 h-16">
+      <header className="brand-header-surface fixed top-0 z-50 flex h-16 w-full items-center gap-4 px-6 py-2 backdrop-blur-xl">
         <Link href="/" className="w-9 h-9 flex items-center justify-center rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors">
           <span className="material-symbols-outlined text-on-surface-variant">arrow_back</span>
         </Link>

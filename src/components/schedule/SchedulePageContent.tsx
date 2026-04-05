@@ -30,7 +30,7 @@ export default async function SchedulePageContent({
     createdByKakaoId: string | null;
     approvedCount: number;
   }[] = [];
-  let pinnedNotice: { title: string; body: string } | null = null;
+  let pinnedNotice: { title: string; body: string; updatedAt: string } | null = null;
 
   try {
     const dbUser = sessionUser
@@ -79,7 +79,9 @@ export default async function SchedulePageContent({
       approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
     }));
 
-    pinnedNotice = pinned ? { title: pinned.title, body: pinned.body } : null;
+    pinnedNotice = pinned
+      ? { title: pinned.title, body: pinned.body, updatedAt: pinned.updatedAt.toISOString() }
+      : null;
   } catch (error) {
     dbUnavailable = true;
     console.error("Failed to load home schedule data", error);

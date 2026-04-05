@@ -105,12 +105,12 @@ export default function EmbeddedMeetingDetail({
   }, [meetingId]);
 
   if (loading) {
-    return <div className="brand-card min-h-[34rem] animate-pulse rounded-2xl" />;
+    return <div className="brand-card-soft min-h-[34rem] animate-pulse rounded-2xl" />;
   }
 
   if (error || !meeting) {
     return (
-      <div className="brand-card rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
+      <div className="brand-card-soft rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
         모임 상세 정보를 불러오지 못했습니다.
       </div>
     );
@@ -138,10 +138,10 @@ export default function EmbeddedMeetingDetail({
   }
 
   return (
-    <section className="brand-card min-h-[34rem] space-y-3 rounded-[24px] p-4">
+    <section className={activeTab === "apply" ? "space-y-2" : ""}>
       {activeTab === "apply" ? (
-        <div className="space-y-3">
-          <div className="brand-inset-panel rounded-2xl p-3.5">
+        <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
+          <div className="border-b border-[var(--brand-divider)] pb-4">
             <div className="mb-3">
               <h3 className="font-headline text-[1.2rem] font-extrabold tracking-[-0.03em]">{displayDate}</h3>
             </div>
@@ -162,14 +162,12 @@ export default function EmbeddedMeetingDetail({
             ) : null}
           </div>
 
-          <div className="brand-card-soft rounded-2xl p-3">
-            <SignupForm meeting={meeting} />
-          </div>
+          <SignupForm meeting={meeting} />
         </div>
       ) : (
         <div>
           {participants.length ? (
-            <div className="brand-inset-panel overflow-hidden rounded-2xl">
+            <div className="brand-card-soft overflow-hidden rounded-2xl">
               {(() => {
                 return participants.map((participant) => {
                   const isCompanion = participant.companionId !== null;
@@ -180,15 +178,15 @@ export default function EmbeddedMeetingDetail({
                   return (
                     <div
                       key={participant.id}
-                      className={`flex gap-3 border-b border-[var(--brand-divider)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-[var(--brand-surface-elevated)] pl-9" : ""}`}
+                      className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-10" : ""}`}
                     >
                       <ParticipantAvatar participant={participant} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
                           {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                          {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
                           {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
+                          {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
                           {participant.hasRental ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
                         </div>
                         {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}

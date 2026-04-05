@@ -163,19 +163,24 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
 
   return (
     <AdminLayout>
-      {/* 상단 정보 */}
-      <div className="flex items-start gap-3 mb-4">
-        <Link href="/admin/meetings" className="brand-text-subtle brand-link mt-0.5 text-xl">&larr;</Link>
+      <div className="mb-6 flex items-start gap-3">
+        <Link href="/admin/meetings" className="brand-link mt-0.5 text-xl">&larr;</Link>
         <div className="flex-1">
-          <h1 className="text-xl font-extrabold text-[var(--brand-text)]">{displayDate}</h1>
+          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">{displayDate}</h1>
           <p className="brand-text-muted mt-0.5 text-sm">
             {meeting.startTime}–{meeting.endTime} · {meeting.location}
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href={`/admin/meetings/${id}/settlement`}
+            className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+          >
+            정산 관리
+          </Link>
           <button
             onClick={handleToggleOpen}
-            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors
               ${meeting.isOpen
                 ? "brand-button-secondary"
                 : "bg-green-100 text-green-700 hover:bg-green-200"
@@ -185,32 +190,36 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
           </button>
           <button
             onClick={handleDelete}
-            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors border border-red-100"
+            className="shrink-0 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
           >
             삭제
           </button>
         </div>
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-          meeting.meetingType === "비정기" ? "brand-chip-accent" : "brand-chip-soft"
-        }`}>
+      <div className="mb-5 flex items-center gap-2">
+        <span className="brand-chip-soft rounded-full px-2 py-0.5 text-xs font-semibold">
           {meeting.meetingType}
         </span>
         <span className="brand-text-muted text-sm">참가자 {meeting.approvedCount}명</span>
       </div>
 
-      {/* 탭 */}
-      <div className="brand-panel mb-4 flex gap-1 overflow-x-auto rounded-xl p-1">
+      <div className="brand-tab-bar mb-5 flex items-end gap-3 overflow-x-auto">
         {(["approved", "waitlisted", "cancelled", "all"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors
-              ${activeTab === tab ? "bg-[var(--brand-surface-elevated)] shadow-sm text-[var(--brand-text)]" : "text-[var(--brand-text-subtle)] hover:text-[var(--brand-text)]"}`}
+            className={`border-b-2 px-1 pb-3 text-sm font-extrabold whitespace-nowrap transition-colors
+              ${activeTab === tab ? "brand-tab-underline-active" : "brand-tab-underline-inactive hover:text-[var(--brand-text)]"}`}
           >
-            {TAB_LABELS[tab]} {counts[tab] > 0 && `(${counts[tab]})`}
+            <span className="inline-flex items-center gap-1.5">
+              <span>{TAB_LABELS[tab]}</span>
+              {counts[tab] > 0 ? (
+                <span className={`${activeTab === tab ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-1.5 py-0.5 text-[10px] font-bold`}>
+                  {counts[tab]}
+                </span>
+              ) : null}
+            </span>
           </button>
         ))}
       </div>
@@ -235,11 +244,11 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
                     {p.isPenalized && (
                       <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">패널티</span>
                     )}
-                    {p.hasLesson && (
-                      <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span>
-                    )}
                     {p.hasBus && (
                       <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span>
+                    )}
+                    {p.hasLesson && (
+                      <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span>
                     )}
                     {p.hasRental && (
                       <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span>

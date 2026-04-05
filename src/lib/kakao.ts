@@ -4,8 +4,7 @@
  * ID/PW 입력 없이 로그인됩니다.
  */
 export function kakaoLogin(returnTo: string) {
-  const redirectUri =
-    process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI?.trim() || `${window.location.origin}/api/auth/kakao/callback`;
+  const redirectUri = `${window.location.origin}/api/auth/kakao/callback`;
 
   if (typeof window !== "undefined" && window.Kakao?.isInitialized()) {
     window.Kakao.Auth.authorize({
