@@ -105,7 +105,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   });
 }
 
-// 강습/버스/장비대여 여부 업데이트 (정회원 또는 연동된 동반인 본인)
+// 신청 정보 업데이트 (정회원 또는 연동된 동반인 본인)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = getSessionFromRequest(req);
   if (!user) {
@@ -130,7 +130,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
-  const { hasLesson, hasBus, hasRental } = body;
+  const { hasLesson, hasBus, hasRental, note } = body;
 
   const updated = await prisma.participant.update({
     where: { id: parseInt(id) },
@@ -138,6 +138,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(hasLesson !== undefined && { hasLesson: !!hasLesson }),
       ...(hasBus !== undefined && { hasBus: !!hasBus }),
       ...(hasRental !== undefined && { hasRental: !!hasRental }),
+      ...(note !== undefined && { note: typeof note === "string" ? (note.slice(0, 100).trim() || null) : null }),
     },
   });
 
