@@ -558,7 +558,7 @@ export default function SurfClubLandingPage({
             {hasAlertCenter ? (
               <button
                 aria-label="알림 센터 열기"
-                className={`relative flex h-8 w-8 items-center justify-center transition-colors ${
+                className={`relative flex h-9 w-9 items-center justify-center transition-colors ${
                   isAlertCenterOpen
                     ? "text-[var(--brand-primary-text)]"
                     : "text-[var(--brand-text-subtle)]"
@@ -566,7 +566,7 @@ export default function SurfClubLandingPage({
                 onClick={handleOpenAlertCenter}
                 type="button"
               >
-                <NoticeGlyph className="h-4 w-4" />
+                <NoticeGlyph className="h-5 w-5" />
                 {hasUnreadAlerts ? <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[var(--brand-primary)]" /> : null}
               </button>
             ) : null}
