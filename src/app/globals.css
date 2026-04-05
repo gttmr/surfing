@@ -254,6 +254,11 @@ body {
   background-color: var(--brand-surface-elevated);
 }
 
+.brand-select-card.brand-toggle-active {
+  border-color: var(--brand-primary-border-strong);
+  color: var(--brand-primary-text);
+}
+
 .brand-select-card-active {
   border-color: var(--brand-primary-border);
 }

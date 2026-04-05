@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     where: {
       memberType: "REGULAR",
       kakaoId: { not: session.kakaoId },
+      companions: {
+        some: {},
+      },
     },
     select: {
       kakaoId: true,
