@@ -208,7 +208,7 @@ export default function AdminMeetingDetailPage({ params }: { params: Promise<{ i
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors
-              ${activeTab === tab ? "bg-[var(--brand-surface-elevated)] shadow-sm text-[var(--brand-text)]" : "text-[var(--brand-text-subtle)] hover:text-[var(--brand-text)]"}`}
+              ${activeTab === tab ? "brand-filter-tab-active" : "text-[var(--brand-text-subtle)] hover:text-[var(--brand-text)]"}`}
           >
             {TAB_LABELS[tab]} {counts[tab] > 0 && `(${counts[tab]})`}
           </button>

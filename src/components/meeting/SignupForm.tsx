@@ -85,10 +85,10 @@ function OptionPricingHelp({ guide }: { guide: string }) {
         type="button"
         aria-label="참가 옵션 가격 안내"
         onClick={() => setOpen((value) => !value)}
-        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
+        className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold transition-colors ${
           open
-            ? "brand-chip-dark border-[var(--brand-primary)]"
-            : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] hover:border-[var(--brand-primary-border-strong)]"
+            ? "brand-chip-dark brand-help-trigger-active"
+            : "brand-choice"
         }`}
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[14px] leading-none">info</span>
@@ -121,9 +121,9 @@ function RadioOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
+      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
+      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
         {checked ? (
           <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -156,9 +156,9 @@ function CheckboxOptionItem({
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className="flex w-full items-center gap-3 rounded-xl border border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] px-3 py-2.5 text-sm font-semibold text-[var(--brand-text)] transition-all hover:border-[var(--brand-primary-border-strong)] disabled:opacity-50"
+      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
     >
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)] transition-colors">
+      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
         {checked ? (
           <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -966,7 +966,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     const isLoading = companionActionLoading === c.id;
                     const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
                     return (
-                      <div key={c.id} className={`rounded-lg border p-3 ${isSignedUp ? "border-green-200 bg-green-50" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
+                      <div key={c.id} className={`rounded-lg p-3 ${isSignedUp ? "border border-green-200 bg-green-50" : "brand-list-item"}`}>
                         <div className="mb-2 flex items-center gap-2">
                           <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{c.name}</span>
                           {isSignedUp ? (
@@ -1163,7 +1163,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
               const isSelected = selectedCompanions.has(c.id);
               const opts = companionOptions[c.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
               return (
-                <div key={c.id} className={`rounded-lg border-2 p-2.5 transition-all ${isSelected ? "brand-panel-strong" : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]"}`}>
+                <div key={c.id} className={`brand-select-card rounded-lg p-2.5 transition-all ${isSelected ? "brand-select-card-active" : ""}`}>
                   <button
                     type="button"
                     onClick={() => {
@@ -1176,7 +1176,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
                     disabled={submitting}
                     className="w-full flex items-center gap-3 text-left"
                   >
-                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? "brand-check-active" : "border-[var(--brand-divider-strong)] bg-[var(--brand-surface-elevated)]"}`}>
+                    <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isSelected ? "brand-check-active brand-choice-indicator-active" : ""}`}>
                       {isSelected && (
                         <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />

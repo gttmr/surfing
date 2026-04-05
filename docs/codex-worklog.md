@@ -41,6 +41,14 @@
 - 브랜드 토큰은 `#C4DDFF`, `#7FB5FF`, `#001D6E`, `#FFFFFF` 중심으로 정리했다.
 - 일반적인 성공/에러/경고 상태색만 의미 기반 색을 유지한다.
 - 버튼, 카드, 칩, 입력창, 읽기 전용 입력창은 전부 공통 CSS 토큰 클래스를 사용한다.
+- 외곽선과 surface 계열은 `src/app/globals.css`의 공통 클래스로 최대한 모아두었다.
+- 주요 공통 클래스:
+  - `brand-card`, `brand-card-soft`, `brand-panel`, `brand-panel-white`, `brand-inset-panel`
+  - `brand-header-surface`, `brand-alert-info`, `brand-highlight-panel`
+  - `brand-choice`, `brand-choice-indicator`, `brand-select-card`, `brand-list-item`
+  - `brand-tab-bar`, `brand-tab-underline-active`, `brand-tab-underline-inactive`
+- 홈 달력, 로그인 전 모임상세, 참가하기 탭 카드, 프로필 카드, 프로필 헤더, 옵션 선택 UI는 위 클래스를 우선 사용하도록 정리했다.
+- 다음에 외곽선 두께/색/그림자를 바꿀 때는 컴포넌트보다 `src/app/globals.css`를 먼저 보면 된다.
 - `동반인` 칩만 별도 스타일(`brand-chip-companion`)로 `#FEE2C5`를 유지한다.
 
 ## 데이터/DB

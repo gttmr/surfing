@@ -111,7 +111,7 @@ export function ProfileImageUploader({
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
-        <div className="brand-avatar-shell flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 text-[1.75rem] font-extrabold shadow-[0_18px_40px_var(--brand-shadow)] sm:h-28 sm:w-28 sm:text-3xl">
+        <div className="brand-avatar-shell brand-avatar-shell-large flex h-24 w-24 items-center justify-center overflow-hidden rounded-full text-[1.75rem] font-extrabold sm:h-28 sm:w-28 sm:text-3xl">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="프로필 사진" className="h-full w-full object-cover" src={activeImage} />
@@ -121,7 +121,7 @@ export function ProfileImageUploader({
         </div>
 
         <label
-          className={`absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--brand-surface-elevated)] bg-[#7FB5FF] text-[var(--brand-primary-foreground)] shadow-lg transition-transform active:scale-95 sm:h-9 sm:w-9 ${
+          className={`brand-avatar-action absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95 sm:h-9 sm:w-9 ${
             isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
           }`}
         >

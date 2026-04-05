@@ -187,7 +187,7 @@ function MeetingAction({
   }
 
   return (
-    <div className="rounded-2xl bg-[var(--brand-primary-soft-strong)] px-4 py-3 text-center text-sm font-semibold text-[var(--brand-primary-text)] shadow-[inset_0_0_0_1px_var(--brand-ring)]">
+    <div className="brand-highlight-panel rounded-2xl px-4 py-3 text-center text-sm font-semibold">
       아래 상세 영역에서 바로 신청할 수 있습니다.
     </div>
   );
@@ -207,7 +207,7 @@ function MeetingCard({
   const [, month, day] = meeting.date.split("-");
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[var(--brand-primary-border)] bg-[var(--brand-surface-elevated)] shadow-[0_10px_30px_var(--brand-shadow)]">
+    <article className="brand-card-soft overflow-hidden rounded-2xl">
       <div className="p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -311,7 +311,7 @@ export default function SurfClubLandingPage({
 
   return (
     <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
-      <header className="fixed inset-x-0 top-0 z-50 bg-[var(--brand-surface-elevated)] shadow-[0_8px_24px_var(--brand-shadow)]">
+      <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <div className="flex h-12 items-center">
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
@@ -427,12 +427,12 @@ export default function SurfClubLandingPage({
 
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
           <section>
-            <div className="flex items-end border-b border-[var(--brand-divider-strong)]">
+            <div className="brand-tab-bar flex items-end">
               <button
                 className={`flex-1 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
                   activeMeetingTab === "apply"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-text)]"
-                    : "border-transparent text-[var(--brand-text-subtle)]"
+                    ? "brand-tab-underline-active"
+                    : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveMeetingTab("apply")}
                 type="button"
@@ -442,8 +442,8 @@ export default function SurfClubLandingPage({
               <button
                 className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
                   activeMeetingTab === "status"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-text)]"
-                    : "border-transparent text-[var(--brand-text-subtle)]"
+                    ? "brand-tab-underline-active"
+                    : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveMeetingTab("status")}
                 type="button"
@@ -466,7 +466,7 @@ export default function SurfClubLandingPage({
             ) : null}
 
             {dbUnavailable ? (
-              <div className="rounded-2xl bg-[var(--brand-primary-soft)] px-5 py-6 text-sm font-medium text-[var(--brand-primary-text)] shadow-[0_10px_30px_rgba(26,28,28,0.03)] ring-1 ring-[var(--brand-primary-border)]">
+              <div className="brand-alert-info rounded-2xl px-5 py-6 text-sm font-medium">
                 현재 데이터베이스 연결을 확인할 수 없어 일정 정보를 불러오지 못했습니다.
               </div>
             ) : user && selectedMeetings.length > 0 ? (

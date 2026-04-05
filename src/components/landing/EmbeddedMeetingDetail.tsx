@@ -105,12 +105,12 @@ export default function EmbeddedMeetingDetail({
   }, [meetingId]);
 
   if (loading) {
-    return <div className="brand-card min-h-[34rem] animate-pulse rounded-2xl" />;
+    return <div className="brand-card-soft min-h-[34rem] animate-pulse rounded-2xl" />;
   }
 
   if (error || !meeting) {
     return (
-      <div className="brand-card rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
+      <div className="brand-card-soft rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
         모임 상세 정보를 불러오지 못했습니다.
       </div>
     );
@@ -138,10 +138,10 @@ export default function EmbeddedMeetingDetail({
   }
 
   return (
-    <section className="brand-card space-y-3 rounded-[24px] p-4">
+    <section className={activeTab === "apply" ? "space-y-3" : "brand-card space-y-3 rounded-[24px] p-4"}>
       {activeTab === "apply" ? (
-        <div className="space-y-3">
-          <div className="brand-inset-panel rounded-2xl p-3.5">
+        <>
+          <div className="brand-card-soft rounded-2xl p-3.5">
             <div className="mb-3">
               <h3 className="font-headline text-[1.2rem] font-extrabold tracking-[-0.03em]">{displayDate}</h3>
             </div>
@@ -165,7 +165,7 @@ export default function EmbeddedMeetingDetail({
           <div className="brand-card-soft rounded-2xl p-3">
             <SignupForm meeting={meeting} />
           </div>
-        </div>
+        </>
       ) : (
         <div>
           {participants.length ? (
@@ -180,7 +180,7 @@ export default function EmbeddedMeetingDetail({
                   return (
                     <div
                       key={participant.id}
-                      className={`flex gap-3 border-b border-[var(--brand-divider)] px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "bg-[var(--brand-surface-elevated)] pl-9" : ""}`}
+                      className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "brand-list-row-companion pl-9" : ""}`}
                     >
                       <ParticipantAvatar participant={participant} />
                       <div className="min-w-0 flex-1">

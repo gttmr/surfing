@@ -283,7 +283,7 @@ function ProfilePage() {
       {/* 첫 로그인 설정 모달 */}
       {showSetup && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4 overflow-y-auto py-8">
-          <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6 shadow-xl">
+          <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6">
             <div className="text-center mb-5">
               <div className="text-4xl mb-2">🏄‍♂️</div>
               <h2 className="text-xl font-extrabold text-[var(--brand-text)]">환영합니다!</h2>
@@ -312,14 +312,14 @@ function ProfilePage() {
                 </label>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setSetupMemberType("REGULAR"); setSelectedOwnerKakaoId(null); }}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
-                      setupMemberType === "REGULAR" ? "brand-toggle-active" : "brand-button-secondary hover:border-[var(--brand-primary-border-strong)]"
+                    className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                      setupMemberType === "REGULAR" ? "brand-toggle-active" : "brand-button-secondary"
                     }`}>
                     정회원
                   </button>
                   <button type="button" onClick={() => setSetupMemberType("COMPANION")}
-                    className={`flex-1 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
-                      setupMemberType === "COMPANION" ? "border-[var(--brand-primary-border-strong)] bg-[var(--brand-primary-soft-accent)] text-[var(--brand-text)]" : "brand-button-secondary hover:border-[var(--brand-primary-border-strong)]"
+                    className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
+                      setupMemberType === "COMPANION" ? "brand-list-item-active" : "brand-button-secondary"
                     }`}>
                     동반인
                   </button>
@@ -341,7 +341,7 @@ function ProfilePage() {
                     {regularMembers.length === 0 ? (
                       <p className="brand-text-subtle py-3 text-center text-xs">등록된 정회원이 없습니다</p>
                     ) : (
-                      <div className="max-h-36 space-y-1.5 overflow-y-auto rounded-xl border border-[var(--brand-divider)] p-2">
+                      <div className="brand-list-scroll max-h-36 space-y-1.5 overflow-y-auto rounded-xl p-2">
                         {regularMembers.map((m) => (
                           <button key={m.kakaoId} type="button"
                             onClick={() => setSelectedOwnerKakaoId(m.kakaoId)}
@@ -370,10 +370,10 @@ function ProfilePage() {
                           {ownerCompanions.filter((c) => !c.linkedKakaoId).map((c) => (
                             <button key={c.id} type="button"
                               onClick={() => { setSelectedCompanionId(selectedCompanionId === c.id ? null : c.id); setNewCompanionName(""); }}
-                              className={`w-full text-left px-3 py-2.5 rounded-xl border-2 text-sm transition-all ${
+                              className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
                                 selectedCompanionId === c.id
-                                  ? "border-[var(--brand-primary-border-strong)] bg-[var(--brand-primary-soft-accent)] text-[var(--brand-text)] font-semibold"
-                                  : "border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] hover:border-[var(--brand-primary-border-strong)]"
+                                  ? "brand-list-item-active font-semibold"
+                                  : "text-[var(--brand-text)]"
                               }`}>
                               {c.name}
                             </button>
@@ -412,7 +412,7 @@ function ProfilePage() {
         </div>
       )}
 
-      <header className="fixed inset-x-0 top-0 z-50 bg-[var(--brand-surface-elevated)] shadow-[0_8px_24px_var(--brand-shadow)]">
+      <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <Link href="/" className="flex h-12 items-center">
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
@@ -427,7 +427,7 @@ function ProfilePage() {
               </Link>
             ) : null}
             <button
-              className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold transition-colors hover:border-[var(--brand-primary-border-strong)]"
+              className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold transition-colors"
               onClick={handleLogout}
               type="button"
             >
@@ -463,11 +463,11 @@ function ProfilePage() {
         </section>
 
         {isRegular ? (
-          <div className="border-b border-[var(--brand-divider)]">
+          <div className="brand-tab-bar">
             <div className="flex">
               <button
                 className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-                  activeTab === "profile" ? "border-[var(--brand-primary)] text-[var(--brand-text)]" : "border-transparent text-[var(--brand-text-subtle)]"
+                  activeTab === "profile" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveTab("profile")}
                 type="button"
@@ -479,7 +479,7 @@ function ProfilePage() {
               </button>
               <button
                 className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-                  activeTab === "companions" ? "border-[var(--brand-primary)] text-[var(--brand-text)]" : "border-transparent text-[var(--brand-text-subtle)]"
+                  activeTab === "companions" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
                 }`}
                 onClick={() => setActiveTab("companions")}
                 type="button"
@@ -551,7 +551,7 @@ function ProfilePage() {
               ) : (
                 <div className="space-y-2">
                   {companions.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 rounded-xl border border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)] p-3">
+                    <div key={c.id} className="brand-list-item flex items-center gap-3 rounded-xl p-3">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[var(--brand-text)]">{c.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -574,7 +574,7 @@ function ProfilePage() {
 
       </main>
       {(!isRegular || activeTab === "profile") ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]/95 backdrop-blur sm:hidden">
+        <div className="brand-bottom-dock fixed inset-x-0 bottom-0 z-40 backdrop-blur sm:hidden">
           <div className="mx-auto w-full max-w-[390px] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
             <button
               className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${
