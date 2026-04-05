@@ -8,6 +8,7 @@ import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
 } from "@/lib/settings";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 interface SessionUser {
   kakaoId: string;
@@ -46,6 +47,13 @@ interface MyParticipantData {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+}
+
+interface SubmissionResult {
+  status: "APPROVED" | "WAITLISTED" | "CANCELLED";
+  waitlistPosition: number | null;
+  name: string;
+  companions: number;
 }
 
 // 참가 후 동반인 관리용 (participantId 포함)
@@ -187,6 +195,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
   // 이미 신청한 참가 정보
   const [myParticipant, setMyParticipant] = useState<MyParticipantData | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [showMySignupDetails, setShowMySignupDetails] = useState(false);
   const [savingMySignup, setSavingMySignup] = useState(false);
   const [mySignupSaved, setMySignupSaved] = useState(false);
@@ -282,36 +291,38 @@ export function SignupForm({ meeting }: SignupFormProps) {
   }, [user, userProfile]);
 
   // 참가 상태 + 동반인 참가 데이터
-  const refreshParticipants = useCallback(() => {
+  const refreshParticipants = useCallback(async () => {
     if (!user?.kakaoId) return;
-    fetch(`/api/meetings/${meeting.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.participants) return;
-        const mine = data.participants.find(
-          (p: { kakaoId: string; status: string; companionId: number | null }) =>
-            p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
-        );
-        setMyParticipant(mine ? {
-          id: mine.id,
-          status: mine.status,
-          waitlistPosition: mine.waitlistPosition,
-          note: mine.note ?? "",
-          hasLesson: !!mine.hasLesson,
-          hasBus: !!mine.hasBus,
-          hasRental: !!mine.hasRental,
-        } : null);
 
-        // 동반인 참가 데이터 (participantId + hasLesson/hasBus)
-        const data2: Record<number, SignedUpCompanionData> = {};
-        for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[]) {
-          if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
-            data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus, hasRental: p.hasRental };
-          }
+    try {
+      const response = await fetch(`/api/meetings/${meeting.id}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!data.participants) return;
+
+      const mine = data.participants.find(
+        (p: { kakaoId: string; status: string; companionId: number | null }) =>
+          p.kakaoId === user.kakaoId && p.status !== "CANCELLED" && p.companionId === null
+      );
+      setMyParticipant(mine ? {
+        id: mine.id,
+        status: mine.status,
+        waitlistPosition: mine.waitlistPosition,
+        note: mine.note ?? "",
+        hasLesson: !!mine.hasLesson,
+        hasBus: !!mine.hasBus,
+        hasRental: !!mine.hasRental,
+      } : null);
+
+      const data2: Record<number, SignedUpCompanionData> = {};
+      for (const p of data.participants as { kakaoId: string; status: string; companionId: number | null; id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[]) {
+        if (p.kakaoId === user.kakaoId && p.companionId !== null && p.status !== "CANCELLED") {
+          data2[p.companionId] = { participantId: p.id, hasLesson: p.hasLesson, hasBus: p.hasBus, hasRental: p.hasRental };
         }
-        setSignedUpCompanionData(data2);
-      })
-      .catch(() => {});
+      }
+      setSignedUpCompanionData(data2);
+    } catch {
+      // keep current UI state when refresh fails
+    }
   }, [user, meeting.id]);
 
   // 연동 동반인 모임 상태 새로고침
@@ -323,7 +334,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
       .catch(() => {});
   }, [user, userProfile, meeting.id]);
 
-  useEffect(() => { refreshParticipants(); }, [refreshParticipants]);
+  useEffect(() => { void refreshParticipants(); }, [refreshParticipants]);
 
   useEffect(() => {
     if (!myParticipant) {
@@ -437,6 +448,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
     setShowCancelConfirm(false);
     setMySignupSaved(false);
     setServerError("");
+    setSubmissionResult(null);
     setShowMySignupDetails(false);
   }
 
@@ -477,9 +489,26 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
       const data = await res.json();
       const compCount = data.companions?.length ?? 0;
-      router.push(
-        `/signup/confirm?status=${data.status}&waitlist=${data.waitlistPosition ?? ""}&meetingId=${meeting.id}&name=${encodeURIComponent(name)}&companions=${compCount}`
-      );
+      setSubmissionResult({
+        status: data.status,
+        waitlistPosition: data.waitlistPosition ?? null,
+        name,
+        companions: compCount,
+      });
+      setShowMySignupDetails(false);
+      setShowCancelConfirm(false);
+      setSelectedCompanions(new Set());
+      setCompanionOptions({});
+      setNewCompanions([]);
+      setNewCompanionInput("");
+      setNote("");
+      setHasLesson(false);
+      setHasBus(false);
+      setHasRental(false);
+      await refreshParticipants();
+      router.refresh();
+      setSubmitting(false);
+      return;
     } catch {
       setServerError("네트워크 오류가 발생했습니다.");
       setSubmitting(false);
@@ -783,17 +812,63 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // ─── 이미 신청한 상태 (정회원) ────────────────────────────────────────────────────────────────────
   if (myParticipant) {
     const signedUpCount = Object.keys(signedUpCompanionData).length;
+    const dateObj = new Date(`${meeting.date}T00:00:00`);
+    const dayName = ["일", "월", "화", "수", "목", "금", "토"][dateObj.getDay()];
+    const [, month, day] = meeting.date.split("-");
+    const meetingDisplay = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName}) ${meeting.startTime}`;
     return (
       <div className="space-y-4">
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-          <div className="text-3xl mb-2">✓</div>
-          <p className="font-bold text-green-800">
-            {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
-          </p>
-          {signedUpCount > 0 && (
-            <p className="text-sm text-green-600 mt-1">동반인 {signedUpCount}명도 함께 신청되었습니다</p>
-          )}
-        </div>
+        {submissionResult ? (
+          <div className="brand-panel-white rounded-2xl p-5 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
+              </svg>
+            </div>
+            <h3 className="mb-1 text-lg font-extrabold text-[var(--brand-text)]">신청이 완료되었습니다!</h3>
+            <p className="brand-text-muted mb-4 text-sm">
+              {submissionResult.status === "APPROVED"
+                ? "모임 참가가 확정되었습니다."
+                : submissionResult.status === "WAITLISTED"
+                  ? `정원 초과로 대기자 ${submissionResult.waitlistPosition ?? "-"}번째로 등록되었습니다.`
+                  : "참가가 취소되었습니다."}
+            </p>
+            <div className="brand-inset-panel space-y-3 rounded-xl p-4 text-left">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">이름</span>
+                <span className="font-semibold text-[var(--brand-text)]">{submissionResult.name}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">모임</span>
+                <span className="font-semibold text-[var(--brand-text)]">{meetingDisplay}</span>
+              </div>
+              {submissionResult.companions > 0 ? (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="brand-text-subtle">동반인</span>
+                  <span className="font-semibold text-[var(--brand-text)]">{submissionResult.companions}명 함께 신청</span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="brand-text-subtle">상태</span>
+                <StatusBadge
+                  size="sm"
+                  status={submissionResult.status}
+                  waitlistPosition={submissionResult.waitlistPosition}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+            <div className="text-3xl mb-2">✓</div>
+            <p className="font-bold text-green-800">
+              {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
+            </p>
+            {signedUpCount > 0 && (
+              <p className="text-sm text-green-600 mt-1">동반인 {signedUpCount}명도 함께 신청되었습니다</p>
+            )}
+          </div>
+        )}
 
         {serverError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{serverError}</div>
@@ -803,6 +878,7 @@ export function SignupForm({ meeting }: SignupFormProps) {
           <button
             className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-all active:scale-[0.99]"
             onClick={() => {
+              setSubmissionResult(null);
               setShowCancelConfirm(false);
               setServerError("");
               setShowMySignupDetails(true);
