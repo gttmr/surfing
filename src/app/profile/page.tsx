@@ -5,7 +5,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
-import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 
 interface UserProfile {
   id: number;
@@ -59,32 +58,6 @@ const MEMBER_TYPE_COLORS: Record<string, string> = {
   REGULAR: "brand-chip-soft",
   COMPANION: "brand-chip-companion",
 };
-
-function HeaderProfileButton({
-  name,
-  image,
-  fallbackSeed,
-}: {
-  name: string;
-  image: string | null;
-  fallbackSeed?: string | null;
-}) {
-  const fallbackEmoji = pickSurfAvatarEmoji(fallbackSeed ?? name);
-
-  return (
-    <div className="flex items-center">
-      <span className="sr-only">프로필</span>
-      <div className="brand-avatar-shell flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm">
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt={name} className="h-full w-full object-cover" referrerPolicy="no-referrer" src={image} />
-        ) : (
-          <span className="text-sm font-extrabold">{fallbackEmoji}</span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function ProfilePageWrapper() {
   return (
@@ -453,13 +426,19 @@ function ProfilePage() {
                 관리자
               </Link>
             ) : null}
-            <HeaderProfileButton fallbackSeed={profileFallbackSeed} image={user?.profileImage ?? null} name={profileDisplayName} />
+            <button
+              className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold transition-colors hover:border-[var(--brand-primary-border-strong)]"
+              onClick={handleLogout}
+              type="button"
+            >
+              로그아웃
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
-        <section className="flex flex-col items-center pt-2">
+      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
+        <section className="flex flex-col items-center pt-0 sm:pt-2">
           <ProfileImageUploader
             currentImage={user?.profileImage ?? null}
             fallbackSeed={profileFallbackSeed}
@@ -467,9 +446,9 @@ function ProfilePage() {
               setUser((prev) => (prev ? { ...prev, ...updatedUser } : prev));
             }}
           />
-          <h1 className="mt-4 text-xl font-extrabold text-[var(--brand-text)]">{profileDisplayName}</h1>
+          <h1 className="mt-3 text-xl font-extrabold text-[var(--brand-text)] sm:mt-4">{profileDisplayName}</h1>
           <p className="brand-text-subtle mt-1 text-xs">가입일 {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <div className="mt-2 flex flex-wrap justify-center gap-2 sm:mt-3">
             {user?.memberType ? (
               <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "brand-chip-soft"}`}>
                 {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
@@ -514,10 +493,10 @@ function ProfilePage() {
           </div>
         ) : null}
 
-        <div className={isRegular ? "min-h-[27rem]" : ""}>
+        <div className={isRegular ? "min-h-[23rem] sm:min-h-[27rem]" : ""}>
           {(!isRegular || activeTab === "profile") ? (
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="brand-card-soft rounded-2xl p-6">
+            <form id="profile-form" onSubmit={handleSave} className="space-y-4 sm:space-y-6">
+              <div className="brand-card-soft rounded-2xl p-5 sm:p-6">
                 <div className="space-y-4">
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름(닉네임)</label>
@@ -541,7 +520,7 @@ function ProfilePage() {
               </div>
 
               <button type="submit" disabled={saving}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${
+                className={`hidden w-full rounded-xl py-3.5 text-sm font-bold transition-all sm:block ${
                   saving ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
                 }`}>
                 {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
@@ -593,14 +572,23 @@ function ProfilePage() {
           ) : null}
         </div>
 
-        <button
-          className="brand-button-secondary rounded-2xl px-4 py-3 text-sm font-semibold transition-colors hover:border-[var(--brand-primary-border-strong)]"
-          onClick={handleLogout}
-          type="button"
-        >
-          로그아웃
-        </button>
       </main>
+      {(!isRegular || activeTab === "profile") ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--brand-divider)] bg-[var(--brand-surface-elevated)]/95 backdrop-blur sm:hidden">
+          <div className="mx-auto w-full max-w-[390px] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+            <button
+              className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${
+                saving ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]" : saved ? "bg-green-500 text-white" : "brand-button-primary active:scale-[0.99]"
+              }`}
+              disabled={saving}
+              form="profile-form"
+              type="submit"
+            >
+              {saving ? "저장 중..." : saved ? "저장 완료!" : "프로필 저장하기"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
