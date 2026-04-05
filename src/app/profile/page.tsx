@@ -105,7 +105,6 @@ function ProfilePage() {
   const [ownerCompanions, setOwnerCompanions] = useState<OwnerCompanion[]>([]);
   const [loadingOwnerCompanions, setLoadingOwnerCompanions] = useState(false);
   const [selectedCompanionId, setSelectedCompanionId] = useState<number | null>(null);
-  const [newCompanionName, setNewCompanionName] = useState("");
   const [linking, setLinking] = useState(false);
   const [linkedCompanionInfo, setLinkedCompanionInfo] = useState<LinkedCompanionInfo | null>(null);
 
@@ -185,15 +184,18 @@ function ProfilePage() {
       .finally(() => setLoadingOwnerCompanions(false));
   }, [selectedOwnerKakaoId]);
 
+  const selectedSetupCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;
+  const setupProfileName = setupMemberType === "COMPANION" ? selectedSetupCompanion?.name ?? "" : name.trim();
+
   const handleSetupSave = useCallback(async () => {
-    if (!name.trim()) return;
+    if (!setupProfileName.trim()) return;
     setSaving(true);
 
     // 1. 이름 + 회원유형 저장
     const res = await fetch("/api/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, memberType: setupMemberType, forceMemberTypeSetup: true }),
+      body: JSON.stringify({ name: setupProfileName, memberType: setupMemberType, forceMemberTypeSetup: true }),
     });
 
     if (res.ok) {
@@ -204,18 +206,10 @@ function ProfilePage() {
       if (setupMemberType === "COMPANION" && selectedOwnerKakaoId) {
         setLinking(true);
         if (selectedCompanionId) {
-          // 기존 companion 연동
           await fetch("/api/companions/link", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ companionId: selectedCompanionId }),
-          });
-        } else if (newCompanionName.trim()) {
-          // 새 이름으로 등록
-          await fetch("/api/companions/self-register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ownerKakaoId: selectedOwnerKakaoId, name: newCompanionName.trim() }),
           });
         }
         setLinking(false);
@@ -225,7 +219,7 @@ function ProfilePage() {
       router.replace("/profile");
     }
     setSaving(false);
-  }, [name, setupMemberType, selectedOwnerKakaoId, selectedCompanionId, newCompanionName, router]);
+  }, [setupProfileName, setupMemberType, selectedOwnerKakaoId, selectedCompanionId, router]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -321,9 +315,9 @@ function ProfilePage() {
   const profileFallbackSeed = user?.kakaoId ?? profileDisplayName;
   const profileSaveValid = !!name.trim() && (isRegular || !!selectedOwnerKakaoId);
 
-  // 동반인 설정 유효성: 동반인 선택 시 정회원 선택 필요, companion 선택 or 이름 입력
+  // 동반인 설정 유효성: 동반인 선택 시 정회원과 등록된 본인 이름 선택이 모두 필요
   const companionSetupValid = setupMemberType === "REGULAR" ||
-    (!!selectedOwnerKakaoId && (!!selectedCompanionId || !!newCompanionName.trim()));
+    (!!selectedOwnerKakaoId && !!selectedCompanionId);
 
   return (
     <div className="min-h-screen bg-[var(--brand-page)] pb-12 text-[var(--brand-text)]">
@@ -337,20 +331,7 @@ function ProfilePage() {
               <p className="brand-text-muted mt-1 text-sm">아래 정보를 입력해주세요</p>
             </div>
 
-            <div className="space-y-5">
-              {/* 이름 */}
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름(닉네임) <span className="text-red-400">*</span></label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="동호회에서 사용할 이름"
-                  className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none"
-                  autoFocus
-                />
-              </div>
-
+            <div className="flex min-h-[24rem] flex-col">
               {/* 회원 유형 */}
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
@@ -360,13 +341,17 @@ function ProfilePage() {
                 <div className="flex gap-2">
                   <button type="button" onClick={() => { setSetupMemberType("REGULAR"); setSelectedOwnerKakaoId(null); }}
                     className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
-                      setupMemberType === "REGULAR" ? "brand-toggle-active" : "brand-button-secondary"
+                      setupMemberType === "REGULAR"
+                        ? "brand-toggle-active border-[var(--brand-primary-border-strong)]"
+                        : "text-[var(--brand-primary-text)]"
                     }`}>
                     정회원
                   </button>
                   <button type="button" onClick={() => setSetupMemberType("COMPANION")}
                     className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
-                      setupMemberType === "COMPANION" ? "brand-list-item-active" : "brand-button-secondary"
+                      setupMemberType === "COMPANION"
+                        ? "brand-toggle-active border-[var(--brand-primary-border-strong)]"
+                        : "text-[var(--brand-primary-text)]"
                     }`}>
                     동반인
                   </button>
@@ -378,77 +363,93 @@ function ProfilePage() {
                 </p>
               </div>
 
-              {/* 동반인 - 정회원 선택 */}
-              {setupMemberType === "COMPANION" && (
-                <div className="space-y-3">
+              <div className="mt-3 flex-1">
+                {/* 이름 */}
+                {setupMemberType === "REGULAR" ? (
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                      소속 정회원 선택 <span className="text-red-400">*</span>
-                    </label>
-                    {regularMembers.length === 0 ? (
-                      <p className="brand-text-subtle py-3 text-center text-xs">등록된 정회원이 없습니다</p>
-                    ) : (
-                      <div className="brand-list-scroll max-h-36 space-y-1.5 overflow-y-auto rounded-xl p-2">
-                        {regularMembers.map((m) => (
-                          <button key={m.kakaoId} type="button"
-                            onClick={() => setSelectedOwnerKakaoId(m.kakaoId)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                              selectedOwnerKakaoId === m.kakaoId
-                                ? "bg-[var(--brand-primary-soft)] text-[var(--brand-primary-text)] font-semibold"
-                                : "text-[var(--brand-text)] hover:bg-[var(--brand-surface)]"
-                            }`}>
-                            {m.name || "이름 없음"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름 <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="동호회에서 사용할 이름"
+                      className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none"
+                      autoFocus
+                    />
                   </div>
+                ) : null}
 
-                  {/* 정회원 선택 후 동반인 목록 */}
-                  {selectedOwnerKakaoId && (
+                {/* 동반인 - 정회원 선택 */}
+                {setupMemberType === "COMPANION" && (
+                  <div className="space-y-3">
                     <div>
                       <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                        내 이름 선택 또는 직접 입력
+                        소속 정회원 선택 <span className="text-red-400">*</span>
                       </label>
-                      {loadingOwnerCompanions ? (
-                        <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
+                      {regularMembers.length === 0 ? (
+                        <p className="brand-text-subtle py-3 text-center text-xs">동반인을 등록한 정회원이 없습니다</p>
                       ) : (
-                        <div className="space-y-1.5">
-                          {ownerCompanions.filter((c) => !c.linkedKakaoId).map((c) => (
-                            <button key={c.id} type="button"
-                              onClick={() => { setSelectedCompanionId(selectedCompanionId === c.id ? null : c.id); setNewCompanionName(""); }}
-                              className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
-                                selectedCompanionId === c.id
-                                  ? "brand-list-item-active font-semibold"
-                                  : "text-[var(--brand-text)]"
+                        <div className="brand-list-scroll max-h-36 space-y-1.5 overflow-y-auto rounded-xl p-2">
+                          {regularMembers.map((m) => (
+                            <button key={m.kakaoId} type="button"
+                              onClick={() => {
+                                setSelectedOwnerKakaoId(m.kakaoId);
+                                setSelectedCompanionId(null);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                selectedOwnerKakaoId === m.kakaoId
+                                  ? "bg-[var(--brand-primary-soft)] text-[var(--brand-primary-text)] font-semibold"
+                                  : "text-[var(--brand-text)] hover:bg-[var(--brand-surface)]"
                               }`}>
-                              {c.name}
+                              {m.name || "이름 없음"}
                             </button>
                           ))}
-                          {/* 직접 입력 */}
-                          <div className="pt-1">
-                            <p className="brand-text-subtle mb-1.5 text-xs">목록에 없으면 직접 입력</p>
-                            <input
-                              type="text"
-                              value={newCompanionName}
-                              onChange={(e) => { setNewCompanionName(e.target.value); setSelectedCompanionId(null); }}
-                              placeholder="내 이름 입력"
-                              className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                            />
-                          </div>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* 정회원 선택 후 동반인 목록 */}
+                    {selectedOwnerKakaoId ? (
+                      <div>
+                        <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
+                          내 이름 선택 <span className="text-red-400">*</span>
+                        </label>
+                        {loadingOwnerCompanions ? (
+                          <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {ownerCompanions.filter((c) => !c.linkedKakaoId).map((c) => (
+                              <button key={c.id} type="button"
+                                onClick={() => { setSelectedCompanionId(selectedCompanionId === c.id ? null : c.id); }}
+                                className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
+                                  selectedCompanionId === c.id
+                                    ? "brand-toggle-active border-[var(--brand-primary-border-strong)] font-semibold"
+                                    : "text-[var(--brand-text)]"
+                                }`}>
+                                {c.name}
+                              </button>
+                            ))}
+                            {!ownerCompanions.filter((c) => !c.linkedKakaoId).length ? (
+                              <p className="brand-text-subtle py-2 text-center text-xs">선택 가능한 동반인 이름이 없습니다</p>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="brand-panel-white rounded-xl px-4 py-4">
+                        <p className="brand-text-subtle text-xs">먼저 소속 정회원을 선택하면 등록된 동반인 이름 목록이 표시됩니다.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <button
               onClick={handleSetupSave}
-              disabled={saving || linking || !name.trim() || !companionSetupValid}
-              className={`w-full mt-6 py-3 rounded-xl font-bold text-sm transition-all ${
-                saving || linking || !name.trim() || !companionSetupValid
+              disabled={saving || linking || !setupProfileName.trim() || !companionSetupValid}
+              className={`w-full mt-0 py-3 rounded-xl font-bold text-sm transition-all ${
+                saving || linking || !setupProfileName.trim() || !companionSetupValid
                   ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
                   : "brand-button-primary active:scale-[0.99]"
               }`}
@@ -546,7 +547,7 @@ function ProfilePage() {
               <div className="brand-card-soft rounded-2xl p-5 sm:p-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름(닉네임)</label>
+                  <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="동호회에서 사용할 이름"
                       className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none" />
                   </div>

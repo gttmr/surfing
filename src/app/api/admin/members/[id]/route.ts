@@ -79,18 +79,24 @@ export async function DELETE(
       where: { ownerKakaoId: user.kakaoId },
       select: { id: true },
     });
-    const ownedCompanionIds = ownedCompanions.map((companion) => companion.id);
+    const linkedCompanions = await tx.companion.findMany({
+      where: { linkedKakaoId: user.kakaoId },
+      select: { id: true },
+    });
+    const companionIdsToDelete = Array.from(
+      new Set([...ownedCompanions, ...linkedCompanions].map((companion) => companion.id))
+    );
 
-    if (ownedCompanionIds.length) {
+    if (companionIdsToDelete.length) {
       await tx.participant.deleteMany({
         where: {
-          companionId: { in: ownedCompanionIds },
+          companionId: { in: companionIdsToDelete },
         },
       });
 
       await tx.companion.deleteMany({
         where: {
-          id: { in: ownedCompanionIds },
+          id: { in: companionIdsToDelete },
         },
       });
     }
