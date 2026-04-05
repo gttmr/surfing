@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
@@ -55,9 +55,28 @@ type CalendarCell = {
   inCurrentMonth: boolean;
 };
 
+type AlertItem =
+  | {
+      key: string;
+      type: "notice";
+      title: string;
+      subtitle: string;
+      unread: boolean;
+      notice: NoticeItem;
+    }
+  | {
+      key: string;
+      type: "settlement";
+      title: string;
+      subtitle: string;
+      unread: boolean;
+      settlement: SettlementSummary;
+    };
+
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTH_NAMES_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+const ALERT_STORAGE_PREFIX = "surfing.alert.read.";
 
 function todayInSeoul() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
@@ -78,7 +97,7 @@ function formatWon(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
-function buildTossTransferUrl(account: SettlementAccount) {
+function buildTossTransferUrl(account: SettlementAccount, amount?: number) {
   const accountNumber = account.accountNumber.replace(/[^\d-]/g, "");
   if (!account.bankName || !accountNumber) return null;
 
@@ -86,6 +105,9 @@ function buildTossTransferUrl(account: SettlementAccount) {
     bank: account.bankName,
     accountNo: accountNumber,
   });
+  if (amount && amount > 0) {
+    params.set("amount", String(amount));
+  }
 
   return `supertoss://send?${params.toString()}`;
 }
@@ -179,6 +201,58 @@ function Icon({
       {name}
     </span>
   );
+}
+
+function NoticeGlyph({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M12 4.25a4 4 0 0 0-4 4v1.18c0 .8-.24 1.58-.69 2.24L6.2 13.3a1.75 1.75 0 0 0 1.45 2.74h8.7a1.75 1.75 0 0 0 1.45-2.74l-1.11-1.63A3.95 3.95 0 0 1 16 9.43V8.25a4 4 0 0 0-4-4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M10 18a2 2 0 0 0 4 0"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function SettlementGlyph({ className = "" }: { className?: string }) {
+  return (
+    <span aria-hidden className={`font-headline font-extrabold leading-none ${className}`}>
+      원
+    </span>
+  );
+}
+
+function formatSettlementReasons(settlement: SettlementSummary) {
+  const reasons = new Set<string>();
+
+  for (const item of settlement.group.items) {
+    if (item.baseFee > 0) reasons.add("참가비");
+    if (item.lessonFee > 0) reasons.add("강습비");
+    if (item.rentalFee > 0) reasons.add("장비 대여비");
+    for (const adjustment of item.adjustments) {
+      reasons.add(adjustment.label);
+    }
+  }
+
+  return Array.from(reasons).join(", ");
+}
+
+function alertStorageKey(kakaoId?: string) {
+  return `${ALERT_STORAGE_PREFIX}${kakaoId ?? "guest"}`;
 }
 
 function ProfileButton({ user }: { user: HomeUser }) {
@@ -318,15 +392,16 @@ export default function SurfClubLandingPage({
   const [month, setMonth] = useState(initialView.month);
   const [selectedDate, setSelectedDate] = useState<string | null>(initialView.selectedDate);
   const [activeMeetingTab, setActiveMeetingTab] = useState<"apply" | "status">("apply");
-  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+  const [isAlertCenterOpen, setIsAlertCenterOpen] = useState(false);
+  const [expandedAlertKey, setExpandedAlertKey] = useState<string | null>(null);
+  const [readAlertKeys, setReadAlertKeys] = useState<string[]>([]);
   const [pendingSettlements, setPendingSettlements] = useState<SettlementSummary[]>([]);
   const [settlementAccount, setSettlementAccount] = useState<SettlementAccount | null>(null);
-  const [confirmingMeetingId, setConfirmingMeetingId] = useState<number | null>(null);
   const sortedMeetings = sortMeetings(meetings);
 
   const hasPinnedNotice = Boolean(pinnedNotice);
   const hasPendingSettlement = pendingSettlements.length > 0;
-  const hasPopupTrigger = hasPinnedNotice || hasPendingSettlement;
+  const hasAlertCenter = hasPinnedNotice || hasPendingSettlement;
 
   useEffect(() => {
     const nextView = findInitialView(meetings, today, requestedDate);
@@ -355,9 +430,6 @@ export default function SurfClubLandingPage({
         const nextPending = Array.isArray(data?.pending) ? data.pending : [];
         setPendingSettlements(nextPending);
         setSettlementAccount(data?.settlementAccount ?? null);
-        if (nextPending.length > 0) {
-          setIsNoticeOpen(true);
-        }
       } catch {
         if (!cancelled) {
           setPendingSettlements([]);
@@ -372,29 +444,16 @@ export default function SurfClubLandingPage({
     };
   }, [user]);
 
-  async function handleConfirmSettlement(meetingId: number) {
-    setConfirmingMeetingId(meetingId);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      const res = await fetch("/api/settlement/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId }),
-      });
-      if (!res.ok) {
-        return;
-      }
-
-      setPendingSettlements((prev) => {
-        const next = prev.filter((item) => item.meeting.id !== meetingId);
-        if (!next.length) {
-          setIsNoticeOpen(false);
-        }
-        return next;
-      });
-    } finally {
-      setConfirmingMeetingId(null);
+      const raw = window.localStorage.getItem(alertStorageKey(user?.kakaoId));
+      const parsed = raw ? JSON.parse(raw) : [];
+      setReadAlertKeys(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []);
+    } catch {
+      setReadAlertKeys([]);
     }
-  }
+  }, [user?.kakaoId]);
 
   async function copySettlementAccount() {
     if (!settlementAccount?.accountNumber) return;
@@ -405,11 +464,21 @@ export default function SurfClubLandingPage({
     }
   }
 
-  function openTossTransfer() {
+  function openTossTransfer(amount?: number) {
     if (!settlementAccount) return;
-    const tossUrl = buildTossTransferUrl(settlementAccount);
+    const tossUrl = buildTossTransferUrl(settlementAccount, amount);
     if (!tossUrl) return;
     window.location.href = tossUrl;
+  }
+
+  function persistReadAlertKeys(nextKeys: string[]) {
+    setReadAlertKeys(nextKeys);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(alertStorageKey(user?.kakaoId), JSON.stringify(nextKeys));
+    } catch {
+      // no-op
+    }
   }
 
   const meetingsByDate = sortedMeetings.reduce<Record<string, MeetingWithCounts[]>>((acc, meeting) => {
@@ -427,6 +496,36 @@ export default function SurfClubLandingPage({
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
   const calendarCells = buildCalendarCells(year, month);
   const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);
+  const alertItems = useMemo<AlertItem[]>(() => {
+    const items: AlertItem[] = [];
+
+    if (pinnedNotice) {
+      const key = `notice:${pinnedNotice.updatedAt}`;
+      items.push({
+        key,
+        type: "notice",
+        title: pinnedNotice.title,
+        subtitle: "공지사항",
+        unread: !readAlertKeys.includes(key),
+        notice: pinnedNotice,
+      });
+    }
+
+    for (const settlement of pendingSettlements) {
+      const key = `settlement:${settlement.meeting.id}:${settlement.group.totalFee}:${settlement.group.items.length}`;
+      items.push({
+        key,
+        type: "settlement",
+        title: `${settlement.meeting.date} 정산 안내`,
+        subtitle: `총 ${formatWon(settlement.group.totalFee)}`,
+        unread: !readAlertKeys.includes(key),
+        settlement,
+      });
+    }
+
+    return items;
+  }, [pendingSettlements, pinnedNotice, readAlertKeys]);
+  const hasUnreadAlerts = alertItems.some((item) => item.unread);
 
   function moveMonth(direction: -1 | 1) {
     const nextDate = new Date(year, month + direction, 1);
@@ -437,6 +536,17 @@ export default function SurfClubLandingPage({
     setSelectedDate(findDefaultDateForMonth(meetings, nextYear, nextMonth, today));
   }
 
+  function handleOpenAlertCenter() {
+    setIsAlertCenterOpen(true);
+  }
+
+  function handleToggleAlertItem(item: AlertItem) {
+    setExpandedAlertKey((prev) => (prev === item.key ? null : item.key));
+    if (item.unread) {
+      persistReadAlertKeys([...readAlertKeys, item.key]);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
       <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
@@ -445,14 +555,19 @@ export default function SurfClubLandingPage({
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
           </div>
           <div className="flex items-center gap-2">
-            {hasPopupTrigger ? (
+            {hasAlertCenter ? (
               <button
-                aria-label="공지사항 열기"
-                className="brand-link flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-70"
-                onClick={() => setIsNoticeOpen(true)}
+                aria-label="알림 센터 열기"
+                className={`relative flex h-8 w-8 items-center justify-center transition-colors ${
+                  isAlertCenterOpen
+                    ? "text-[var(--brand-primary-text)]"
+                    : "text-[var(--brand-text-subtle)]"
+                }`}
+                onClick={handleOpenAlertCenter}
                 type="button"
               >
-                <Icon className="text-[16px]" name="notifications" />
+                <NoticeGlyph className="h-4 w-4" />
+                {hasUnreadAlerts ? <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[var(--brand-primary)]" /> : null}
               </button>
             ) : null}
             {user ? <ProfileButton user={user} /> : null}
@@ -460,147 +575,116 @@ export default function SurfClubLandingPage({
         </div>
       </header>
 
-      {hasPopupTrigger && isNoticeOpen ? (
-        <div className="fixed inset-0 z-[60] bg-[rgba(0,29,110,0.24)] px-4 py-6" onClick={() => setIsNoticeOpen(false)}>
+      {hasAlertCenter && isAlertCenterOpen ? (
+        <div className="fixed inset-0 z-[60] bg-[rgba(0,29,110,0.24)] px-4 py-6" onClick={() => setIsAlertCenterOpen(false)}>
           <div
             className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="brand-chip-strong flex h-10 w-10 items-center justify-center rounded-full">
-                  <Icon className="text-[20px]" name="notifications" />
-                </div>
-                <p className="text-sm font-extrabold text-[var(--brand-text)]">{hasPendingSettlement ? "정산 확인" : "공지사항"}</p>
+              <div>
+                <p className="text-sm font-extrabold text-[var(--brand-text)]">알림 센터</p>
+                <p className="brand-text-subtle mt-0.5 text-xs">공지사항과 정산 알림을 확인하세요.</p>
               </div>
               <button
-                aria-label="공지사항 닫기"
+                aria-label="알림 센터 닫기"
                 className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
-                onClick={() => setIsNoticeOpen(false)}
+                onClick={() => setIsAlertCenterOpen(false)}
                 type="button"
               >
                 <Icon className="text-[18px]" name="close" />
               </button>
             </div>
 
-            {hasPendingSettlement ? (
-              <div className="space-y-3">
-                {pendingSettlements.map((settlement) => (
-                  <div key={settlement.meeting.id} className="brand-panel-white rounded-2xl p-4">
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base font-bold text-[var(--brand-text)]">{settlement.meeting.date}</p>
-                        <p className="brand-text-muted mt-1 text-sm">
-                          {settlement.meeting.startTime}–{settlement.meeting.endTime} · {settlement.meeting.location}
-                        </p>
-                      </div>
-                      <span className="brand-chip-dark rounded-full px-2 py-1 text-xs font-bold">
-                        총 {formatWon(settlement.group.totalFee)}
-                      </span>
-                    </div>
+            <div className="space-y-3">
+              {alertItems.length === 0 ? (
+                <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
+                  현재 확인할 알림이 없습니다.
+                </div>
+              ) : (
+                alertItems.map((item) => {
+                  const expanded = expandedAlertKey === item.key;
 
-                    <div className="space-y-2">
-                      {settlement.group.items.map((item) => (
-                        <div key={item.participantId} className="brand-list-item rounded-2xl p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-bold text-[var(--brand-text)]">
-                                {item.participantName}
-                                {item.memberType === "COMPANION" ? " (동반)" : ""}
-                              </p>
-                              <div className="brand-text-subtle mt-1 space-y-1 text-xs">
-                                <p>참가 {formatWon(item.baseFee)} · 강습 {formatWon(item.lessonFee)} · 대여 {formatWon(item.rentalFee)}</p>
-                                {item.adjustments.map((adjustment) => (
-                                  <p key={adjustment.id}>
-                                    {adjustment.label} {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
-                                  </p>
-                                ))}
-                              </div>
-                            </div>
-                            <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(item.totalFee)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {settlementAccount?.accountNumber ? (
-                      <div className="mt-3 rounded-2xl bg-[var(--brand-primary-soft)] px-4 py-3">
-                        <p className="text-xs font-bold text-[var(--brand-primary-text)]">입금 계좌</p>
-                        <p className="mt-1 text-sm font-extrabold text-[var(--brand-primary-text)]">
-                          {settlementAccount.bankName} {settlementAccount.accountNumber}
-                        </p>
-                        {settlementAccount.accountHolder ? (
-                          <p className="mt-1 text-xs text-[var(--brand-primary-text)] opacity-80">
-                            예금주 {settlementAccount.accountHolder}
-                          </p>
-                        ) : null}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            className="brand-button-primary rounded-xl px-3 py-2 text-xs font-bold"
-                            onClick={openTossTransfer}
-                            type="button"
-                          >
-                            토스로 송금
-                          </button>
-                          <button
-                            className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold"
-                            onClick={copySettlementAccount}
-                            type="button"
-                          >
-                            계좌번호 복사
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="mt-4 flex justify-end">
+                  return (
+                    <div key={item.key} className="border-b border-[var(--brand-divider)] last:border-b-0">
                       <button
-                        className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
-                        disabled={confirmingMeetingId === settlement.meeting.id}
-                        onClick={() => handleConfirmSettlement(settlement.meeting.id)}
+                        className="flex w-full items-center gap-3 px-0 py-4 text-left"
+                        onClick={() => handleToggleAlertItem(item)}
                         type="button"
                       >
-                        {confirmingMeetingId === settlement.meeting.id ? "확인 중..." : "정산 확인 완료"}
+                        <span className="shrink-0 text-lg leading-none">{item.type === "settlement" ? "💸" : "📣"}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-bold text-[var(--brand-text)]">{item.title}</p>
+                            {item.unread ? (
+                              <span className="h-2 w-2 rounded-full bg-[var(--brand-primary)]" />
+                            ) : (
+                              <span className="brand-text-subtle text-[11px] font-semibold">확인함</span>
+                            )}
+                          </div>
+                          <p className="brand-text-subtle mt-1 text-xs">{item.subtitle}</p>
+                        </div>
+                        <Icon className={`text-[18px] transition-transform ${expanded ? "rotate-180" : ""}`} name="expand_more" />
                       </button>
+
+                      {expanded ? (
+                        <div className="border-t border-[var(--brand-divider)] px-0 py-4">
+                          {item.type === "notice" ? (
+                            <div className="space-y-2">
+                              <p className="text-base font-bold text-[var(--brand-text)]">{item.notice.title}</p>
+                              <p className="brand-text-muted whitespace-pre-line text-sm leading-6">{item.notice.body}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div>
+                                <p className="brand-text-subtle text-xs font-bold uppercase tracking-[0.24em]">총 비용</p>
+                                <p className="mt-2 text-[1.8rem] font-headline font-extrabold leading-none tracking-[-0.04em] text-[var(--brand-text)]">
+                                  {formatWon(item.settlement.group.totalFee)}
+                                </p>
+                              </div>
+
+                              {settlementAccount?.accountNumber ? (
+                                <>
+                                  <div className="brand-text-muted text-xs">
+                                    {settlementAccount.bankName} {settlementAccount.accountNumber}
+                                    {settlementAccount.accountHolder ? ` · 예금주 ${settlementAccount.accountHolder}` : ""}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      className="brand-button-primary rounded-xl px-4 py-2.5 text-sm font-bold"
+                                      onClick={() => openTossTransfer(item.settlement.group.totalFee)}
+                                      type="button"
+                                    >
+                                      토스로 송금
+                                    </button>
+                                    <button
+                                      className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
+                                      onClick={copySettlementAccount}
+                                      type="button"
+                                    >
+                                      계좌번호 복사
+                                    </button>
+                                  </div>
+                                </>
+                              ) : null}
+
+                              <div className="brand-list-item rounded-2xl p-4">
+                                <p className="brand-text-subtle text-[11px] font-bold uppercase tracking-[0.24em]">트립 정보</p>
+                                <p className="mt-2 text-sm font-bold text-[var(--brand-text)]">{item.settlement.meeting.date}</p>
+                                <p className="brand-text-muted mt-1 text-sm">{item.settlement.meeting.location}</p>
+                                <p className="brand-text-muted mt-1 text-sm">
+                                  비용 발생 사유: {formatSettlementReasons(item.settlement) || "참가비"}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                ))}
-
-                {hasPinnedNotice ? (
-                  <div className="brand-panel-white rounded-2xl px-4 py-4">
-                    <p className="text-sm font-bold text-[var(--brand-text)]">{pinnedNotice!.title}</p>
-                    <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice!.body}</p>
-                  </div>
-                ) : null}
-
-                <div className="flex justify-end">
-                  <button
-                    className="brand-button-secondary rounded-2xl px-5 py-3 text-sm font-bold"
-                    onClick={() => setIsNoticeOpen(false)}
-                    type="button"
-                  >
-                    나중에 보기
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="brand-panel-white rounded-2xl px-4 py-4">
-                  <p className="text-base font-bold text-[var(--brand-text)]">{pinnedNotice!.title}</p>
-                  <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice!.body}</p>
-                </div>
-
-                <div className="mt-4 flex justify-end">
-                  <button
-                    className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
-                    onClick={() => setIsNoticeOpen(false)}
-                    type="button"
-                  >
-                    닫기
-                  </button>
-                </div>
-              </>
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       ) : null}
