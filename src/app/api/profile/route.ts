@@ -41,13 +41,15 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, phoneNumber, memberType, customProfileImageUrl } = body;
+  const { name, phoneNumber, memberType, customProfileImageUrl, forceMemberTypeSetup } = body;
 
   const trimmedName = name !== undefined ? (name.trim() || null) : undefined;
 
-  // memberType은 최초 설정 시에만 허용 (이름이 없는 상태 = 초기 설정)
+  // memberType은 기본적으로 최초 설정 시에만 허용한다.
+  // 단, 삭제 후 재로그인처럼 setup 플로우로 다시 들어온 경우에는
+  // 클라이언트가 명시적으로 forceMemberTypeSetup을 보내면 한 번 더 허용한다.
   const existing = await prisma.user.findUnique({ where: { kakaoId: session.kakaoId } });
-  const canSetMemberType = memberType && !existing?.name; // 이름이 없을 때만 설정 가능
+  const canSetMemberType = Boolean(memberType) && (!existing?.name || forceMemberTypeSetup === true);
 
   const user = await prisma.user.update({
     where: { kakaoId: session.kakaoId },
