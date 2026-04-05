@@ -107,6 +107,11 @@ export async function GET(req: NextRequest) {
   // DB에 회원 정보 기록 또는 갱신 (자동 회원가입)
   let isNewUser = false;
   try {
+    const deleted = await prisma.deletedKakaoId.findUnique({ where: { kakaoId } });
+    if (deleted) {
+      return NextResponse.redirect(new URL(`${returnTo}?auth_error=account_deleted`, authOrigin));
+    }
+
     const existing = await prisma.user.findUnique({ where: { kakaoId } });
     isNewUser = !existing;
     await prisma.user.upsert({

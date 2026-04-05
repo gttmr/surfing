@@ -110,6 +110,14 @@ export async function DELETE(
       data: { linkedKakaoId: null },
     });
 
+    await tx.settlementConfirmation.deleteMany({
+      where: { recipientKakaoId: user.kakaoId },
+    });
+
+    await tx.deletedKakaoId.create({
+      data: { kakaoId: user.kakaoId },
+    });
+
     await tx.user.delete({
       where: { id: user.id },
     });

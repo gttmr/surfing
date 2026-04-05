@@ -110,3 +110,9 @@ model Setting {
   key   String @unique
   value String
 }
+
+model DeletedKakaoId {
+  id        Int      @id @default(autoincrement())
+  kakaoId   String   @unique
+  deletedAt DateTime @default(now())
+}
