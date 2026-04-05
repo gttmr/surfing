@@ -28,6 +28,7 @@ type SettlementRecipient = {
   recipientName: string;
   recipientType: "self" | "linked_companion" | "owner";
   totalFee: number;
+  confirmed: boolean;
   items: {
     participantId: number;
     participantName: string;
@@ -42,8 +43,10 @@ type SettlementData = {
     startTime: string;
     endTime: string;
     location: string;
+    settlementOpen: boolean;
   };
   participants: SettlementParticipant[];
+  confirmedRecipientCount: number;
   recipients: SettlementRecipient[];
 };
 
@@ -52,6 +55,7 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
   const [data, setData] = useState<SettlementData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submittingFor, setSubmittingFor] = useState<number | null>(null);
+  const [togglingSettlement, setTogglingSettlement] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, { label: string; amount: string }>>({});
   const { toasts, addToast, removeToast } = useToast();
 
@@ -127,6 +131,28 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
     }
   }
 
+  async function handleToggleSettlement() {
+    if (!data) return;
+    setTogglingSettlement(true);
+    try {
+      const res = await fetch(`/api/admin/meetings/${id}/settlement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settlementOpen: !data.meeting.settlementOpen,
+        }),
+      });
+      const response = await res.json();
+      if (!res.ok) throw new Error(response.error || "정산 상태를 바꾸지 못했습니다.");
+      addToast(data.meeting.settlementOpen ? "정산 확인을 닫았습니다." : "정산 확인을 열었습니다.", "success");
+      await load();
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "정산 상태를 바꾸지 못했습니다.", "error");
+    } finally {
+      setTogglingSettlement(false);
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="mb-6 flex items-start gap-3">
@@ -139,6 +165,16 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
             </p>
           ) : null}
         </div>
+        {data ? (
+          <button
+            type="button"
+            onClick={handleToggleSettlement}
+            disabled={togglingSettlement}
+            className={data.meeting.settlementOpen ? "brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold" : "brand-button-primary rounded-full px-3 py-1.5 text-xs font-bold"}
+          >
+            {togglingSettlement ? "변경 중..." : data.meeting.settlementOpen ? "정산 닫기" : "정산 열기"}
+          </button>
+        ) : null}
       </div>
 
       {loading || !data ? (
@@ -146,13 +182,28 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
       ) : (
         <div className="space-y-6">
           <section className="brand-card-soft rounded-3xl p-5">
-            <h2 className="mb-3 text-base font-extrabold text-[var(--brand-text)]">수신자별 정산 미리보기</h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-extrabold text-[var(--brand-text)]">수신자별 정산 미리보기</h2>
+              <div className="flex items-center gap-2">
+                <span className={`${data.meeting.settlementOpen ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-xs font-bold`}>
+                  {data.meeting.settlementOpen ? "정산 오픈" : "정산 준비중"}
+                </span>
+                <span className="brand-chip-accent rounded-full px-2 py-1 text-xs font-bold">
+                  확인 {data.confirmedRecipientCount}/{data.recipients.length}
+                </span>
+              </div>
+            </div>
             <div className="space-y-3">
               {data.recipients.map((recipient) => (
                 <div key={`${recipient.recipientKakaoId}-${recipient.recipientType}`} className="brand-panel-white rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
+                        <span className={`${recipient.confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
+                          {recipient.confirmed ? "확인 완료" : "미확인"}
+                        </span>
+                      </div>
                       <p className="brand-text-subtle mt-1 text-xs">
                         {recipient.items.map((item) => `${item.participantName} ${formatWon(item.totalFee)}`).join(" · ")}
                       </p>

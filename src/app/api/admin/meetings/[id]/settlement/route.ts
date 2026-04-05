@@ -81,7 +81,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     ])
   );
 
-  const recipients = groupParticipantsForSettlement(meeting.participants, pricing, adjustmentMap);
+  const confirmations = await prisma.settlementConfirmation.findMany({
+    where: { meetingId },
+  });
+  const confirmedRecipientIds = new Set(confirmations.map((item) => item.recipientKakaoId));
+  const recipients = groupParticipantsForSettlement(meeting.participants, pricing, adjustmentMap).map((recipient) => ({
+    ...recipient,
+    confirmed: confirmedRecipientIds.has(recipient.recipientKakaoId),
+  }));
   const participants = sortWithCompanions(meeting.participants).map((participant) => {
     const adjustments = adjustmentMap.get(participant.id) ?? [];
     const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
@@ -107,9 +114,42 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       startTime: meeting.startTime,
       endTime: meeting.endTime,
       location: meeting.location,
+      settlementOpen: meeting.settlementOpen,
     },
     participants,
+    confirmedRecipientCount: recipients.filter((recipient) => recipient.confirmed).length,
     recipients,
+  });
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAdminAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const meetingId = Number(id);
+  if (!Number.isInteger(meetingId)) {
+    return NextResponse.json({ error: "잘못된 모임 ID입니다." }, { status: 400 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const settlementOpen = Boolean(body?.settlementOpen);
+
+  const meeting = await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { settlementOpen },
+  });
+
+  if (settlementOpen) {
+    await prisma.settlementConfirmation.deleteMany({
+      where: { meetingId },
+    });
+  }
+
+  return NextResponse.json({
+    id: meeting.id,
+    settlementOpen: meeting.settlementOpen,
   });
 }
 
@@ -152,6 +192,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       label,
       amount,
     },
+  });
+
+  await prisma.settlementConfirmation.deleteMany({
+    where: { meetingId },
   });
 
   return NextResponse.json(adjustment, { status: 201 });

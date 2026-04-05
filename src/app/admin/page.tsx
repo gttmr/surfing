@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PARTICIPANT_OPTION_PRICING_GUIDE_KEY } from "@/lib/settings";
@@ -73,11 +73,6 @@ export default function AdminMessagesPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const pinnedNotice = useMemo(
-    () => notices.find((notice) => notice.isPinned) ?? null,
-    [notices]
-  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -185,7 +180,7 @@ export default function AdminMessagesPage() {
                 {editingId ? "공지 수정" : "새 공지 작성"}
               </h2>
               <p className="brand-text-subtle mt-1 text-xs">
-                고정된 공지는 메인 페이지 상단 배너로 노출됩니다.
+                고정된 공지는 메인 헤더의 공지 팝업에서 바로 확인할 수 있습니다.
               </p>
             </div>
             {editingId ? (
@@ -221,7 +216,7 @@ export default function AdminMessagesPage() {
                 onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
                 rows={5}
                 className="brand-input w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none"
-                placeholder="메인 화면 공지 배너와 운영 메시지에 보여줄 내용을 입력하세요."
+                placeholder="공지 팝업과 운영 메시지에 보여줄 내용을 입력하세요."
               />
               <p className="brand-text-subtle mt-1 text-right text-xs">{form.body.length}자</p>
             </div>
@@ -230,7 +225,7 @@ export default function AdminMessagesPage() {
               <div>
                 <p className="text-sm font-semibold text-[var(--brand-text)]">홈 상단 공지로 고정</p>
                 <p className="brand-text-subtle mt-0.5 text-xs">
-                  하나만 고정되며, 기존 고정 공지는 자동으로 해제됩니다.
+                  하나만 고정되며, 홈 헤더의 공지 팝업에서 우선 보여집니다.
                 </p>
               </div>
               <input
@@ -263,31 +258,6 @@ export default function AdminMessagesPage() {
         </section>
 
         <section className="space-y-4">
-          <div className="brand-card-soft rounded-3xl p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[var(--brand-text)]">현재 상단 공지</h2>
-              {pinnedNotice ? (
-                <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">고정됨</span>
-              ) : (
-                <span className="brand-chip-accent rounded-full px-2 py-1 text-xs font-bold">없음</span>
-              )}
-            </div>
-            {pinnedNotice ? (
-              <div className="brand-alert-info rounded-2xl p-4">
-                <p className="text-sm font-bold text-[var(--brand-primary-foreground)]">
-                  {pinnedNotice.title}
-                </p>
-                <p className="mt-1 whitespace-pre-line text-xs text-[var(--brand-primary-foreground)] opacity-80">
-                  {pinnedNotice.body}
-                </p>
-              </div>
-            ) : (
-              <div className="brand-list-item rounded-2xl px-4 py-6 text-center text-sm brand-text-subtle">
-                아직 고정된 공지가 없습니다.
-              </div>
-            )}
-          </div>
-
           <div className="brand-card-soft rounded-3xl p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-base font-bold text-[var(--brand-text)]">운영 메시지 연결</h2>

@@ -6,6 +6,12 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
+  DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
+  DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
+  DEFAULT_SETTLEMENT_BANK_NAME,
+  SETTLEMENT_ACCOUNT_HOLDER_KEY,
+  SETTLEMENT_ACCOUNT_NUMBER_KEY,
+  SETTLEMENT_BANK_NAME_KEY,
 } from "@/lib/settings";
 
 const DEFAULT_PENALTY_MESSAGE =
@@ -15,6 +21,9 @@ export default function AdminSettingsPage() {
   const [penaltyMessage, setPenaltyMessage] = useState(DEFAULT_PENALTY_MESSAGE);
   const [penaltyDays, setPenaltyDays] = useState("2");
   const [participantOptionPricingGuide, setParticipantOptionPricingGuide] = useState(DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE);
+  const [settlementBankName, setSettlementBankName] = useState(DEFAULT_SETTLEMENT_BANK_NAME);
+  const [settlementAccountNumber, setSettlementAccountNumber] = useState(DEFAULT_SETTLEMENT_ACCOUNT_NUMBER);
+  const [settlementAccountHolder, setSettlementAccountHolder] = useState(DEFAULT_SETTLEMENT_ACCOUNT_HOLDER);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
@@ -31,6 +40,15 @@ export default function AdminSettingsPage() {
         }
         if (data[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]) {
           setParticipantOptionPricingGuide(data[PARTICIPANT_OPTION_PRICING_GUIDE_KEY]);
+        }
+        if (data[SETTLEMENT_BANK_NAME_KEY]) {
+          setSettlementBankName(data[SETTLEMENT_BANK_NAME_KEY]);
+        }
+        if (data[SETTLEMENT_ACCOUNT_NUMBER_KEY]) {
+          setSettlementAccountNumber(data[SETTLEMENT_ACCOUNT_NUMBER_KEY]);
+        }
+        if (data[SETTLEMENT_ACCOUNT_HOLDER_KEY]) {
+          setSettlementAccountHolder(data[SETTLEMENT_ACCOUNT_HOLDER_KEY]);
         }
         setLoading(false);
       })
@@ -58,6 +76,21 @@ export default function AdminSettingsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: PARTICIPANT_OPTION_PRICING_GUIDE_KEY, value: participantOptionPricingGuide }),
         }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: SETTLEMENT_BANK_NAME_KEY, value: settlementBankName }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: SETTLEMENT_ACCOUNT_NUMBER_KEY, value: settlementAccountNumber }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: SETTLEMENT_ACCOUNT_HOLDER_KEY, value: settlementAccountHolder }),
+        }),
       ]);
 
       addToast("설정이 저장되었습니다", "success");
@@ -71,7 +104,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="text-center py-16 text-slate-400 text-sm">불러오는 중...</div>
+        <div className="brand-text-subtle py-16 text-center text-sm">불러오는 중...</div>
       </AdminLayout>
     );
   }
@@ -173,6 +206,57 @@ export default function AdminSettingsPage() {
                 <p className="brand-text-muted whitespace-pre-line text-sm">
                   {participantOptionPricingGuide || "(메시지 없음)"}
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="brand-card-soft rounded-3xl p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-bold text-[var(--brand-text)]">
+            <span>💸</span> 정산 입금 계좌
+          </h2>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">은행명</span>
+                <input
+                  value={settlementBankName}
+                  onChange={(e) => setSettlementBankName(e.target.value)}
+                  className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                  placeholder="예: 카카오뱅크"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">계좌번호</span>
+                <input
+                  value={settlementAccountNumber}
+                  onChange={(e) => setSettlementAccountNumber(e.target.value)}
+                  className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                  placeholder="예: 3333-12-1234567"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">예금주</span>
+                <input
+                  value={settlementAccountHolder}
+                  onChange={(e) => setSettlementAccountHolder(e.target.value)}
+                  className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                  placeholder="예: 홍길동"
+                />
+              </label>
+            </div>
+
+            <div>
+              <label className="brand-text-muted mb-2 block text-xs font-bold">미리보기</label>
+              <div className="brand-list-item rounded-2xl p-4">
+                {settlementBankName || settlementAccountNumber || settlementAccountHolder ? (
+                  <p className="text-sm font-semibold text-[var(--brand-text)]">
+                    {settlementBankName} {settlementAccountNumber} {settlementAccountHolder ? `(${settlementAccountHolder})` : ""}
+                  </p>
+                ) : (
+                  <p className="brand-text-subtle text-sm">정산 팝업에 표시할 입금 계좌를 입력하세요.</p>
+                )}
               </div>
             </div>
           </div>

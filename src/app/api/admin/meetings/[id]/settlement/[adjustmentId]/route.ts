@@ -30,5 +30,9 @@ export async function DELETE(
     where: { id: parsedAdjustmentId },
   });
 
+  await prisma.settlementConfirmation.deleteMany({
+    where: { meetingId },
+  });
+
   return NextResponse.json({ ok: true });
 }

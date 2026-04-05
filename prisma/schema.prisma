@@ -15,10 +15,12 @@ model Meeting {
   location          String
   description       String?
   isOpen            Boolean       @default(true)
+  settlementOpen    Boolean       @default(false)
   meetingType       String        @default("정기") // 정기 | 비정기
   createdByKakaoId  String?       // null = admin, otherwise member's kakaoId
   participants      Participant[]
   chargeAdjustments ParticipantChargeAdjustment[]
+  settlementConfirmations SettlementConfirmation[]
   createdAt         DateTime      @default(now())
 }
 
@@ -56,6 +58,16 @@ model ParticipantChargeAdjustment {
   updatedAt     DateTime    @updatedAt
   meeting       Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model SettlementConfirmation {
+  id              Int      @id @default(autoincrement())
+  meetingId       Int
+  recipientKakaoId String
+  confirmedAt     DateTime @default(now())
+  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, recipientKakaoId])
 }
 
 model Notice {

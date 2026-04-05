@@ -1,8 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { getPricingConfig, groupParticipantsForSettlement } from "@/lib/pricing";
+import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
 
 export const dynamic = "force-dynamic";
 
@@ -38,74 +37,7 @@ export default async function SettlementPage() {
     );
   }
 
-  const pricing = await getPricingConfig();
-  const participants = await prisma.participant.findMany({
-    where: {
-      status: "APPROVED",
-      OR: [
-        { kakaoId: session.kakaoId, companionId: null },
-        { companion: { linkedKakaoId: session.kakaoId } },
-        { companion: { ownerKakaoId: session.kakaoId, linkedKakaoId: null } },
-      ],
-    },
-    orderBy: [{ meeting: { date: "desc" } }, { submittedAt: "asc" }],
-    include: {
-      meeting: true,
-      user: {
-        select: {
-          memberType: true,
-          name: true,
-        },
-      },
-      companion: {
-        include: {
-          owner: {
-            select: {
-              kakaoId: true,
-              name: true,
-            },
-          },
-        },
-      },
-      chargeAdjustments: {
-        orderBy: { createdAt: "asc" },
-      },
-    },
-  });
-
-  const meetingsMap = new Map<number, typeof participants>();
-  for (const participant of participants) {
-    const list = meetingsMap.get(participant.meetingId) ?? [];
-    list.push(participant);
-    meetingsMap.set(participant.meetingId, list);
-  }
-
-  const settlementMeetings = Array.from(meetingsMap.values()).map((meetingParticipants) => {
-    const meeting = meetingParticipants[0].meeting;
-    const adjustmentMap = new Map(
-      meetingParticipants.map((participant) => [
-        participant.id,
-        participant.chargeAdjustments.map((adjustment) => ({
-          id: adjustment.id,
-          label: adjustment.label,
-          amount: adjustment.amount,
-        })),
-      ])
-    );
-
-    const recipients = groupParticipantsForSettlement(meetingParticipants, pricing, adjustmentMap);
-    const myGroup = recipients.find((recipient) => recipient.recipientKakaoId === session.kakaoId);
-
-    return myGroup
-      ? {
-          meeting,
-          group: myGroup,
-        }
-      : null;
-  }).filter(Boolean) as {
-    meeting: typeof participants[number]["meeting"];
-    group: ReturnType<typeof groupParticipantsForSettlement>[number];
-  }[];
+  const settlementMeetings = await getSettlementGroupsForKakaoId(session.kakaoId);
 
   return (
     <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">

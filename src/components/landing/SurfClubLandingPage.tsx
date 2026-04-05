@@ -19,6 +19,36 @@ type NoticeItem = {
   updatedAt: string;
 };
 
+type SettlementSummary = {
+  meeting: {
+    id: number;
+    date: string;
+    startTime: string;
+    endTime: string;
+    location: string;
+    settlementOpen: boolean;
+  };
+  group: {
+    totalFee: number;
+    items: {
+      participantId: number;
+      participantName: string;
+      memberType: "REGULAR" | "COMPANION";
+      baseFee: number;
+      lessonFee: number;
+      rentalFee: number;
+      totalFee: number;
+      adjustments: { id: number; label: string; amount: number }[];
+    }[];
+  };
+};
+
+type SettlementAccount = {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+};
+
 type CalendarCell = {
   day: number;
   date: string;
@@ -42,6 +72,10 @@ function sortMeetings(meetings: MeetingWithCounts[]) {
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
+}
+
+function formatWon(value: number) {
+  return `${value.toLocaleString("ko-KR")}원`;
 }
 
 function buildCalendarCells(year: number, month: number) {
@@ -273,9 +307,14 @@ export default function SurfClubLandingPage({
   const [selectedDate, setSelectedDate] = useState<string | null>(initialView.selectedDate);
   const [activeMeetingTab, setActiveMeetingTab] = useState<"apply" | "status">("apply");
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+  const [pendingSettlements, setPendingSettlements] = useState<SettlementSummary[]>([]);
+  const [settlementAccount, setSettlementAccount] = useState<SettlementAccount | null>(null);
+  const [confirmingMeetingId, setConfirmingMeetingId] = useState<number | null>(null);
   const sortedMeetings = sortMeetings(meetings);
 
   const hasPinnedNotice = Boolean(pinnedNotice);
+  const hasPendingSettlement = pendingSettlements.length > 0;
+  const hasPopupTrigger = hasPinnedNotice || hasPendingSettlement;
 
   useEffect(() => {
     const nextView = findInitialView(meetings, today, requestedDate);
@@ -287,6 +326,72 @@ export default function SurfClubLandingPage({
   useEffect(() => {
     setActiveMeetingTab("apply");
   }, [selectedDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPendingSettlements() {
+      if (!user) {
+        setPendingSettlements([]);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/settlement/current");
+        const data = await res.json();
+        if (cancelled) return;
+        const nextPending = Array.isArray(data?.pending) ? data.pending : [];
+        setPendingSettlements(nextPending);
+        setSettlementAccount(data?.settlementAccount ?? null);
+        if (nextPending.length > 0) {
+          setIsNoticeOpen(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setPendingSettlements([]);
+          setSettlementAccount(null);
+        }
+      }
+    }
+
+    loadPendingSettlements();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  async function handleConfirmSettlement(meetingId: number) {
+    setConfirmingMeetingId(meetingId);
+    try {
+      const res = await fetch("/api/settlement/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId }),
+      });
+      if (!res.ok) {
+        return;
+      }
+
+      setPendingSettlements((prev) => {
+        const next = prev.filter((item) => item.meeting.id !== meetingId);
+        if (!next.length) {
+          setIsNoticeOpen(false);
+        }
+        return next;
+      });
+    } finally {
+      setConfirmingMeetingId(null);
+    }
+  }
+
+  async function copySettlementAccount() {
+    if (!settlementAccount?.accountNumber) return;
+    try {
+      await navigator.clipboard.writeText(settlementAccount.accountNumber);
+    } catch {
+      // no-op
+    }
+  }
 
   const meetingsByDate = sortedMeetings.reduce<Record<string, MeetingWithCounts[]>>((acc, meeting) => {
     if (!acc[meeting.date]) acc[meeting.date] = [];
@@ -320,7 +425,7 @@ export default function SurfClubLandingPage({
             <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
           </div>
           <div className="flex items-center gap-2">
-            {hasPinnedNotice ? (
+            {hasPopupTrigger ? (
               <button
                 aria-label="공지사항 열기"
                 className="brand-link flex h-8 w-8 items-center justify-center rounded-full transition-opacity hover:opacity-70"
@@ -330,20 +435,12 @@ export default function SurfClubLandingPage({
                 <Icon className="text-[16px]" name="notifications" />
               </button>
             ) : null}
-            {isAdmin ? (
-              <Link
-                className="rounded-xl bg-[var(--brand-primary-soft-strong)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-accent)]"
-                href="/admin"
-              >
-                관리자
-              </Link>
-            ) : null}
             {user ? <ProfileButton user={user} /> : null}
           </div>
         </div>
       </header>
 
-      {hasPinnedNotice && isNoticeOpen ? (
+      {hasPopupTrigger && isNoticeOpen ? (
         <div className="fixed inset-0 z-[60] bg-[rgba(0,29,110,0.24)] px-4 py-6" onClick={() => setIsNoticeOpen(false)}>
           <div
             className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]"
@@ -354,7 +451,7 @@ export default function SurfClubLandingPage({
                 <div className="brand-chip-strong flex h-10 w-10 items-center justify-center rounded-full">
                   <Icon className="text-[20px]" name="notifications" />
                 </div>
-                <p className="text-sm font-extrabold text-[var(--brand-text)]">공지사항</p>
+                <p className="text-sm font-extrabold text-[var(--brand-text)]">{hasPendingSettlement ? "정산 확인" : "공지사항"}</p>
               </div>
               <button
                 aria-label="공지사항 닫기"
@@ -366,31 +463,115 @@ export default function SurfClubLandingPage({
               </button>
             </div>
 
-            <div className="brand-panel-white rounded-2xl px-4 py-4">
-              <p className="text-base font-bold text-[var(--brand-text)]">{pinnedNotice.title}</p>
-              <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice.body}</p>
-            </div>
+            {hasPendingSettlement ? (
+              <div className="space-y-3">
+                {pendingSettlements.map((settlement) => (
+                  <div key={settlement.meeting.id} className="brand-panel-white rounded-2xl p-4">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-bold text-[var(--brand-text)]">{settlement.meeting.date}</p>
+                        <p className="brand-text-muted mt-1 text-sm">
+                          {settlement.meeting.startTime}–{settlement.meeting.endTime} · {settlement.meeting.location}
+                        </p>
+                      </div>
+                      <span className="brand-chip-dark rounded-full px-2 py-1 text-xs font-bold">
+                        총 {formatWon(settlement.group.totalFee)}
+                      </span>
+                    </div>
 
-            <div className="mt-4 flex justify-end">
-              <div className="flex gap-3">
-                {user ? (
-                  <Link
-                    className="brand-button-secondary rounded-2xl px-5 py-3 text-sm font-bold"
-                    href="/settlement"
-                    onClick={() => setIsNoticeOpen(false)}
-                  >
-                    정산 확인하기
-                  </Link>
+                    <div className="space-y-2">
+                      {settlement.group.items.map((item) => (
+                        <div key={item.participantId} className="brand-list-item rounded-2xl p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold text-[var(--brand-text)]">
+                                {item.participantName}
+                                {item.memberType === "COMPANION" ? " (동반)" : ""}
+                              </p>
+                              <div className="brand-text-subtle mt-1 space-y-1 text-xs">
+                                <p>참가 {formatWon(item.baseFee)} · 강습 {formatWon(item.lessonFee)} · 대여 {formatWon(item.rentalFee)}</p>
+                                {item.adjustments.map((adjustment) => (
+                                  <p key={adjustment.id}>
+                                    {adjustment.label} {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                            <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(item.totalFee)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {settlementAccount?.accountNumber ? (
+                      <div className="mt-3 rounded-2xl bg-[var(--brand-primary-soft)] px-4 py-3">
+                        <p className="text-xs font-bold text-[var(--brand-primary-text)]">입금 계좌</p>
+                        <p className="mt-1 text-sm font-extrabold text-[var(--brand-primary-text)]">
+                          {settlementAccount.bankName} {settlementAccount.accountNumber}
+                        </p>
+                        {settlementAccount.accountHolder ? (
+                          <p className="mt-1 text-xs text-[var(--brand-primary-text)] opacity-80">
+                            예금주 {settlementAccount.accountHolder}
+                          </p>
+                        ) : null}
+                        <button
+                          className="brand-button-secondary mt-3 rounded-xl px-3 py-2 text-xs font-bold"
+                          onClick={copySettlementAccount}
+                          type="button"
+                        >
+                          계좌번호 복사
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
+                        disabled={confirmingMeetingId === settlement.meeting.id}
+                        onClick={() => handleConfirmSettlement(settlement.meeting.id)}
+                        type="button"
+                      >
+                        {confirmingMeetingId === settlement.meeting.id ? "확인 중..." : "정산 확인 완료"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {hasPinnedNotice ? (
+                  <div className="brand-panel-white rounded-2xl px-4 py-4">
+                    <p className="text-sm font-bold text-[var(--brand-text)]">{pinnedNotice!.title}</p>
+                    <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice!.body}</p>
+                  </div>
                 ) : null}
-                <button
-                  className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
-                  onClick={() => setIsNoticeOpen(false)}
-                  type="button"
-                >
-                  닫기
-                </button>
+
+                <div className="flex justify-end">
+                  <button
+                    className="brand-button-secondary rounded-2xl px-5 py-3 text-sm font-bold"
+                    onClick={() => setIsNoticeOpen(false)}
+                    type="button"
+                  >
+                    나중에 보기
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="brand-panel-white rounded-2xl px-4 py-4">
+                  <p className="text-base font-bold text-[var(--brand-text)]">{pinnedNotice!.title}</p>
+                  <p className="brand-text-muted mt-2 whitespace-pre-line text-sm leading-6">{pinnedNotice!.body}</p>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    className="brand-button-primary rounded-2xl px-5 py-3 text-sm font-bold"
+                    onClick={() => setIsNoticeOpen(false)}
+                    type="button"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

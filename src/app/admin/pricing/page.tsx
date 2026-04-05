@@ -50,8 +50,8 @@ export default function AdminPricingPage() {
 
   useEffect(() => {
     fetch("/api/admin/settings")
-      .then((r) => r.ok ? r.json() : {})
-      .then((data) => {
+      .then((r) => r.ok ? r.json() : ({} as Record<string, string>))
+      .then((data: Record<string, string>) => {
         setPricing({
           [PRICING_SETTING_KEYS.regularBaseFee]: data[PRICING_SETTING_KEYS.regularBaseFee] ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularBaseFee],
           [PRICING_SETTING_KEYS.companionBaseFee]: data[PRICING_SETTING_KEYS.companionBaseFee] ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionBaseFee],
