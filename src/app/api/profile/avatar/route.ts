@@ -1,4 +1,3 @@
-import { del, put } from "@vercel/blob";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
@@ -10,6 +9,24 @@ export const runtime = "nodejs";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_UPLOAD_BYTES = 1024 * 1024;
+
+type BlobUploadResult = {
+  pathname: string;
+  url: string;
+};
+
+type BlobApi = {
+  put: (
+    pathname: string,
+    body: File,
+    options: {
+      access: "public";
+      addRandomSuffix: boolean;
+      contentType: string;
+    },
+  ) => Promise<BlobUploadResult>;
+  del: (url: string) => Promise<void>;
+};
 
 function extensionFor(contentType: string) {
   switch (contentType) {
@@ -49,6 +66,10 @@ async function saveLocalUpload(kakaoId: string, file: File) {
   };
 }
 
+async function loadBlobApi(): Promise<BlobApi> {
+  return (0, eval)('import("@vercel/blob")') as Promise<BlobApi>;
+}
+
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
   if (!session) {
@@ -78,11 +99,14 @@ export async function POST(req: NextRequest) {
   });
 
   const uploaded = process.env.BLOB_READ_WRITE_TOKEN
-    ? await put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
-        access: "public",
-        addRandomSuffix: false,
-        contentType: file.type,
-      })
+    ? await (async () => {
+        const { put } = await loadBlobApi();
+        return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
+          access: "public",
+          addRandomSuffix: false,
+          contentType: file.type,
+        });
+      })()
     : await saveLocalUpload(session.kakaoId, file);
 
   const user = await prisma.user.update({
@@ -105,9 +129,11 @@ export async function POST(req: NextRequest) {
         console.error("Failed to delete previous local profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-      void del(existing.customProfileImageUrl).catch((error) => {
-        console.error("Failed to delete previous custom profile image", error);
-      });
+      void loadBlobApi()
+        .then(({ del }) => del(existing.customProfileImageUrl))
+        .catch((error) => {
+          console.error("Failed to delete previous custom profile image", error);
+        });
     }
   }
 
@@ -150,9 +176,11 @@ export async function DELETE(req: NextRequest) {
         console.error("Failed to delete local profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-      void del(existing.customProfileImageUrl).catch((error) => {
-        console.error("Failed to delete custom profile image", error);
-      });
+      void loadBlobApi()
+        .then(({ del }) => del(existing.customProfileImageUrl))
+        .catch((error) => {
+          console.error("Failed to delete custom profile image", error);
+        });
     }
   }
 

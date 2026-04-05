@@ -78,6 +78,18 @@ function formatWon(value: number) {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
+function buildTossTransferUrl(account: SettlementAccount) {
+  const accountNumber = account.accountNumber.replace(/[^\d-]/g, "");
+  if (!account.bankName || !accountNumber) return null;
+
+  const params = new URLSearchParams({
+    bank: account.bankName,
+    accountNo: accountNumber,
+  });
+
+  return `supertoss://send?${params.toString()}`;
+}
+
 function buildCalendarCells(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -393,6 +405,13 @@ export default function SurfClubLandingPage({
     }
   }
 
+  function openTossTransfer() {
+    if (!settlementAccount) return;
+    const tossUrl = buildTossTransferUrl(settlementAccount);
+    if (!tossUrl) return;
+    window.location.href = tossUrl;
+  }
+
   const meetingsByDate = sortedMeetings.reduce<Record<string, MeetingWithCounts[]>>((acc, meeting) => {
     if (!acc[meeting.date]) acc[meeting.date] = [];
     acc[meeting.date].push(meeting);
@@ -403,6 +422,7 @@ export default function SurfClubLandingPage({
   const monthMeetings = sortedMeetings.filter((meeting) => meeting.date.startsWith(monthKey));
   const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
   const hasSelectedMeetings = selectedMeetings.length > 0;
+  const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
   const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
   const calendarCells = buildCalendarCells(year, month);
@@ -514,13 +534,22 @@ export default function SurfClubLandingPage({
                             예금주 {settlementAccount.accountHolder}
                           </p>
                         ) : null}
-                        <button
-                          className="brand-button-secondary mt-3 rounded-xl px-3 py-2 text-xs font-bold"
-                          onClick={copySettlementAccount}
-                          type="button"
-                        >
-                          계좌번호 복사
-                        </button>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            className="brand-button-primary rounded-xl px-3 py-2 text-xs font-bold"
+                            onClick={openTossTransfer}
+                            type="button"
+                          >
+                            토스로 송금
+                          </button>
+                          <button
+                            className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold"
+                            onClick={copySettlementAccount}
+                            type="button"
+                          >
+                            계좌번호 복사
+                          </button>
+                        </div>
                       </div>
                     ) : null}
 
@@ -691,9 +720,21 @@ export default function SurfClubLandingPage({
           </section>
         ) : null}
 
-        {selectedDate && (dbUnavailable || hasSelectedMeetings) ? (
+        {!user ? (
+          <section>
+            <a
+              className="brand-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold transition-all active:scale-[0.99]"
+              href={`/api/auth/kakao?returnTo=${encodeURIComponent(loginReturnTo)}`}
+            >
+              카카오로 로그인
+              <Icon className="text-[20px]" name="login" />
+            </a>
+          </section>
+        ) : null}
+
+        {selectedDate && user && (dbUnavailable || hasSelectedMeetings) ? (
           <section id="meeting-details">
-            {!user || !hasSelectedMeetings || dbUnavailable ? (
+            {!hasSelectedMeetings || dbUnavailable ? (
               <div className="mb-3">
               <h2 className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">모임상세</h2>
               </div>
@@ -711,12 +752,6 @@ export default function SurfClubLandingPage({
                     key={meeting.id}
                     meetingId={meeting.id}
                   />
-                ))}
-              </div>
-            ) : selectedMeetings.length > 0 ? (
-              <div className="space-y-3">
-                {selectedMeetings.map((meeting) => (
-                  <MeetingCard key={meeting.id} loggedIn={!!user} meeting={meeting} today={today} />
                 ))}
               </div>
             ) : null}
