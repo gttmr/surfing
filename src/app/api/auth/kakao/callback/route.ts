@@ -105,14 +105,11 @@ export async function GET(req: NextRequest) {
     undefined;
 
   // DB에 회원 정보 기록 또는 갱신 (자동 회원가입)
+  // 삭제된 이력이 있어도 재가입 허용 - 신규 회원과 동일하게 처리
   let isNewUser = false;
   try {
-    const deleted = await prisma.deletedKakaoId.findUnique({ where: { kakaoId } });
-    if (deleted) {
-      return NextResponse.redirect(new URL(`${returnTo}?auth_error=account_deleted`, authOrigin));
-    }
-
     const existing = await prisma.user.findUnique({ where: { kakaoId } });
+    const wasDeleted = !existing && !!(await prisma.deletedKakaoId.findUnique({ where: { kakaoId } }));
     isNewUser = !existing;
     await prisma.user.upsert({
       where: { kakaoId },
@@ -126,6 +123,10 @@ export async function GET(req: NextRequest) {
         role: "MEMBER",
       },
     });
+    // 재가입 처리 완료 후 삭제 이력 제거
+    if (wasDeleted) {
+      await prisma.deletedKakaoId.delete({ where: { kakaoId } });
+    }
   } catch (dbError) {
     console.error("Failed to upsert user:", dbError);
   }
