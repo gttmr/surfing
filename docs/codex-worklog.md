@@ -5,10 +5,12 @@
 - `/meeting/[id]`는 직접 상세를 렌더링하지 않고 `/?date=YYYY-MM-DD`로 돌려보낸다.
 - `/meeting/create`는 비정기 모임 생성 전용 화면으로만 남아 있고, 홈의 빈 날짜 상태에서 진입한다.
 - 프로필은 `/profile`, 관리자 기능은 `/admin/*` 아래로 정리돼 있다.
+- 홈/프로필/참가 폼은 거대 파일 하나에 상태와 JSX를 모두 두지 않고, 상태 훅과 섹션 컴포넌트로 분리한 구조를 사용한다.
 
 ## 홈/모임 흐름
 - 홈은 월간 달력과 선택 날짜 기반 상세 흐름을 사용한다.
 - 초기 진입 시 오늘 기준 가장 가까운 모임을 자동 선택한다.
+- 홈 첫 렌더는 서버가 이미 알고 있는 사용자/선택 모임/신청 상태를 내려주고, 클라이언트에서 같은 데이터를 다시 연속 fetch하지 않도록 정리했다.
 - 모임 상세는 `참가하기` / `신청현황` 탭으로 나뉘고, 탭 전환 시 콘텐츠 위치가 크게 흔들리지 않게 최소 높이를 맞췄다.
 - `신청현황` 탭 우측 badge는 두 자릿수까지 그대로 표시하고, 하위 리스트는 번호 대신 프로필 사진 또는 기본 아바타를 보여준다.
 - 동반인 시스템 메모(`~~의 동반`)는 숨기고, 일반 비고만 노출한다.
@@ -18,6 +20,7 @@
 - 종 아이콘을 누르면 `알림 센터` 팝업이 열리고, 공지사항과 정산 알림을 같은 리스트에서 펼쳐 볼 수 있다.
 - 정산 알림은 총 비용을 상단에 크게 보여주고, `토스로 송금` / `계좌번호 복사` CTA와 트립 정보, 비용 발생 사유를 함께 노출한다.
 - 관리자 설정에 입금 계좌가 있으면 정산 알림에서 송금/복사 흐름을 바로 사용할 수 있다.
+- `신청현황` polling은 상시가 아니라 해당 탭에서만 돌도록 제한했다.
 
 ## 참가 옵션
 - 신청 옵션은 `강습+장비대여`, `장비 대여만`, `셔틀 버스` 세 가지다.
@@ -34,6 +37,7 @@
 - 상단 카메라 버튼으로 즉시 사진을 바꿀 수 있고, 별도의 “카카오 사진으로 복원” 흐름은 제거했다.
 - 프로필 화면 우측 상단에는 썸네일 대신 로그아웃 버튼만 둔다.
 - 모바일에서는 하단 고정 `프로필 저장하기` 버튼을 사용해 첫 화면에서 바로 저장 액션이 보이게 했다.
+- 프로필 화면의 초기 상태와 액션은 `useProfilePageState`로 분리했고, 헤더/기본 정보/동반인 관리/모바일 저장 버튼은 별도 섹션 컴포넌트로 나눴다.
 
 ## 인증/운영
 - 카카오 SDK는 `next/script`로 로드한다.
@@ -43,6 +47,16 @@
 - `DeletedKakaoId`에 남아 있는 kakaoId는 홈/프로필/참가/정산/동반인 관련 API에서 비활성 세션으로 취급한다.
 - 카카오 콜백은 `DeletedKakaoId`가 남아 있으면 기존 `User` row가 있어도 재가입으로 간주해 setup 흐름으로 보낸다.
 - 관리자 보호 라우팅은 Next 16 경고를 피하기 위해 `middleware.ts` 대신 `proxy.ts`를 사용한다.
+- Firebase Hosting 앞단을 쓰므로 사용자/관리자 세션 쿠키는 모두 `__session` 기준으로 동작한다.
+
+## 구조 정리 메모
+- `src/components/meeting/SignupForm.tsx`는 렌더 분기 조립만 맡고, 실제 상태/부트스트랩/mutation은 `src/components/meeting/useSignupFormState.ts`로 분리했다.
+- 참가 폼의 guest/동반인/기존 신청/신규 신청 패널과 공용 옵션 UI는 각각 `src/components/meeting/signup-form-panels.tsx`, `src/components/meeting/signup-form-controls.tsx`로 분리했다.
+- 홈 랜딩의 선택 날짜/탭/알림 센터/정산 알림 상태는 `src/components/landing/useLandingState.ts`로 분리했다.
+- 홈 랜딩의 헤더/알림 센터/달력/탭 JSX는 `src/components/landing/landing-page-sections.tsx`로 분리했다.
+- 홈 초기 선택 계산과 서버에서 내려주는 홈 전용 타입은 `src/lib/home-view.ts`, `src/lib/landing-types.ts`에 모아뒀다.
+- 프로필은 `src/app/profile/page.tsx`가 화면 조립만 맡고, 실제 로딩/저장/동반인 액션은 `src/components/profile/useProfilePageState.ts`에 둔다.
+- 프로필 헤더/설정 모달/기본 정보/동반인 관리/모바일 저장 버튼은 `src/components/profile/profile-page-sections.tsx`로 분리했다.
 
 ## 디자인 시스템
 - 브랜드 토큰은 `#C4DDFF`, `#7FB5FF`, `#001D6E`, `#FFFFFF` 중심으로 정리했다.
@@ -73,7 +87,7 @@
 - 동반인이 카카오 연동된 경우는 그 동반인에게 직접 정산 그룹이 생기고, 카카오 연동이 없는 동반인은 정회원(owner) 정산 그룹에 합산되도록 설계했다.
 - `Notice` 모델은 홈 상단 pinned 공지와 관리자 메시지 관리 화면에서 함께 사용한다.
 - `DeletedKakaoId` 모델은 관리자 회원 삭제 이후 stale session 재생성을 막는 기준값으로도 사용한다.
-- 로컬 개발에서 Blob 토큰이 없으면 프로필 업로드 이미지는 `public/uploads/` 아래에 생성된다.
+- 프로필 업로드 저장 우선순위는 `GCS_PROFILE_IMAGE_BUCKET` -> `BLOB_READ_WRITE_TOKEN` -> `public/uploads/` 순서다.
 
 ## 저장소 정리
 - Stitch 산출물 성격의 데모 페이지 `/upload-demo`는 제거했다.

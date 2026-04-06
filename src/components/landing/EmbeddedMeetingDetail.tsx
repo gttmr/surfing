@@ -1,33 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
-import type { MeetingWithCounts } from "@/lib/types";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
-
-type ParticipantItem = {
-  id: number;
-  name: string;
-  note: string | null;
-  hasLesson: boolean;
-  hasBus: boolean;
-  hasRental: boolean;
-  status: string;
-  kakaoId: string;
-  companionId: number | null;
-  profileImage?: string | null;
-};
-
-type DetailedMeeting = MeetingWithCounts & {
-  participantsList: ParticipantItem[];
-};
+import type {
+  DetailedMeeting,
+  HomeUser,
+  MeetingParticipantItem,
+  SignupInitialData,
+} from "@/lib/landing-types";
 
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
-function sortWithCompanions(participants: ParticipantItem[]) {
+function sortWithCompanions(participants: MeetingParticipantItem[]) {
   const regulars = participants.filter((participant) => participant.companionId === null);
   const companions = participants.filter((participant) => participant.companionId !== null);
-  const result: ParticipantItem[] = [];
+  const result: MeetingParticipantItem[] = [];
 
   for (const regular of regulars) {
     result.push(regular);
@@ -42,67 +30,106 @@ function sortWithCompanions(participants: ParticipantItem[]) {
   return result;
 }
 
+function normalizeMeetingDetail(data: {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string | null;
+  isOpen: boolean;
+  meetingType: string;
+  createdByKakaoId: string | null;
+  approvedCount: number;
+  participants?: MeetingParticipantItem[];
+}): DetailedMeeting {
+  return {
+    id: data.id,
+    date: data.date,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    location: data.location,
+    description: data.description,
+    isOpen: data.isOpen,
+    meetingType: data.meetingType,
+    createdByKakaoId: data.createdByKakaoId,
+    approvedCount: data.approvedCount,
+    participantsList: (data.participants ?? []).filter((participant) => participant.status !== "CANCELLED"),
+  };
+}
+
 export default function EmbeddedMeetingDetail({
   meetingId,
   activeTab,
+  currentUser,
+  participantOptionPricingGuide,
+  initialMeeting,
+  initialSignupData,
+  onMeetingSummaryChange,
 }: {
   meetingId: number;
   activeTab: "apply" | "status";
+  currentUser: HomeUser | null;
+  participantOptionPricingGuide: string;
+  initialMeeting?: DetailedMeeting;
+  initialSignupData?: SignupInitialData;
+  onMeetingSummaryChange?: (meetingId: number, approvedCount: number) => void;
 }) {
-  const [meeting, setMeeting] = useState<DetailedMeeting | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [meeting, setMeeting] = useState<DetailedMeeting | null>(initialMeeting ?? null);
+  const [loading, setLoading] = useState(!initialMeeting);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchMeeting(background = false) {
-      if (!background) {
-        setLoading(true);
-        setError(false);
-      }
-
-      try {
-        const res = await fetch(`/api/meetings/${meetingId}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("failed to fetch meeting");
-
-        const data = await res.json();
-        if (cancelled) return;
-
-        setMeeting({
-          id: data.id,
-          date: data.date,
-          startTime: data.startTime,
-          endTime: data.endTime,
-          location: data.location,
-          description: data.description,
-          isOpen: data.isOpen,
-          meetingType: data.meetingType,
-          createdByKakaoId: data.createdByKakaoId,
-          approvedCount: data.approvedCount,
-          participantsList: (data.participants ?? []).filter((participant: ParticipantItem) => participant.status !== "CANCELLED"),
-        });
-        setError(false);
-      } catch {
-        if (!cancelled && !background) {
-          setMeeting(null);
-          setError(true);
-        }
-      } finally {
-        if (!cancelled && !background) setLoading(false);
-      }
+  const fetchMeeting = useCallback(async (background = false) => {
+    if (!background) {
+      setLoading(true);
+      setError(false);
     }
 
-    fetchMeeting();
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("failed to fetch meeting");
+
+      const data = await res.json();
+      const nextMeeting = normalizeMeetingDetail(data);
+      setMeeting(nextMeeting);
+      onMeetingSummaryChange?.(meetingId, nextMeeting.approvedCount);
+      setError(false);
+      return nextMeeting;
+    } catch {
+      if (!background) {
+        setMeeting(null);
+        setError(true);
+      }
+      return null;
+    } finally {
+      if (!background) setLoading(false);
+    }
+  }, [meetingId, onMeetingSummaryChange]);
+
+  useEffect(() => {
+    setMeeting(initialMeeting ?? null);
+    setLoading(!initialMeeting);
+    setError(false);
+  }, [meetingId, initialMeeting]);
+
+  useEffect(() => {
+    if (!initialMeeting) {
+      void fetchMeeting();
+    } else {
+      onMeetingSummaryChange?.(meetingId, initialMeeting.approvedCount);
+    }
+  }, [fetchMeeting, initialMeeting, meetingId, onMeetingSummaryChange]);
+
+  useEffect(() => {
+    if (activeTab !== "status") return;
     const interval = window.setInterval(() => {
       void fetchMeeting(true);
     }, 8000);
 
     return () => {
-      cancelled = true;
       window.clearInterval(interval);
     };
-  }, [meetingId]);
+  }, [activeTab, fetchMeeting]);
 
   if (loading) {
     return <div className="brand-card-soft min-h-[34rem] animate-pulse rounded-2xl" />;
@@ -127,7 +154,7 @@ export default function EmbeddedMeetingDetail({
     rentalOnly: participants.filter((participant) => participant.hasRental).length,
   };
 
-  function ParticipantAvatar({ participant }: { participant: ParticipantItem }) {
+  function ParticipantAvatar({ participant }: { participant: MeetingParticipantItem }) {
     const fallbackEmoji = pickSurfAvatarEmoji(`${participant.kakaoId}:${participant.companionId ?? participant.id}:${participant.name}`);
 
     return (
@@ -167,39 +194,43 @@ export default function EmbeddedMeetingDetail({
             ) : null}
           </div>
 
-          <SignupForm meeting={meeting} />
+          <SignupForm
+            currentUser={currentUser}
+            initialData={initialSignupData}
+            meeting={meeting}
+            onMeetingChange={() => fetchMeeting(true)}
+            participantOptionPricingGuide={participantOptionPricingGuide}
+          />
         </div>
       ) : (
         <div className="space-y-3">
           {participants.length ? (
             <div className="brand-card-soft overflow-hidden rounded-2xl">
-              {(() => {
-                return participants.map((participant) => {
-                  const isCompanion = participant.companionId !== null;
-                  const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반")
-                    ? null
-                    : participant.note;
+              {participants.map((participant) => {
+                const isCompanion = participant.companionId !== null;
+                const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반")
+                  ? null
+                  : participant.note;
 
-                  return (
-                    <div
-                      key={participant.id}
-                      className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-10" : ""}`}
-                    >
-                      <ParticipantAvatar participant={participant} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
-                          {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                          {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
-                          {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
-                          {participant.hasRental ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
-                        </div>
-                        {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
+                return (
+                  <div
+                    key={participant.id}
+                    className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-10" : ""}`}
+                  >
+                    <ParticipantAvatar participant={participant} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
+                        {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
+                        {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
+                        {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
+                        {participant.hasRental ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
                       </div>
+                      {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
                     </div>
-                  );
-                });
-              })()}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="brand-inset-panel rounded-2xl px-4 py-6 text-center text-sm font-medium brand-text-muted">
