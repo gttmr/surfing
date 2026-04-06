@@ -84,4 +84,5 @@
 ## 브랜치/배포
 - 기준 작업 브랜치: `codex/landing-meeting-flow-main`
 - 최신 반영 커밋은 `main`과 동일하게 유지한다.
-- Vercel 배포는 `main` 기준으로 동작한다.
+- 현재 운영 배포는 Firebase Hosting(`sds-surfing.web.app`) -> Cloud Run(`sds-surfing`) 구조다.
+- 운영 리소스와 이사 대비 메모는 `docs/cloud-run-gcs-notes.md`에 별도로 정리했다.
