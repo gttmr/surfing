@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
+import { getTodayInSeoul } from "@/lib/date";
 import EmbeddedMeetingDetail from "./EmbeddedMeetingDetail";
 
 type HomeUser = {
@@ -77,10 +78,6 @@ const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const MONTH_NAMES_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 const ALERT_STORAGE_PREFIX = "surfing.alert.read.";
-
-function todayInSeoul() {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
-}
 
 function sortMeetings(meetings: MeetingWithCounts[]) {
   return [...meetings].sort((a, b) => {
@@ -385,7 +382,7 @@ export default function SurfClubLandingPage({
   dbUnavailable?: boolean;
   initialSelectedDate?: string | null;
 }) {
-  const today = todayInSeoul();
+  const today = getTodayInSeoul();
   const requestedDate = normalizeSelectedDate(initialSelectedDate);
   const initialView = findInitialView(meetings, today, requestedDate);
   const [year, setYear] = useState(initialView.year);

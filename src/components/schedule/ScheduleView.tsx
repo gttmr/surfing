@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
+import { getTodayInSeoul } from "@/lib/date";
 
 const DAYS_EN = ["S", "M", "T", "W", "T", "F", "S"];
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
@@ -86,7 +87,7 @@ export default function ScheduleView({
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const today = now.toISOString().split("T")[0];
+  const today = getTodayInSeoul(now);
 
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);

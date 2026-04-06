@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { shouldApplyPenalty, DEFAULT_PENALTY_MESSAGE } from "@/lib/penalty";
+import {
+  InvalidParticipantOptionsError,
+  normalizeParticipantOptions,
+} from "@/lib/participant-options";
 
 // 회원이 자신의 참가를 취소
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -132,12 +136,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const { hasLesson, hasBus, hasRental, note } = body;
 
+  const hasOptionUpdate =
+    hasLesson !== undefined || hasBus !== undefined || hasRental !== undefined;
+
+  let nextOptions: ReturnType<typeof normalizeParticipantOptions> | null = null;
+  if (hasOptionUpdate) {
+    try {
+      nextOptions = normalizeParticipantOptions({
+        hasLesson: hasLesson ?? participant.hasLesson,
+        hasBus: hasBus ?? participant.hasBus,
+        hasRental: hasRental ?? participant.hasRental,
+      });
+    } catch (error) {
+      if (error instanceof InvalidParticipantOptionsError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      throw error;
+    }
+  }
+
   const updated = await prisma.participant.update({
     where: { id: parseInt(id) },
     data: {
-      ...(hasLesson !== undefined && { hasLesson: !!hasLesson }),
-      ...(hasBus !== undefined && { hasBus: !!hasBus }),
-      ...(hasRental !== undefined && { hasRental: !!hasRental }),
+      ...(nextOptions ?? {}),
       ...(note !== undefined && { note: typeof note === "string" ? (note.slice(0, 100).trim() || null) : null }),
     },
   });

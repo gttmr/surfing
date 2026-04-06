@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { getTodayInSeoul } from "@/lib/date";
 
 interface SessionUser {
   kakaoId: string;
@@ -154,7 +155,7 @@ function CreateMeetingPageContent() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
+              min={getTodayInSeoul()}
               required
               className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface text-sm outline-none focus:border-primary transition-colors"
             />

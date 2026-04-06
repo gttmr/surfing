@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
+import {
+  InvalidParticipantOptionsError,
+  normalizeParticipantOptions,
+} from "@/lib/participant-options";
+import { runSerializableTransaction } from "@/lib/transaction";
 
 type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
 type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
@@ -38,132 +43,196 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: parseInt(String(meetingId)) },
-    include: { participants: { select: { status: true, kakaoId: true, companionId: true } } },
-  });
-
-  if (!meeting) return NextResponse.json({ error: "모임을 찾을 수 없습니다" }, { status: 404 });
-  if (!meeting.isOpen) return NextResponse.json({ error: "신청이 마감된 모임입니다" }, { status: 400 });
-
-  const existing = meeting.participants.find((p) => p.kakaoId === user.kakaoId && p.companionId === null && p.status !== "CANCELLED");
-  if (existing) {
-    return NextResponse.json({ error: "이미 신청하셨습니다" }, { status: 409 });
-  }
-
-  // 인라인 새 동반인 생성
-  const createdCompanions: { id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[] = [];
-  if (Array.isArray(newCompanions) && newCompanions.length > 0) {
-    for (const nc of newCompanions) {
-      if (!nc?.name?.trim()) continue;
-      const newComp = await prisma.companion.create({
-        data: { name: nc.name.trim(), ownerKakaoId: user.kakaoId },
-      });
-      createdCompanions.push({ id: newComp.id, hasLesson: !!nc.hasLesson, hasBus: !!nc.hasBus, hasRental: !!nc.hasRental });
+  let mainOptions;
+  let normalizedCompanionOptions: Record<string, ReturnType<typeof normalizeParticipantOptions>> = {};
+  let normalizedNewCompanions: Array<NewCompanion & ReturnType<typeof normalizeParticipantOptions>> = [];
+  try {
+    mainOptions = normalizeParticipantOptions({ hasLesson, hasBus, hasRental });
+    normalizedCompanionOptions = Object.fromEntries(
+      Object.entries(companionOptions ?? {}).map(([companionId, options]) => [
+        companionId,
+        normalizeParticipantOptions(options),
+      ]),
+    );
+    normalizedNewCompanions = (newCompanions ?? []).map((companion) => ({
+      ...companion,
+      ...normalizeParticipantOptions(companion),
+    }));
+  } catch (error) {
+    if (error instanceof InvalidParticipantOptionsError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
+    throw error;
   }
 
-  // 본인 신청 처리
-  const cancelledRecord = await prisma.participant.findFirst({
-    where: { meetingId: parseInt(String(meetingId)), kakaoId: user.kakaoId, companionId: null, status: "CANCELLED" },
-  });
+  const meetingIdNumber = parseInt(String(meetingId));
 
-  let participant;
-  if (cancelledRecord) {
-    participant = await prisma.participant.update({
-      where: { id: cancelledRecord.id },
-      data: {
-        name: name.trim(),
-        note: note?.trim() || null,
-        hasLesson: !!hasLesson,
-        hasBus: !!hasBus,
-        hasRental: !!hasRental,
-        status: "APPROVED",
-        waitlistPosition: null,
-        cancelledAt: null,
-        submittedAt: new Date(),
-      },
+  const result = await runSerializableTransaction(async (tx) => {
+    const meeting = await tx.meeting.findUnique({
+      where: { id: meetingIdNumber },
+      select: { id: true, isOpen: true },
     });
-  } else {
-    participant = await prisma.participant.create({
-      data: {
-        meetingId: parseInt(String(meetingId)),
-        name: name.trim(),
-        kakaoId: user.kakaoId,
-        kakaoNickname: user.nickname,
-        note: note?.trim() || null,
-        hasLesson: !!hasLesson,
-        hasBus: !!hasBus,
-        hasRental: !!hasRental,
-        status: "APPROVED",
-      },
-    });
-  }
 
-  // 기존 선택 동반인 신청
-  const allCompanionEntries: { id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }[] = [
-    ...(Array.isArray(companionIds)
-      ? companionIds.map((id) => {
-          const opt = companionOptions?.[String(id)];
-          return { id: parseInt(String(id)), hasLesson: !!opt?.hasLesson, hasBus: !!opt?.hasBus, hasRental: !!opt?.hasRental };
-        })
-      : []),
-    ...createdCompanions,
-  ];
+    if (!meeting) {
+      return { status: 404, body: { error: "모임을 찾을 수 없습니다" } };
+    }
+    if (!meeting.isOpen) {
+      return { status: 400, body: { error: "신청이 마감된 모임입니다" } };
+    }
 
-  const companionResults: { companionId: number; name: string; status: string }[] = [];
-
-  if (allCompanionEntries.length > 0) {
-    const myCompanions = await prisma.companion.findMany({
+    const existing = await tx.participant.findFirst({
       where: {
-        id: { in: allCompanionEntries.map((e) => e.id) },
-        ownerKakaoId: user.kakaoId,
+        meetingId: meetingIdNumber,
+        kakaoId: user.kakaoId,
+        companionId: null,
+        status: { not: "CANCELLED" },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      return { status: 409, body: { error: "이미 신청하셨습니다" } };
+    }
+
+    const createdCompanions: Array<{ id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }> = [];
+    for (const newCompanion of normalizedNewCompanions) {
+      if (!newCompanion.name?.trim()) continue;
+      const createdCompanion = await tx.companion.create({
+        data: { name: newCompanion.name.trim(), ownerKakaoId: user.kakaoId },
+      });
+      createdCompanions.push({
+        id: createdCompanion.id,
+        hasLesson: newCompanion.hasLesson,
+        hasBus: newCompanion.hasBus,
+        hasRental: newCompanion.hasRental,
+      });
+    }
+
+    const cancelledRecord = await tx.participant.findFirst({
+      where: {
+        meetingId: meetingIdNumber,
+        kakaoId: user.kakaoId,
+        companionId: null,
+        status: "CANCELLED",
       },
     });
 
-    for (const companion of myCompanions) {
-      const opts = allCompanionEntries.find((e) => e.id === companion.id);
-      const compExisting = await prisma.participant.findFirst({
-        where: { meetingId: parseInt(String(meetingId)), companionId: companion.id, status: { not: "CANCELLED" } },
-      });
-      if (compExisting) continue;
-
-      const cancelledComp = await prisma.participant.findFirst({
-        where: { meetingId: parseInt(String(meetingId)), companionId: companion.id, status: "CANCELLED" },
-      });
-
-      if (cancelledComp) {
-        await prisma.participant.update({
-          where: { id: cancelledComp.id },
+    const participant = cancelledRecord
+      ? await tx.participant.update({
+          where: { id: cancelledRecord.id },
           data: {
-            hasLesson: opts?.hasLesson ?? false,
-            hasBus: opts?.hasBus ?? false,
-            hasRental: opts?.hasRental ?? false,
+            name: name.trim(),
+            note: note?.trim() || null,
+            ...mainOptions,
             status: "APPROVED",
+            waitlistPosition: null,
             cancelledAt: null,
             submittedAt: new Date(),
           },
-        });
-      } else {
-        await prisma.participant.create({
+        })
+      : await tx.participant.create({
           data: {
-            meetingId: parseInt(String(meetingId)),
-            name: companion.name,
+            meetingId: meetingIdNumber,
+            name: name.trim(),
             kakaoId: user.kakaoId,
-            kakaoNickname: companion.name,
-            companionId: companion.id,
-            note: `${name.trim()}의 동반`,
-            hasLesson: opts?.hasLesson ?? false,
-            hasBus: opts?.hasBus ?? false,
-            hasRental: opts?.hasRental ?? false,
+            kakaoNickname: user.nickname,
+            note: note?.trim() || null,
+            ...mainOptions,
             status: "APPROVED",
           },
         });
+
+    const allCompanionEntries: Array<{
+      id: number;
+      hasLesson: boolean;
+      hasBus: boolean;
+      hasRental: boolean;
+    }> = [
+      ...(Array.isArray(companionIds)
+        ? companionIds.map((id) => {
+            const options = normalizedCompanionOptions[String(id)] ?? {
+              hasLesson: false,
+              hasBus: false,
+              hasRental: false,
+            };
+            return { id: parseInt(String(id)), ...options };
+          })
+        : []),
+      ...createdCompanions,
+    ];
+
+    const companionResults: { companionId: number; name: string; status: string }[] = [];
+
+    if (allCompanionEntries.length > 0) {
+      const myCompanions = await tx.companion.findMany({
+        where: {
+          id: { in: allCompanionEntries.map((entry) => entry.id) },
+          ownerKakaoId: user.kakaoId,
+        },
+      });
+
+      for (const companion of myCompanions) {
+        const options = allCompanionEntries.find((entry) => entry.id === companion.id) ?? {
+          hasLesson: false,
+          hasBus: false,
+          hasRental: false,
+        };
+
+        const activeCompanionParticipant = await tx.participant.findFirst({
+          where: {
+            meetingId: meetingIdNumber,
+            companionId: companion.id,
+            status: { not: "CANCELLED" },
+          },
+          select: { id: true },
+        });
+        if (activeCompanionParticipant) continue;
+
+        const cancelledCompanionParticipant = await tx.participant.findFirst({
+          where: {
+            meetingId: meetingIdNumber,
+            companionId: companion.id,
+            status: "CANCELLED",
+          },
+        });
+
+        if (cancelledCompanionParticipant) {
+          await tx.participant.update({
+            where: { id: cancelledCompanionParticipant.id },
+            data: {
+              ...options,
+              status: "APPROVED",
+              cancelledAt: null,
+              submittedAt: new Date(),
+            },
+          });
+        } else {
+          await tx.participant.create({
+            data: {
+              meetingId: meetingIdNumber,
+              name: companion.name,
+              kakaoId: user.kakaoId,
+              kakaoNickname: companion.name,
+              companionId: companion.id,
+              note: `${name.trim()}의 동반`,
+              ...options,
+              status: "APPROVED",
+            },
+          });
+        }
+
+        companionResults.push({
+          companionId: companion.id,
+          name: companion.name,
+          status: "APPROVED",
+        });
       }
-
-      companionResults.push({ companionId: companion.id, name: companion.name, status: "APPROVED" });
     }
-  }
 
-  return NextResponse.json({ ...participant, companions: companionResults }, { status: 201 });
+    return {
+      status: 201,
+      body: { ...participant, companions: companionResults },
+    };
+  });
+
+  return NextResponse.json(result.body, { status: result.status });
 }

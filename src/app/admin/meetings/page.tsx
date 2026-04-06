@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { getTodayInSeoul } from "@/lib/date";
 
 const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -72,7 +73,7 @@ export default function AdminMeetingsPage() {
     setCreating(false);
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayInSeoul();
   const upcoming = meetings.filter((m) => m.date >= today);
   const past = meetings.filter((m) => m.date < today);
 

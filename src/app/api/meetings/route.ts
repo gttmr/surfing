@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
+import { getTodayInSeoul } from "@/lib/date";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const upcoming = searchParams.get("upcoming") === "true";
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayInSeoul();
 
   const meetings = await prisma.meeting.findMany({
     where: upcoming ? { date: { gte: today } } : undefined,

@@ -108,28 +108,37 @@ export async function GET(req: NextRequest) {
   // 삭제된 이력이 있어도 재가입 허용 - 신규 회원과 동일하게 처리
   let isNewUser = false;
   try {
-    const existing = await prisma.user.findUnique({ where: { kakaoId } });
-    const deletedRecord = await prisma.deletedKakaoId.findUnique({ where: { kakaoId } });
-    const wasDeleted = !!deletedRecord;
-    isNewUser = !existing || wasDeleted;
-    await prisma.user.upsert({
-      where: { kakaoId },
-      update: {
-        profileImage: profileImage || null,
-      },
-      create: {
-        kakaoId,
-        name: nickname,
-        profileImage: profileImage || null,
-        role: "MEMBER",
-      },
+    const syncResult = await prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({ where: { kakaoId } });
+      const deletedRecord = await tx.deletedKakaoId.findUnique({ where: { kakaoId } });
+      const wasDeleted = !!deletedRecord;
+
+      await tx.user.upsert({
+        where: { kakaoId },
+        update: {
+          profileImage: profileImage || null,
+        },
+        create: {
+          kakaoId,
+          name: nickname,
+          profileImage: profileImage || null,
+          role: "MEMBER",
+        },
+      });
+
+      if (deletedRecord) {
+        await tx.deletedKakaoId.delete({ where: { kakaoId } });
+      }
+
+      return { isNewUser: !existing || wasDeleted };
     });
-    // 재가입 처리 완료 후 삭제 이력 제거
-    if (deletedRecord) {
-      await prisma.deletedKakaoId.delete({ where: { kakaoId } });
-    }
+
+    isNewUser = syncResult.isNewUser;
   } catch (dbError) {
     console.error("Failed to upsert user:", dbError);
+    return NextResponse.redirect(
+      new URL(`${returnTo}?auth_error=account_sync_failed`, authOrigin),
+    );
   }
 
   // 3) 세션 쿠키 설정 후 리다이렉트

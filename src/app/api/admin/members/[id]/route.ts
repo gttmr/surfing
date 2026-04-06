@@ -114,8 +114,10 @@ export async function DELETE(
       where: { recipientKakaoId: user.kakaoId },
     });
 
-    await tx.deletedKakaoId.create({
-      data: { kakaoId: user.kakaoId },
+    await tx.deletedKakaoId.upsert({
+      where: { kakaoId: user.kakaoId },
+      update: {},
+      create: { kakaoId: user.kakaoId },
     });
 
     await tx.user.delete({
