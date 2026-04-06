@@ -1,0 +1,20 @@
+{
+  "hosting": {
+    "site": "sds-surfing",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "sds-surfing",
+          "region": "asia-northeast3"
+        }
+      }
+    ]
+  }
+}
