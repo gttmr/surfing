@@ -22,6 +22,28 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
+  const updates = body?.updates;
+
+  if (updates && typeof updates === "object" && !Array.isArray(updates)) {
+    const entries = Object.entries(updates).filter(([key, value]) => key && value !== undefined);
+
+    if (entries.length === 0) {
+      return NextResponse.json({ error: "업데이트할 설정이 없습니다" }, { status: 400 });
+    }
+
+    await prisma.$transaction(
+      entries.map(([key, value]) =>
+        prisma.setting.upsert({
+          where: { key },
+          update: { value: String(value) },
+          create: { key, value: String(value) },
+        })
+      )
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
   const { key, value } = body;
 
   if (!key || value === undefined) {
@@ -30,8 +52,8 @@ export async function PUT(req: NextRequest) {
 
   await prisma.setting.upsert({
     where: { key },
-    update: { value },
-    create: { key, value },
+    update: { value: String(value) },
+    create: { key, value: String(value) },
   });
 
   return NextResponse.json({ ok: true });

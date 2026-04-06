@@ -50,6 +50,17 @@ export interface LinkedCompanionInfo {
   };
 }
 
+export interface ProfileInitialData {
+  notLoggedIn: boolean;
+  user?: UserProfile | null;
+  companions?: CompanionItem[];
+  regularMembers?: RegularMember[];
+  linkedCompanionInfo?: LinkedCompanionInfo | null;
+  ownerCompanions?: OwnerCompanion[];
+  selectedOwnerKakaoId?: string | null;
+  selectedCompanionId?: number | null;
+}
+
 type RouterLike = {
   push: (href: string) => void;
   replace: (href: string) => void;
@@ -58,34 +69,48 @@ type RouterLike = {
 export function useProfilePageState({
   isSetup,
   router,
+  initialData,
 }: {
   isSetup: boolean;
   router: RouterLike;
+  initialData?: ProfileInitialData;
 }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialUser = initialData?.user ?? null;
+  const initialCompanions = initialData?.companions ?? [];
+  const initialRegularMembers = initialData?.regularMembers ?? [];
+  const initialLinkedCompanionInfo = initialData?.linkedCompanionInfo ?? null;
+  const initialSelectedOwnerKakaoId = initialData?.selectedOwnerKakaoId ?? null;
+  const initialSelectedCompanionId = initialData?.selectedCompanionId ?? null;
+  const initialOwnerCompanions = initialData?.ownerCompanions ?? [];
+
+  const [user, setUser] = useState<UserProfile | null>(initialUser);
+  const [loading, setLoading] = useState(!initialData);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [notLoggedIn, setNotLoggedIn] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
+  const [notLoggedIn, setNotLoggedIn] = useState(Boolean(initialData?.notLoggedIn));
+  const [showSetup, setShowSetup] = useState(Boolean(isSetup && initialData && !initialData.notLoggedIn));
   const [activeTab, setActiveTab] = useState<"profile" | "companions">("profile");
 
-  const [name, setName] = useState("");
-  const [setupName, setSetupName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [name, setName] = useState(initialUser?.name || "");
+  const [setupName, setSetupName] = useState(initialUser?.name || "");
+  const [phoneNumber, setPhoneNumber] = useState(initialUser?.phoneNumber || "");
   const [setupMemberType, setSetupMemberType] = useState<"REGULAR" | "COMPANION">("REGULAR");
-  const [regularMembers, setRegularMembers] = useState<RegularMember[]>([]);
-  const [selectedOwnerKakaoId, setSelectedOwnerKakaoId] = useState<string | null>(null);
-  const [ownerCompanions, setOwnerCompanions] = useState<OwnerCompanion[]>([]);
+  const [regularMembers, setRegularMembers] = useState<RegularMember[]>(initialRegularMembers);
+  const [selectedOwnerKakaoId, setSelectedOwnerKakaoId] = useState<string | null>(initialSelectedOwnerKakaoId);
+  const [ownerCompanions, setOwnerCompanions] = useState<OwnerCompanion[]>(initialOwnerCompanions);
   const [loadingOwnerCompanions, setLoadingOwnerCompanions] = useState(false);
-  const [selectedCompanionId, setSelectedCompanionId] = useState<number | null>(null);
+  const [selectedCompanionId, setSelectedCompanionId] = useState<number | null>(initialSelectedCompanionId);
   const [linking, setLinking] = useState(false);
-  const [linkedCompanionInfo, setLinkedCompanionInfo] = useState<LinkedCompanionInfo | null>(null);
-  const [companions, setCompanions] = useState<CompanionItem[]>([]);
+  const [linkedCompanionInfo, setLinkedCompanionInfo] = useState<LinkedCompanionInfo | null>(initialLinkedCompanionInfo);
+  const [companions, setCompanions] = useState<CompanionItem[]>(initialCompanions);
   const [addCompanionName, setAddCompanionName] = useState("");
   const [addingCompanion, setAddingCompanion] = useState(false);
+  const [loadedOwnerKakaoId, setLoadedOwnerKakaoId] = useState<string | null>(
+    initialOwnerCompanions.length > 0 ? initialSelectedOwnerKakaoId : null
+  );
 
   useEffect(() => {
+    if (initialData) return;
     let cancelled = false;
 
     async function bootstrap() {
@@ -131,7 +156,7 @@ export function useProfilePageState({
     return () => {
       cancelled = true;
     };
-  }, [isSetup]);
+  }, [initialData, isSetup]);
 
   useEffect(() => {
     if (setupMemberType === "COMPANION" && regularMembers.length === 0) {
@@ -144,6 +169,7 @@ export function useProfilePageState({
 
   useEffect(() => {
     if ((user?.memberType ?? "REGULAR") !== "COMPANION") return;
+    if (linkedCompanionInfo && (linkedCompanionInfo.linked || regularMembers.length > 0)) return;
 
     Promise.all([
       regularMembers.length === 0
@@ -161,20 +187,22 @@ export function useProfilePageState({
         }
       })
       .catch(() => setLinkedCompanionInfo({ linked: false }));
-  }, [user?.memberType, regularMembers.length]);
+  }, [linkedCompanionInfo, regularMembers, user?.memberType]);
 
   useEffect(() => {
     if (!selectedOwnerKakaoId) return;
+    if (selectedOwnerKakaoId === loadedOwnerKakaoId) return;
     setLoadingOwnerCompanions(true);
     fetch(`/api/companions/by-owner?kakaoId=${encodeURIComponent(selectedOwnerKakaoId)}`)
       .then((response) => response.ok ? response.json() : [])
       .then((data) => {
         setOwnerCompanions(data);
+        setLoadedOwnerKakaoId(selectedOwnerKakaoId);
         setSelectedCompanionId((prev) => (data.some((companion: OwnerCompanion) => companion.id === prev) ? prev : null));
       })
       .catch(() => setOwnerCompanions([]))
       .finally(() => setLoadingOwnerCompanions(false));
-  }, [selectedOwnerKakaoId]);
+  }, [loadedOwnerKakaoId, selectedOwnerKakaoId]);
 
   const selectedSetupCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;
   const selectedProfileCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;

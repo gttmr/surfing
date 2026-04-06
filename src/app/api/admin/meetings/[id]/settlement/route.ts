@@ -1,25 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getPricingConfig, getParticipantChargeBreakdown, groupParticipantsForSettlement } from "@/lib/pricing";
-
-function sortWithCompanions<T extends { id: number; kakaoId: string; companionId: number | null }>(items: T[]) {
-  const regulars = items.filter((item) => item.companionId === null);
-  const companions = items.filter((item) => item.companionId !== null);
-  const result: T[] = [];
-
-  for (const regular of regulars) {
-    result.push(regular);
-    result.push(...companions.filter((companion) => companion.kakaoId === regular.kakaoId));
-  }
-
-  const placed = new Set(result.map((item) => item.id));
-  for (const companion of companions) {
-    if (!placed.has(companion.id)) result.push(companion);
-  }
-
-  return result;
-}
+import { getAdminSettlementData } from "@/lib/admin-page-data";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
@@ -32,94 +14,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "잘못된 모임 ID입니다." }, { status: 400 });
   }
 
-  const [meeting, pricing] = await Promise.all([
-    prisma.meeting.findUnique({
-      where: { id: meetingId },
-      include: {
-        participants: {
-          where: { status: "APPROVED" },
-          orderBy: { submittedAt: "asc" },
-          include: {
-            user: {
-              select: {
-                memberType: true,
-                name: true,
-              },
-            },
-            companion: {
-              include: {
-                owner: {
-                  select: {
-                    kakaoId: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-            chargeAdjustments: {
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        },
-      },
-    }),
-    getPricingConfig(),
-  ]);
-
-  if (!meeting) {
+  const data = await getAdminSettlementData(meetingId);
+  if (!data) {
     return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const adjustmentMap = new Map(
-    meeting.participants.map((participant) => [
-      participant.id,
-      participant.chargeAdjustments.map((adjustment) => ({
-        id: adjustment.id,
-        label: adjustment.label,
-        amount: adjustment.amount,
-      })),
-    ])
-  );
-
-  const confirmations = await prisma.settlementConfirmation.findMany({
-    where: { meetingId },
-  });
-  const confirmedRecipientIds = new Set(confirmations.map((item) => item.recipientKakaoId));
-  const recipients = groupParticipantsForSettlement(meeting.participants, pricing, adjustmentMap).map((recipient) => ({
-    ...recipient,
-    confirmed: confirmedRecipientIds.has(recipient.recipientKakaoId),
-  }));
-  const participants = sortWithCompanions(meeting.participants).map((participant) => {
-    const adjustments = adjustmentMap.get(participant.id) ?? [];
-    const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    const breakdown = getParticipantChargeBreakdown(participant, pricing, adjustmentFee);
-
-    return {
-      id: participant.id,
-      name: participant.name,
-      kakaoId: participant.kakaoId,
-      companionId: participant.companionId,
-      hasLesson: participant.hasLesson,
-      hasBus: participant.hasBus,
-      hasRental: participant.hasRental,
-      adjustments,
-      breakdown,
-    };
-  });
-
-  return NextResponse.json({
-    meeting: {
-      id: meeting.id,
-      date: meeting.date,
-      startTime: meeting.startTime,
-      endTime: meeting.endTime,
-      location: meeting.location,
-      settlementOpen: meeting.settlementOpen,
-    },
-    participants,
-    confirmedRecipientCount: recipients.filter((recipient) => recipient.confirmed).length,
-    recipients,
-  });
+  return NextResponse.json(data);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

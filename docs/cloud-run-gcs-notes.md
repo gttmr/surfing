@@ -43,6 +43,17 @@
 - 프로필의 관리자 버튼은 직접 `/admin`으로 가지 않고 `/admin/login`으로 보낸다.
   - 이유: auto-login 흐름을 먼저 태우기 위해서다.
 
+## 정산 확인 관련 운영 메모
+- 정산 확인 여부는 `SettlementConfirmation`으로 관리한다.
+- 확인 처리 기준은 실제 계좌 입금 완료가 아니라, 사용자가 홈 `알림 센터`의 정산 알림에서 아래 CTA 중 하나를 누른 시점이다.
+  - `토스로 송금`
+  - `계좌번호 복사`
+- 사용자용 확인 기록 API는 [route.ts](/workspace/surfing/src/app/api/settlement/confirm/route.ts)다.
+- 관리자용 홈 read-only 요약 API는 [route.ts](/workspace/surfing/src/app/api/admin/meetings/[id]/settlement-status/route.ts)다.
+- 홈의 관리자 전용 `정산 현황` 탭은 이 요약 API를 사용하고, 기존 [route.ts](/workspace/surfing/src/app/api/admin/meetings/[id]/settlement/route.ts)는 편집 전용으로 유지한다.
+- `정산 현황` 탭의 badge 숫자는 참가자 수가 아니라 `미확인 recipient 수`다.
+- 미연동 동반인이 정회원 정산에 합산된 경우도 확인 단위는 recipient 1건으로 본다.
+
 ### 카카오 로그인
 - 운영 기준 카카오 Redirect URI는 `https://sds-surfing.web.app/api/auth/kakao/callback`
 - Cloud Run env `KAKAO_REDIRECT_URI`도 같은 값이어야 한다.

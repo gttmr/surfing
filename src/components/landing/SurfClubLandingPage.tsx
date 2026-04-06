@@ -7,6 +7,7 @@ import {
   findDefaultDateForMonth,
 } from "@/lib/home-view";
 import type {
+  AdminSettlementStatusSummary,
   DetailedMeeting,
   HomeUser,
   NoticeItem,
@@ -210,6 +211,7 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide,
   initialMeetingDetailsById,
   initialSignupDataByMeetingId,
+  initialSettlementStatusByMeetingId,
   initialPendingSettlements,
   initialSettlementAccount,
   dbUnavailable = false,
@@ -222,6 +224,7 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide: string;
   initialMeetingDetailsById: Record<number, DetailedMeeting>;
   initialSignupDataByMeetingId: Record<number, SignupInitialData>;
+  initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary>;
   initialPendingSettlements: SettlementSummary[];
   initialSettlementAccount: SettlementAccount | null;
   dbUnavailable?: boolean;
@@ -239,6 +242,7 @@ export default function SurfClubLandingPage({
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
+    meetingSettlementStatusOverrides,
     sortedMeetings,
     setYear,
     setMonth,
@@ -249,6 +253,7 @@ export default function SurfClubLandingPage({
     setPendingSettlements,
     persistReadAlertKeys,
     handleMeetingSummaryChange,
+    handleSettlementStatusChange,
   } = useLandingState({
     meetings,
     user,
@@ -311,6 +316,13 @@ export default function SurfClubLandingPage({
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
   const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
+  const selectedSettlementUnconfirmedCount = isAdmin
+    ? selectedMeetings.reduce((sum, meeting) => {
+        const status = meetingSettlementStatusOverrides[meeting.id] ?? initialSettlementStatusByMeetingId[meeting.id];
+        return sum + (status?.summary.unconfirmedCount ?? 0);
+      }, 0)
+    : 0;
+  const selectedSettlementBadge = String(Math.min(selectedSettlementUnconfirmedCount, 99));
   const calendarCells = buildCalendarCells(year, month);
   const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);
   const alertItems = useMemo<AlertItem[]>(() => {
@@ -401,7 +413,13 @@ export default function SurfClubLandingPage({
         />
 
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
-          <MeetingTabs activeTab={activeMeetingTab} participantBadge={selectedParticipantBadge} onChange={setActiveMeetingTab} />
+          <MeetingTabs
+            activeTab={activeMeetingTab}
+            participantBadge={selectedParticipantBadge}
+            settlementBadge={selectedSettlementBadge}
+            showSettlementTab={isAdmin}
+            onChange={setActiveMeetingTab}
+          />
         ) : null}
 
         {!user ? (
@@ -435,10 +453,13 @@ export default function SurfClubLandingPage({
                     activeTab={activeMeetingTab}
                     currentUser={user}
                     initialMeeting={initialMeetingDetailsById[meeting.id]}
+                    initialSettlementStatus={initialSettlementStatusByMeetingId[meeting.id]}
                     initialSignupData={initialSignupDataByMeetingId[meeting.id]}
+                    isAdmin={isAdmin}
                     key={meeting.id}
                     meetingId={meeting.id}
                     onMeetingSummaryChange={handleMeetingSummaryChange}
+                    onSettlementStatusChange={handleSettlementStatusChange}
                     participantOptionPricingGuide={participantOptionPricingGuide}
                   />
                 ))}

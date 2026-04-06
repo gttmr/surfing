@@ -387,11 +387,15 @@ export function CalendarSection({
 export function MeetingTabs({
   activeTab,
   participantBadge,
+  settlementBadge,
+  showSettlementTab,
   onChange,
 }: {
-  activeTab: "apply" | "status";
+  activeTab: "apply" | "status" | "settlement";
   participantBadge: string;
-  onChange: (tab: "apply" | "status") => void;
+  settlementBadge?: string;
+  showSettlementTab: boolean;
+  onChange: (tab: "apply" | "status" | "settlement") => void;
 }) {
   return (
     <section>
@@ -417,6 +421,20 @@ export function MeetingTabs({
             {participantBadge}
           </span>
         </button>
+        {showSettlementTab ? (
+          <button
+            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
+              activeTab === "settlement" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
+            }`}
+            onClick={() => onChange("settlement")}
+            type="button"
+          >
+            정산 현황
+            <span className={`${activeTab === "settlement" ? "brand-chip-dark" : "brand-chip-soft"} flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold`}>
+              {settlementBadge ?? "0"}
+            </span>
+          </button>
+        ) : null}
       </div>
     </section>
   );

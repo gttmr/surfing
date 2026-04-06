@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type {
+  AdminSettlementStatusSummary,
   DetailedMeeting,
   HomeUser,
   MeetingParticipantItem,
@@ -62,22 +64,34 @@ export default function EmbeddedMeetingDetail({
   meetingId,
   activeTab,
   currentUser,
+  isAdmin,
   participantOptionPricingGuide,
   initialMeeting,
+  initialSettlementStatus,
   initialSignupData,
   onMeetingSummaryChange,
+  onSettlementStatusChange,
 }: {
   meetingId: number;
-  activeTab: "apply" | "status";
+  activeTab: "apply" | "status" | "settlement";
   currentUser: HomeUser | null;
+  isAdmin: boolean;
   participantOptionPricingGuide: string;
   initialMeeting?: DetailedMeeting;
+  initialSettlementStatus?: AdminSettlementStatusSummary;
   initialSignupData?: SignupInitialData;
   onMeetingSummaryChange?: (meetingId: number, approvedCount: number) => void;
+  onSettlementStatusChange?: (meetingId: number, status: AdminSettlementStatusSummary) => void;
 }) {
   const [meeting, setMeeting] = useState<DetailedMeeting | null>(initialMeeting ?? null);
   const [loading, setLoading] = useState(!initialMeeting);
   const [error, setError] = useState(false);
+  const [settlementStatus, setSettlementStatus] = useState<AdminSettlementStatusSummary | null>(initialSettlementStatus ?? null);
+  const [loadingSettlementStatus, setLoadingSettlementStatus] = useState(false);
+  const [settlementStatusError, setSettlementStatusError] = useState(false);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() => (
+    typeof document === "undefined" ? true : document.visibilityState === "visible"
+  ));
 
   const fetchMeeting = useCallback(async (background = false) => {
     if (!background) {
@@ -106,11 +120,46 @@ export default function EmbeddedMeetingDetail({
     }
   }, [meetingId, onMeetingSummaryChange]);
 
+  const fetchSettlementStatus = useCallback(async (background = false) => {
+    if (!isAdmin) return null;
+
+    if (!background) {
+      setLoadingSettlementStatus(true);
+      setSettlementStatusError(false);
+    }
+
+    try {
+      const res = await fetch(`/api/admin/meetings/${meetingId}/settlement-status`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "failed to fetch settlement status");
+      }
+
+      const nextStatus = data as AdminSettlementStatusSummary;
+      setSettlementStatus(nextStatus);
+      setSettlementStatusError(false);
+      onSettlementStatusChange?.(meetingId, nextStatus);
+      return nextStatus;
+    } catch {
+      if (!background) {
+        setSettlementStatusError(true);
+      }
+      return null;
+    } finally {
+      if (!background) setLoadingSettlementStatus(false);
+    }
+  }, [isAdmin, meetingId, onSettlementStatusChange]);
+
   useEffect(() => {
     setMeeting(initialMeeting ?? null);
     setLoading(!initialMeeting);
     setError(false);
   }, [meetingId, initialMeeting]);
+
+  useEffect(() => {
+    setSettlementStatus(initialSettlementStatus ?? null);
+    setSettlementStatusError(false);
+  }, [initialSettlementStatus, meetingId]);
 
   useEffect(() => {
     if (!initialMeeting) {
@@ -121,15 +170,42 @@ export default function EmbeddedMeetingDetail({
   }, [fetchMeeting, initialMeeting, meetingId, onMeetingSummaryChange]);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    const syncVisibility = () => {
+      setIsDocumentVisible(document.visibilityState === "visible");
+    };
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("focus", syncVisibility);
+    window.addEventListener("blur", syncVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      window.removeEventListener("focus", syncVisibility);
+      window.removeEventListener("blur", syncVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     if (activeTab !== "status") return;
+    void fetchMeeting(true);
+  }, [activeTab, fetchMeeting]);
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== "settlement") return;
+    void fetchSettlementStatus(Boolean(settlementStatus));
+  }, [activeTab, fetchSettlementStatus, isAdmin, settlementStatus]);
+
+  useEffect(() => {
+    if (activeTab !== "status" || !isDocumentVisible) return;
     const interval = window.setInterval(() => {
       void fetchMeeting(true);
-    }, 8000);
+    }, 15000);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [activeTab, fetchMeeting]);
+  }, [activeTab, fetchMeeting, isDocumentVisible]);
 
   if (loading) {
     return <div className="brand-card-soft min-h-[34rem] animate-pulse rounded-2xl" />;
@@ -153,6 +229,22 @@ export default function EmbeddedMeetingDetail({
     lesson: participants.filter((participant) => participant.hasLesson).length,
     rentalOnly: participants.filter((participant) => participant.hasRental).length,
   };
+  const unconfirmedRecipients = settlementStatus?.recipients.filter((recipient) => !recipient.confirmed) ?? [];
+  const confirmedRecipients = settlementStatus?.recipients.filter((recipient) => recipient.confirmed) ?? [];
+
+  function formatWon(value: number) {
+    return `${value.toLocaleString("ko-KR")}원`;
+  }
+
+  function formatConfirmedAt(value: string | null) {
+    if (!value) return "";
+    return new Date(value).toLocaleString("ko-KR", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
   function ParticipantAvatar({ participant }: { participant: MeetingParticipantItem }) {
     const fallbackEmoji = pickSurfAvatarEmoji(`${participant.kakaoId}:${participant.companionId ?? participant.id}:${participant.name}`);
@@ -169,8 +261,51 @@ export default function EmbeddedMeetingDetail({
     );
   }
 
+  function SettlementRecipientList({
+    title,
+    recipients,
+    confirmed,
+  }: {
+    title: string;
+    recipients: AdminSettlementStatusSummary["recipients"];
+    confirmed: boolean;
+  }) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-extrabold text-[var(--brand-text)]">{title}</h4>
+          <span className={`${confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-[10px] font-bold`}>
+            {recipients.length}
+          </span>
+        </div>
+        {recipients.length === 0 ? (
+          <div className="brand-panel-white rounded-2xl px-4 py-4 text-center text-sm brand-text-subtle">
+            대상이 없습니다.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recipients.map((recipient) => (
+              <div key={`${recipient.recipientKakaoId}-${recipient.recipientType}`} className="brand-panel-white rounded-2xl px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
+                    <p className="brand-text-subtle mt-1 text-xs">
+                      {recipient.itemCount === 1 ? "1건" : `${recipient.itemCount}건 합산`}
+                      {confirmed && recipient.confirmedAt ? ` · ${formatConfirmedAt(recipient.confirmedAt)} 확인` : ""}
+                    </p>
+                  </div>
+                  <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <section className={activeTab === "apply" ? "space-y-2" : ""}>
+    <section className={activeTab === "apply" ? "space-y-2" : "space-y-3"}>
       {activeTab === "apply" ? (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
           <div className="border-b border-[var(--brand-divider)] pb-4">
@@ -202,7 +337,7 @@ export default function EmbeddedMeetingDetail({
             participantOptionPricingGuide={participantOptionPricingGuide}
           />
         </div>
-      ) : (
+      ) : activeTab === "status" ? (
         <div className="space-y-3">
           {participants.length ? (
             <div className="brand-card-soft overflow-hidden rounded-2xl">
@@ -255,6 +390,68 @@ export default function EmbeddedMeetingDetail({
                 </div>
               </div>
             </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-extrabold text-[var(--brand-text)]">정산 현황</h3>
+              <p className="brand-text-subtle mt-1 text-xs">정산 안내 확인 기준으로 미확인/확인을 나눠 봅니다.</p>
+            </div>
+            <Link
+              href={`/admin/meetings/${meetingId}/settlement`}
+              className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
+            >
+              정산 관리
+            </Link>
+          </div>
+
+          {loadingSettlementStatus && !settlementStatus ? (
+            <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
+              정산 현황을 불러오는 중...
+            </div>
+          ) : settlementStatusError && !settlementStatus ? (
+            <div className="brand-panel-white rounded-2xl px-4 py-6 text-center">
+              <p className="text-sm font-semibold text-[var(--brand-text)]">정산 현황을 불러오지 못했습니다.</p>
+              <button
+                type="button"
+                onClick={() => { void fetchSettlementStatus(false); }}
+                className="brand-button-secondary mt-3 rounded-xl px-4 py-2 text-sm font-bold"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : settlementStatus ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
+                  <p className="brand-text-subtle text-[11px] font-bold">상태</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                    {settlementStatus.meeting.settlementOpen ? "정산 오픈" : "정산 준비중"}
+                  </p>
+                </div>
+                <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
+                  <p className="brand-text-subtle text-[11px] font-bold">미확인</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.unconfirmedCount}</p>
+                </div>
+                <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
+                  <p className="brand-text-subtle text-[11px] font-bold">확인</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.confirmedCount}</p>
+                </div>
+              </div>
+
+              {!settlementStatus.meeting.settlementOpen ? (
+                <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
+                  정산이 아직 열리지 않았습니다. 정산 관리에서 열면 여기서 확인 현황을 볼 수 있습니다.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <SettlementRecipientList title="미확인" recipients={unconfirmedRecipients} confirmed={false} />
+                  <SettlementRecipientList title="확인" recipients={confirmedRecipients} confirmed={true} />
+                </div>
+              )}
+            </>
           ) : null}
         </div>
       )}

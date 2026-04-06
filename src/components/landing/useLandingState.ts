@@ -9,6 +9,7 @@ import {
   sortMeetings,
 } from "@/lib/home-view";
 import type {
+  AdminSettlementStatusSummary,
   HomeUser,
   SettlementAccount,
   SettlementSummary,
@@ -40,13 +41,14 @@ export function useLandingState({
   const [year, setYear] = useState(initialView.year);
   const [month, setMonth] = useState(initialView.month);
   const [selectedDate, setSelectedDate] = useState<string | null>(initialView.selectedDate);
-  const [activeMeetingTab, setActiveMeetingTab] = useState<"apply" | "status">("apply");
+  const [activeMeetingTab, setActiveMeetingTab] = useState<"apply" | "status" | "settlement">("apply");
   const [isAlertCenterOpen, setIsAlertCenterOpen] = useState(false);
   const [expandedAlertKey, setExpandedAlertKey] = useState<string | null>(null);
   const [readAlertKeys, setReadAlertKeys] = useState<string[]>([]);
   const [pendingSettlements, setPendingSettlements] = useState<SettlementSummary[]>(initialPendingSettlements);
   const [settlementAccount, setSettlementAccount] = useState<SettlementAccount | null>(initialSettlementAccount);
   const [meetingApprovedCountOverrides, setMeetingApprovedCountOverrides] = useState<Record<number, number>>({});
+  const [meetingSettlementStatusOverrides, setMeetingSettlementStatusOverrides] = useState<Record<number, AdminSettlementStatusSummary>>({});
 
   const sortedMeetings = useMemo(() => sortMeetings(meetings), [meetings]);
 
@@ -93,6 +95,16 @@ export function useLandingState({
     ));
   }
 
+  function handleSettlementStatusChange(meetingId: number, status: AdminSettlementStatusSummary) {
+    setMeetingSettlementStatusOverrides((prev) => (
+      prev[meetingId]?.summary.unconfirmedCount === status.summary.unconfirmedCount &&
+      prev[meetingId]?.summary.confirmedCount === status.summary.confirmedCount &&
+      prev[meetingId]?.meeting.settlementOpen === status.meeting.settlementOpen
+        ? prev
+        : { ...prev, [meetingId]: status }
+    ));
+  }
+
   return {
     today,
     year,
@@ -105,6 +117,7 @@ export function useLandingState({
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
+    meetingSettlementStatusOverrides,
     sortedMeetings,
     setYear,
     setMonth,
@@ -115,5 +128,6 @@ export function useLandingState({
     setPendingSettlements,
     persistReadAlertKeys,
     handleMeetingSummaryChange,
+    handleSettlementStatusChange,
   };
 }

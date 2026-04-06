@@ -113,3 +113,26 @@ export type SignupInitialData = {
   signedUpCompanionData: Record<number, SignedUpCompanionData>;
   linkedStatus: LinkedCompanionStatus | null;
 };
+
+export type AdminSettlementRecipientSummary = {
+  recipientKakaoId: string;
+  recipientName: string;
+  recipientType: "self" | "linked_companion" | "owner";
+  totalFee: number;
+  itemCount: number;
+  confirmed: boolean;
+  confirmedAt: string | null;
+};
+
+export type AdminSettlementStatusSummary = {
+  meeting: {
+    id: number;
+    settlementOpen: boolean;
+  };
+  summary: {
+    totalRecipientCount: number;
+    confirmedCount: number;
+    unconfirmedCount: number;
+  };
+  recipients: AdminSettlementRecipientSummary[];
+};

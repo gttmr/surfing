@@ -1,9 +1,11 @@
 import SurfClubLandingPage from "@/components/landing/SurfClubLandingPage";
 import { getActiveSession } from "@/lib/active-session";
+import { getAdminSettlementStatusData } from "@/lib/admin-page-data";
 import { prisma } from "@/lib/db";
 import { findInitialView } from "@/lib/home-view";
 import type {
   DetailedMeeting,
+  AdminSettlementStatusSummary,
   HomeUser,
   NoticeItem,
   SettlementAccount,
@@ -105,6 +107,7 @@ export default async function SchedulePageContent({
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
   let initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   let initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
+  let initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary> = {};
   let initialPendingSettlements: SettlementSummary[] = [];
   let initialSettlementAccount: SettlementAccount | null = null;
 
@@ -318,6 +321,19 @@ export default async function SchedulePageContent({
           linkedStatus,
         };
       }
+
+      if (isAdmin) {
+        const settlementStatusEntries = await Promise.all(
+          selectedMeetingIds.map(async (meetingId) => {
+            const data = await getAdminSettlementStatusData(meetingId);
+            return data ? [meetingId, data] as const : null;
+          })
+        );
+
+        initialSettlementStatusByMeetingId = Object.fromEntries(
+          settlementStatusEntries.filter((entry): entry is readonly [number, AdminSettlementStatusSummary] => entry !== null)
+        );
+      }
     }
   } catch (error) {
     dbUnavailable = true;
@@ -328,6 +344,7 @@ export default async function SchedulePageContent({
     <SurfClubLandingPage
       dbUnavailable={dbUnavailable}
       initialMeetingDetailsById={initialMeetingDetailsById}
+      initialSettlementStatusByMeetingId={initialSettlementStatusByMeetingId}
       initialPendingSettlements={initialPendingSettlements}
       initialSelectedDate={initialSelectedDate}
       initialSettlementAccount={initialSettlementAccount}
