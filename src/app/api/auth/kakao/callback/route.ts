@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db";
 
 function getKakaoRedirectUri(req: NextRequest) {
   const configured = process.env.KAKAO_REDIRECT_URI?.trim();
+  if (configured) {
+    return configured;
+  }
+
   const isLocal =
     req.nextUrl.hostname === "localhost" ||
     req.nextUrl.hostname === "127.0.0.1";
@@ -12,10 +16,15 @@ function getKakaoRedirectUri(req: NextRequest) {
     return new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
   }
 
-  return configured || new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
+  return new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
 }
 
 function getAuthOrigin(req: NextRequest) {
+  const configured = process.env.KAKAO_REDIRECT_URI?.trim();
+  if (configured) {
+    return new URL(configured).origin;
+  }
+
   const isLocal =
     req.nextUrl.hostname === "localhost" ||
     req.nextUrl.hostname === "127.0.0.1";
