@@ -116,7 +116,7 @@ export function ProfileImageUploader({
         body: form,
       });
 
-      let data: Record<string, unknown> = {};
+      let data: { error?: string; user?: ProfileUserPatch } = {};
       try {
         data = await response.json();
       } catch {
@@ -124,10 +124,10 @@ export function ProfileImageUploader({
       }
 
       if (!response.ok) {
-        throw new Error(typeof data.error === "string" ? data.error : "업로드에 실패했습니다.");
+        throw new Error(data.error ?? "업로드에 실패했습니다.");
       }
 
-      onUpdated(data.user);
+      if (data.user) onUpdated(data.user);
       setPreviewImage((prev) => {
         if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
         return null;
