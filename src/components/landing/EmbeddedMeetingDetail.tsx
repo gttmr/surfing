@@ -231,6 +231,8 @@ export default function EmbeddedMeetingDetail({
   };
   const unconfirmedRecipients = settlementStatus?.recipients.filter((recipient) => !recipient.confirmed) ?? [];
   const confirmedRecipients = settlementStatus?.recipients.filter((recipient) => recipient.confirmed) ?? [];
+  const unconfirmedTotalFee = unconfirmedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
+  const confirmedTotalFee = confirmedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
 
   function formatWon(value: number) {
     return `${value.toLocaleString("ko-KR")}원`;
@@ -395,10 +397,7 @@ export default function EmbeddedMeetingDetail({
       ) : (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-extrabold text-[var(--brand-text)]">정산 현황</h3>
-              <p className="brand-text-subtle mt-1 text-xs">정산 안내 확인 기준으로 미확인/확인을 나눠 봅니다.</p>
-            </div>
+            <h3 className="text-base font-extrabold text-[var(--brand-text)]">정산 현황</h3>
             <Link
               href={`/admin/meetings/${meetingId}/settlement`}
               className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
@@ -424,20 +423,14 @@ export default function EmbeddedMeetingDetail({
             </div>
           ) : settlementStatus ? (
             <>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">상태</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
-                    {settlementStatus.meeting.settlementOpen ? "정산 오픈" : "정산 준비중"}
-                  </p>
+                  <p className="brand-text-subtle text-[11px] font-bold">미입금 총액</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(unconfirmedTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">미확인</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.unconfirmedCount}</p>
-                </div>
-                <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">확인</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.confirmedCount}</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">입금 예상액</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(confirmedTotalFee)}</p>
                 </div>
               </div>
 
