@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   const companions = await prisma.companion.findMany({
-    where: { ownerKakaoId: session.kakaoId },
+    where: { ownerKakaoId: session.kakaoId, archivedAt: null },
     orderBy: { createdAt: "asc" },
   });
 
@@ -53,7 +53,7 @@ export async function DELETE(req: NextRequest) {
 
   // 본인의 동반인인지 확인
   const companion = await prisma.companion.findUnique({ where: { id: parseInt(id) } });
-  if (!companion || companion.ownerKakaoId !== session.kakaoId) {
+  if (!companion || companion.ownerKakaoId !== session.kakaoId || companion.archivedAt) {
     return NextResponse.json({ error: "내 동반인이 아닙니다" }, { status: 403 });
   }
 

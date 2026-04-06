@@ -84,6 +84,16 @@ export default function AdminMembersPage() {
   }
 
   async function handleMemberTypeChange(userId: number, newMemberType: string) {
+    const targetUser = users.find((user) => user.id === userId) ?? selectedUser;
+    if (targetUser?.memberType === newMemberType) return;
+
+    if (targetUser?.memberType === "REGULAR" && newMemberType === "COMPANION") {
+      const confirmed = confirm(
+        "이 회원을 동반인으로 변경할까요?\n소속 정회원 연결은 해당 사용자가 로그인 후 프로필에서 직접 설정하게 됩니다."
+      );
+      if (!confirmed) return;
+    }
+
     await fetch(`/api/admin/members/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

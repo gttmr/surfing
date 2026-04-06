@@ -101,6 +101,7 @@ model Companion {
   ownerKakaoId   String        // 등록한 정회원의 kakaoId
   owner          User          @relation(fields: [ownerKakaoId], references: [kakaoId])
   linkedKakaoId  String?       // 카카오 로그인으로 연동된 동반인의 kakaoId
+  archivedAt     DateTime?
   createdAt      DateTime      @default(now())
   participants   Participant[]
 }

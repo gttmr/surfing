@@ -452,19 +452,37 @@ export default function SurfClubLandingPage({
     }
   }, [user?.kakaoId]);
 
-  async function copySettlementAccount() {
+  async function markSettlementConfirmed(meetingId: number, keepalive = false) {
+    try {
+      const res = await fetch("/api/settlement/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId }),
+        keepalive,
+      });
+      if (!res.ok) return false;
+      setPendingSettlements((prev) => prev.filter((item) => item.meeting.id !== meetingId));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function copySettlementAccount(meetingId: number) {
     if (!settlementAccount?.accountNumber) return;
     try {
       await navigator.clipboard.writeText(settlementAccount.accountNumber);
+      await markSettlementConfirmed(meetingId);
     } catch {
       // no-op
     }
   }
 
-  function openTossTransfer(amount?: number) {
+  function openTossTransfer(meetingId: number, amount?: number) {
     if (!settlementAccount) return;
     const tossUrl = buildTossTransferUrl(settlementAccount, amount);
     if (!tossUrl) return;
+    void markSettlementConfirmed(meetingId, true);
     window.location.href = tossUrl;
   }
 
@@ -649,14 +667,14 @@ export default function SurfClubLandingPage({
                                   <div className="flex flex-wrap gap-2">
                                     <button
                                       className="brand-button-primary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                      onClick={() => openTossTransfer(item.settlement.group.totalFee)}
+                                      onClick={() => openTossTransfer(item.settlement.meeting.id, item.settlement.group.totalFee)}
                                       type="button"
                                     >
                                       토스로 송금
                                     </button>
                                     <button
                                       className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                      onClick={copySettlementAccount}
+                                      onClick={() => copySettlementAccount(item.settlement.meeting.id)}
                                       type="button"
                                     >
                                       계좌번호 복사

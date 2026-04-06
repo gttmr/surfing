@@ -9,23 +9,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const { companionId } = await req.json();
+  const body = await req.json();
+  const companionId = body.companionId;
+  const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!companionId) {
     return NextResponse.json({ error: "동반인을 선택해주세요" }, { status: 400 });
   }
 
   const companion = await prisma.companion.findUnique({ where: { id: parseInt(companionId) } });
-  if (!companion) {
+  if (!companion || companion.archivedAt) {
     return NextResponse.json({ error: "동반인을 찾을 수 없습니다" }, { status: 404 });
   }
 
-  if (companion.linkedKakaoId) {
+  if (companion.linkedKakaoId && companion.linkedKakaoId !== session.kakaoId) {
     return NextResponse.json({ error: "이미 연동된 동반인입니다" }, { status: 409 });
   }
 
   const updated = await prisma.companion.update({
     where: { id: parseInt(companionId) },
-    data: { linkedKakaoId: session.kakaoId },
+    data: {
+      linkedKakaoId: session.kakaoId,
+      ...(name ? { name } : {}),
+    },
   });
 
   return NextResponse.json(updated);

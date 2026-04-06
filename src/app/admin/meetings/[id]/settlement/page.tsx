@@ -57,6 +57,7 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
   const [submittingFor, setSubmittingFor] = useState<number | null>(null);
   const [togglingSettlement, setTogglingSettlement] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, { label: string; amount: string }>>({});
+  const [selectedRecipientKey, setSelectedRecipientKey] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
 
   function formatWon(value: number) {
@@ -80,6 +81,17 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
   useEffect(() => {
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (!data) return;
+    if (!selectedRecipientKey) return;
+    const stillExists = data.recipients.some(
+      (recipient) => `${recipient.recipientKakaoId}-${recipient.recipientType}` === selectedRecipientKey,
+    );
+    if (!stillExists) {
+      setSelectedRecipientKey(null);
+    }
+  }, [data, selectedRecipientKey]);
 
   async function handleAddAdjustment(participantId: number) {
     const draft = drafts[participantId];
@@ -194,108 +206,132 @@ export default function AdminMeetingSettlementPage({ params }: { params: Promise
               </div>
             </div>
             <div className="space-y-3">
-              {data.recipients.map((recipient) => (
-                <div key={`${recipient.recipientKakaoId}-${recipient.recipientType}`} className="brand-panel-white rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
-                        <span className={`${recipient.confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
-                          {recipient.confirmed ? "확인 완료" : "미확인"}
-                        </span>
-                      </div>
-                      <p className="brand-text-subtle mt-1 text-xs">
-                        {recipient.items.map((item) => `${item.participantName} ${formatWon(item.totalFee)}`).join(" · ")}
-                      </p>
-                    </div>
-                    <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+              {data.recipients.map((recipient) => {
+                const recipientKey = `${recipient.recipientKakaoId}-${recipient.recipientType}`;
+                const expanded = selectedRecipientKey === recipientKey;
+                const selectedParticipantIds = new Set(recipient.items.map((item) => item.participantId));
+                const participants = data.participants.filter((participant) => selectedParticipantIds.has(participant.id));
 
-          <section className="space-y-4">
-            {data.participants.map((participant) => {
-              const draft = drafts[participant.id] ?? { label: "", amount: "" };
-              return (
-                <div key={participant.id} className={`brand-card-soft rounded-3xl p-5 ${participant.companionId ? "ml-6" : ""}`}>
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-base font-extrabold text-[var(--brand-text)]">
-                        {participant.name}
-                        {participant.companionId ? " (동반)" : ""}
-                      </p>
-                      <p className="brand-text-subtle mt-1 text-xs">
-                        참가 {formatWon(participant.breakdown.baseFee)} · 강습 {formatWon(participant.breakdown.lessonFee)} · 대여 {formatWon(participant.breakdown.rentalFee)}
-                      </p>
-                    </div>
-                    <span className="brand-chip-dark rounded-full px-2 py-1 text-xs font-bold">
-                      합계 {formatWon(participant.breakdown.totalFee)}
-                    </span>
-                  </div>
-
-                  <div className="mb-4 space-y-2">
-                    {participant.adjustments.length > 0 ? (
-                      participant.adjustments.map((adjustment) => (
-                        <div key={adjustment.id} className="brand-panel-white flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--brand-text)]">{adjustment.label}</p>
-                            <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-red-600" : "text-blue-600"}`}>
-                              {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAdjustment(adjustment.id)}
-                            className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
-                          >
-                            삭제
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="brand-panel-white rounded-2xl px-4 py-4 text-sm brand-text-subtle">
-                        추가/차감 항목이 없습니다.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-[1fr_120px_auto] gap-2">
-                    <input
-                      value={draft.label}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
-                          ...prev,
-                          [participant.id]: { ...draft, label: event.target.value },
-                        }))
-                      }
-                      placeholder="예: 뒤풀이, 늦게 합류, 할인"
-                      className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
-                    />
-                    <input
-                      value={draft.amount}
-                      onChange={(event) =>
-                        setDrafts((prev) => ({
-                          ...prev,
-                          [participant.id]: { ...draft, amount: event.target.value },
-                        }))
-                      }
-                      placeholder="10000 / -5000"
-                      className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
-                    />
+                return (
+                  <div
+                    key={recipientKey}
+                    className={`rounded-2xl transition-colors ${
+                      expanded ? "brand-panel-white ring-2 ring-[var(--brand-primary)]" : "brand-panel-white"
+                    }`}
+                  >
                     <button
                       type="button"
-                      onClick={() => handleAddAdjustment(participant.id)}
-                      disabled={submittingFor === participant.id}
-                      className="brand-button-primary rounded-2xl px-4 py-3 text-sm font-bold"
+                      onClick={() => setSelectedRecipientKey((current) => (current === recipientKey ? null : recipientKey))}
+                      className="w-full p-4 text-left"
                     >
-                      {submittingFor === participant.id ? "추가 중..." : "추가"}
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
+                            <span className={`${recipient.confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
+                              {recipient.confirmed ? "확인 완료" : "미확인"}
+                            </span>
+                          </div>
+                          <p className="brand-text-subtle mt-1 text-xs">
+                            {recipient.items.length === 1
+                              ? formatWon(recipient.items[0].totalFee)
+                              : `${recipient.items.length}건 합산`}
+                          </p>
+                        </div>
+                        <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
+                      </div>
                     </button>
+
+                    {expanded ? (
+                      <div className="border-t border-[var(--brand-divider)] px-4 pb-4 pt-4">
+                        <div className="divide-y divide-[var(--brand-divider)]">
+                          {participants.map((participant, index) => {
+                            const draft = drafts[participant.id] ?? { label: "", amount: "" };
+                            return (
+                              <div key={participant.id} className={`${index === 0 ? "" : "pt-5"} pb-1`}>
+                                <div className="mb-3 flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-base font-extrabold text-[var(--brand-text)]">
+                                      {participant.name}
+                                      {participant.companionId ? " (동반)" : ""}
+                                    </p>
+                                    <p className="brand-text-subtle mt-1 text-xs">
+                                      참가 {formatWon(participant.breakdown.baseFee)} · 강습 {formatWon(participant.breakdown.lessonFee)} · 대여 {formatWon(participant.breakdown.rentalFee)}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full bg-[var(--brand-primary-soft-accent)] px-2.5 py-1 text-xs font-bold text-[var(--brand-primary-text)]">
+                                    {formatWon(participant.breakdown.totalFee)}
+                                  </span>
+                                </div>
+
+                                <div className="mb-4 space-y-2">
+                                  {participant.adjustments.length > 0 ? (
+                                    participant.adjustments.map((adjustment) => (
+                                      <div key={adjustment.id} className="brand-card-soft flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
+                                        <div>
+                                          <p className="text-sm font-semibold text-[var(--brand-text)]">{adjustment.label}</p>
+                                          <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-red-600" : "text-blue-600"}`}>
+                                            {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteAdjustment(adjustment.id)}
+                                          className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                                        >
+                                          삭제
+                                        </button>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="brand-card-soft rounded-2xl px-4 py-4 text-sm brand-text-subtle">
+                                      추가/차감 항목이 없습니다.
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-[1fr_120px_auto] gap-2">
+                                  <input
+                                    value={draft.label}
+                                    onChange={(event) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [participant.id]: { ...draft, label: event.target.value },
+                                      }))
+                                    }
+                                    placeholder="예: 뒤풀이, 늦게 합류, 할인"
+                                    className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
+                                  />
+                                  <input
+                                    value={draft.amount}
+                                    onChange={(event) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [participant.id]: { ...draft, amount: event.target.value },
+                                      }))
+                                    }
+                                    placeholder="10000 / -5000"
+                                    className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddAdjustment(participant.id)}
+                                    disabled={submittingFor === participant.id}
+                                    className="brand-button-primary rounded-2xl px-4 py-3 text-sm font-bold"
+                                  >
+                                    {submittingFor === participant.id ? "추가 중..." : "추가"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </section>
         </div>
       )}

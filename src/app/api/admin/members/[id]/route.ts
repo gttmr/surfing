@@ -40,15 +40,42 @@ export async function PUT(
   const { id } = await params;
   const body = await req.json();
   const { role, phoneNumber, penaltyCount, memberType } = body;
+  const userId = parseInt(id);
 
-  const user = await prisma.user.update({
-    where: { id: parseInt(id) },
-    data: {
-      ...(role && { role }),
-      ...(memberType && { memberType }),
-      ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
-      ...(penaltyCount !== undefined && { penaltyCount: parseInt(penaltyCount) }),
-    },
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, kakaoId: true, memberType: true },
+  });
+
+  if (!existingUser) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const user = await prisma.$transaction(async (tx) => {
+    const updatedUser = await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...(role && { role }),
+        ...(memberType && { memberType }),
+        ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
+        ...(penaltyCount !== undefined && { penaltyCount: parseInt(penaltyCount) }),
+      },
+    });
+
+    if (existingUser.memberType === "COMPANION" && memberType === "REGULAR") {
+      await tx.companion.updateMany({
+        where: {
+          linkedKakaoId: existingUser.kakaoId,
+          archivedAt: null,
+        },
+        data: {
+          linkedKakaoId: null,
+          archivedAt: new Date(),
+        },
+      });
+    }
+
+    return updatedUser;
   });
 
   return NextResponse.json(user);

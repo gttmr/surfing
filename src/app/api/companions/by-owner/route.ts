@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   const companions = await prisma.companion.findMany({
-    where: { ownerKakaoId },
+    where: { ownerKakaoId, archivedAt: null },
     select: { id: true, name: true, linkedKakaoId: true },
     orderBy: { createdAt: "asc" },
   });

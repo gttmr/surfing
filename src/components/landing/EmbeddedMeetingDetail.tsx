@@ -121,6 +121,11 @@ export default function EmbeddedMeetingDetail({
   const [, month, day] = meeting.date.split("-");
   const displayDate = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName})`;
   const participants = sortWithCompanions(meeting.participantsList);
+  const optionSummary = {
+    bus: participants.filter((participant) => participant.hasBus).length,
+    lesson: participants.filter((participant) => participant.hasLesson).length,
+    rentalOnly: participants.filter((participant) => participant.hasRental).length,
+  };
 
   function ParticipantAvatar({ participant }: { participant: ParticipantItem }) {
     const fallbackEmoji = pickSurfAvatarEmoji(`${participant.kakaoId}:${participant.companionId ?? participant.id}:${participant.name}`);
@@ -165,7 +170,7 @@ export default function EmbeddedMeetingDetail({
           <SignupForm meeting={meeting} />
         </div>
       ) : (
-        <div>
+        <div className="space-y-3">
           {participants.length ? (
             <div className="brand-card-soft overflow-hidden rounded-2xl">
               {(() => {
@@ -201,6 +206,25 @@ export default function EmbeddedMeetingDetail({
               아직 참가 신청자가 없습니다.
             </div>
           )}
+
+          {participants.length ? (
+            <div className="brand-card-soft rounded-2xl px-4 py-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="brand-panel-white rounded-xl px-3 py-2.5">
+                  <p className="brand-text-subtle text-[11px] font-bold">🚌 셔틀 버스</p>
+                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.bus}</p>
+                </div>
+                <div className="brand-panel-white rounded-xl px-3 py-2.5">
+                  <p className="brand-text-subtle text-[11px] font-bold">🏄‍♂️ 강습+장비</p>
+                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.lesson}</p>
+                </div>
+                <div className="brand-panel-white rounded-xl px-3 py-2.5">
+                  <p className="brand-text-subtle text-[11px] font-bold">🩳 장비 대여만</p>
+                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.rentalOnly}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </section>

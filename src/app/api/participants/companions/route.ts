@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const companion = await tx.companion.findUnique({ where: { id: cid } });
-    if (!companion || companion.ownerKakaoId !== user.kakaoId) {
+    if (!companion || companion.ownerKakaoId !== user.kakaoId || companion.archivedAt) {
       return { status: 403, body: { error: "내 동반인이 아닙니다" } };
     }
 
@@ -116,7 +116,7 @@ export async function DELETE(req: NextRequest) {
 
   // 동반인이 나의 것인지 확인
   const companion = await prisma.companion.findUnique({ where: { id: cid } });
-  if (!companion || companion.ownerKakaoId !== user.kakaoId) {
+  if (!companion || companion.ownerKakaoId !== user.kakaoId || companion.archivedAt) {
     return NextResponse.json({ error: "내 동반인이 아닙니다" }, { status: 403 });
   }
 

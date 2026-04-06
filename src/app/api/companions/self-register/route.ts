@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   // 이미 해당 정회원의 동반인으로 연동된 경우 확인
   const alreadyLinked = await prisma.companion.findFirst({
-    where: { ownerKakaoId, linkedKakaoId: session.kakaoId },
+    where: { ownerKakaoId, linkedKakaoId: session.kakaoId, archivedAt: null },
   });
   if (alreadyLinked) {
     return NextResponse.json({ error: "이미 해당 정회원의 동반인으로 등록되어 있습니다" }, { status: 409 });

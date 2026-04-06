@@ -230,10 +230,12 @@ export function SignupForm({ meeting }: SignupFormProps) {
   // 연동된 동반인(COMPANION 계정) 상태
   const [linkedStatus, setLinkedStatus] = useState<{
     linked: boolean;
+    ownerApplied?: boolean;
     companion?: { id: number; name: string; owner: { name: string | null; kakaoId: string } };
     participant?: { id: number; status: string; hasLesson: boolean; hasBus: boolean; hasRental: boolean } | null;
   } | null>(null);
   const [updatingLinked, setUpdatingLinked] = useState(false);
+  const [submittingLinked, setSubmittingLinked] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -627,6 +629,40 @@ export function SignupForm({ meeting }: SignupFormProps) {
     refreshLinkedStatus();
   }
 
+  async function handleApplyLinkedCompanion() {
+    setSubmittingLinked(true);
+    setServerError("");
+
+    try {
+      const res = await fetch("/api/participants/linked-companion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meetingId: meeting.id,
+          hasLesson,
+          hasBus,
+          hasRental,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setServerError(data.error ?? "신청 중 오류가 발생했습니다.");
+        return;
+      }
+
+      setHasLesson(false);
+      setHasBus(false);
+      setHasRental(false);
+      await refreshLinkedStatus();
+      router.refresh();
+    } catch {
+      setServerError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSubmittingLinked(false);
+    }
+  }
+
   async function handleCancel() {
     if (!myParticipant) return;
     setCancelling(true);
@@ -723,7 +759,6 @@ export function SignupForm({ meeting }: SignupFormProps) {
       </div>
     );
   }
-
   // ─── COMPANION 계정 뷰 ─────────────────────────────────────────────────────────────────────────────
   if (userProfile?.memberType === "COMPANION") {
     if (!linkedStatus) {
@@ -742,6 +777,10 @@ export function SignupForm({ meeting }: SignupFormProps) {
 
     return (
       <div className="space-y-4">
+        {serverError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{serverError}</div>
+        )}
+
         <div className="brand-panel-white rounded-xl p-4 text-sm">
           <p className="brand-text-subtle mb-1 text-xs">정회원: {linkedStatus.companion?.owner.name ?? "알 수 없음"}</p>
           <p className="font-semibold text-[var(--brand-text)]">{linkedStatus.companion?.name}</p>
@@ -785,12 +824,55 @@ export function SignupForm({ meeting }: SignupFormProps) {
                 />
               </div>
             </div>
+
           </div>
         ) : (
-          <div className="brand-panel-white rounded-xl p-4 text-center text-sm brand-text-muted">
-            아직 이 모임에 신청되지 않았습니다.<br />
-            <span className="brand-text-subtle text-xs">정회원이 동반인 추가 시 자동 등록됩니다.</span>
-          </div>
+          linkedStatus.ownerApplied ? (
+            <div className="space-y-3">
+              <div className="brand-panel-white rounded-xl p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[var(--brand-text)]">내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span></p>
+                  <OptionPricingHelp guide={participantOptionPricingGuide} />
+                </div>
+                <div className="space-y-2">
+                  <CheckboxOptionItem
+                    label="셔틀 버스"
+                    icon="🚌"
+                    checked={hasBus}
+                    onChange={() => toggleMainOption("hasBus")}
+                    disabled={submittingLinked}
+                  />
+                  <RadioOptionItem
+                    label="강습+장비대여"
+                    icon="🏄‍♂️"
+                    checked={hasLesson}
+                    onChange={() => toggleMainOption("hasLesson")}
+                    disabled={submittingLinked}
+                  />
+                  <RadioOptionItem
+                    label="장비 대여만"
+                    icon="🩳"
+                    checked={hasRental}
+                    onChange={() => toggleMainOption("hasRental")}
+                    disabled={submittingLinked}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleApplyLinkedCompanion}
+                disabled={submittingLinked}
+                className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-all active:scale-[0.99] disabled:cursor-not-allowed"
+              >
+                {submittingLinked ? "처리 중..." : "내 참가 추가하기"}
+              </button>
+            </div>
+          ) : (
+            <div className="brand-panel-white rounded-xl p-4 text-center text-sm brand-text-muted">
+              연동된 정회원이 먼저 이 모임에 참가 신청해야 합니다.
+            </div>
+          )
         )}
       </div>
     );

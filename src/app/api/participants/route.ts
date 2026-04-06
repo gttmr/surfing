@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
         where: {
           id: { in: allCompanionEntries.map((entry) => entry.id) },
           ownerKakaoId: user.kakaoId,
+          archivedAt: null,
         },
       });
 

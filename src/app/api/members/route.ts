@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       memberType: "REGULAR",
       kakaoId: { not: session.kakaoId },
       companions: {
-        some: {},
+        some: { archivedAt: null },
       },
     },
     select: {
