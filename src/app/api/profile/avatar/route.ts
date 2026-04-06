@@ -76,7 +76,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const form = await req.formData();
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return NextResponse.json({ error: "파일 데이터를 읽을 수 없습니다." }, { status: 400 });
+  }
+
   const file = form.get("file");
 
   if (!(file instanceof File)) {
@@ -91,58 +97,63 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "압축 후 1MB 이하 파일만 업로드할 수 있습니다." }, { status: 400 });
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { kakaoId: session.kakaoId },
-    select: {
-      customProfileImageUrl: true,
-    },
-  });
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { kakaoId: session.kakaoId },
+      select: {
+        customProfileImageUrl: true,
+      },
+    });
 
-  const uploaded = process.env.BLOB_READ_WRITE_TOKEN
-    ? await (async () => {
-        const { put } = await loadBlobApi();
-        return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
-          access: "public",
-          addRandomSuffix: false,
-          contentType: file.type,
-        });
-      })()
-    : await saveLocalUpload(session.kakaoId, file);
+    const uploaded = process.env.BLOB_READ_WRITE_TOKEN
+      ? await (async () => {
+          const { put } = await loadBlobApi();
+          return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
+            access: "public",
+            addRandomSuffix: false,
+            contentType: file.type,
+          });
+        })()
+      : await saveLocalUpload(session.kakaoId, file);
 
-  const user = await prisma.user.update({
-    where: { kakaoId: session.kakaoId },
-    data: {
-      customProfileImageUrl: uploaded.url,
-    },
-    include: {
-      _count: {
-        select: {
-          participants: true,
+    const user = await prisma.user.update({
+      where: { kakaoId: session.kakaoId },
+      data: {
+        customProfileImageUrl: uploaded.url,
+      },
+      include: {
+        _count: {
+          select: {
+            participants: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (existing?.customProfileImageUrl) {
-    const existingImageUrl = existing.customProfileImageUrl;
+    if (existing?.customProfileImageUrl) {
+      const existingImageUrl = existing.customProfileImageUrl;
 
-    if (isLocalUploadUrl(existing.customProfileImageUrl)) {
-      void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
-        console.error("Failed to delete previous local profile image", error);
-      });
-    } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-      void loadBlobApi()
-        .then(({ del }) => del(existingImageUrl))
-        .catch((error) => {
-          console.error("Failed to delete previous custom profile image", error);
+      if (isLocalUploadUrl(existing.customProfileImageUrl)) {
+        void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
+          console.error("Failed to delete previous local profile image", error);
         });
+      } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+        void loadBlobApi()
+          .then(({ del }) => del(existingImageUrl))
+          .catch((error) => {
+            console.error("Failed to delete previous custom profile image", error);
+          });
+      }
     }
-  }
 
-  return NextResponse.json({
-    uploaded,
-    user: withResolvedProfileImage(user),
-  });
+    return NextResponse.json({
+      uploaded,
+      user: withResolvedProfileImage(user),
+    });
+  } catch (error) {
+    console.error("Avatar upload error:", error);
+    return NextResponse.json({ error: "업로드에 실패했습니다. 다시 시도해주세요." }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {

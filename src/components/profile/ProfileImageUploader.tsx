@@ -115,10 +115,16 @@ export function ProfileImageUploader({
         method: "POST",
         body: form,
       });
-      const data = await response.json();
+
+      let data: Record<string, unknown> = {};
+      try {
+        data = await response.json();
+      } catch {
+        // 서버가 JSON이 아닌 응답을 반환한 경우
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "업로드에 실패했습니다.");
+        throw new Error(typeof data.error === "string" ? data.error : "업로드에 실패했습니다.");
       }
 
       onUpdated(data.user);
