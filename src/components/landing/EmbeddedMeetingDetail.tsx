@@ -425,11 +425,11 @@ export default function EmbeddedMeetingDetail({
             <>
               <div className="grid grid-cols-2 gap-2">
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">미입금 총액</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">아직 안 읽음</p>
                   <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(unconfirmedTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">입금 예상액</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">이체 버튼 누름</p>
                   <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(confirmedTotalFee)}</p>
                 </div>
               </div>
