@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
 const SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-in-production";
-const COOKIE_NAME = "club_session";
+const COOKIE_NAME = "__session";
 
 export interface SessionUser {
   kakaoId: string;
