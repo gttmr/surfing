@@ -11,11 +11,10 @@ export default function AdminLoginPage() {
   const [autoLogging, setAutoLogging] = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/auto-login", { method: "POST" })
+    fetch("/api/admin/auto-login", { method: "POST", credentials: "include" })
       .then((res) => {
         if (res.ok) {
-          router.push("/admin");
-          router.refresh();
+          window.location.replace("/admin");
         } else {
           setAutoLogging(false);
         }
@@ -30,13 +29,13 @@ export default function AdminLoginPage() {
 
     const res = await fetch("/api/admin/login", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
     });
 
     if (res.ok) {
-      router.push("/admin");
-      router.refresh();
+      window.location.replace("/admin");
     } else {
       const data = await res.json();
       setError(data.error || "오류가 발생했습니다");

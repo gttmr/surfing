@@ -517,7 +517,7 @@ function ProfilePage() {
             {isAdmin ? (
               <Link
                 className="rounded-xl bg-[var(--brand-primary-soft-strong)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-accent)]"
-                href="/admin"
+                href="/admin/login"
               >
                 관리자
               </Link>
