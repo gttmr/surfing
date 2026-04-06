@@ -13,6 +13,7 @@ export type CompressedProfileImage = {
 type CompressProfileImageOptions = {
   mimeType?: "image/webp" | "image/jpeg" | "image/png";
   quality?: number;
+  previewFrameSize?: number;
   targetSize?: number;
 };
 
@@ -71,6 +72,7 @@ export async function createProfileImageFromCrop(
   originalBytes: number,
   crop: ProfileImageCrop,
   {
+    previewFrameSize = 240,
     targetSize = 320,
     quality = 0.78,
     mimeType = "image/webp",
@@ -91,8 +93,8 @@ export async function createProfileImageFromCrop(
   ) * crop.zoom;
   const drawWidth = image.naturalWidth * coverScale;
   const drawHeight = image.naturalHeight * coverScale;
-  const drawX = (targetSize - drawWidth) / 2 + crop.offsetX * (targetSize / 240);
-  const drawY = (targetSize - drawHeight) / 2 + crop.offsetY * (targetSize / 240);
+  const drawX = (targetSize - drawWidth) / 2 + crop.offsetX * (targetSize / previewFrameSize);
+  const drawY = (targetSize - drawHeight) / 2 + crop.offsetY * (targetSize / previewFrameSize);
 
   context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createProfileImageFromCrop,
   loadImageFromFile,
@@ -34,6 +34,15 @@ export function ProfileImageUploader({
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{
+    startDistance: number;
+    startZoom: number;
+    startOffsetX: number;
+    startOffsetY: number;
+    startCenterX: number;
+    startCenterY: number;
+  } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -51,7 +60,8 @@ export function ProfileImageUploader({
     };
   }, [cropSourceUrl]);
 
-  const previewFrameSize = 240;
+  const previewFrameSize = 260;
+  const cropGuideSize = Math.round(previewFrameSize * (88 / 96));
   const cropMetrics = useMemo(() => {
     if (!cropImage) return null;
     const coverScale = Math.max(
@@ -79,6 +89,21 @@ export function ProfileImageUploader({
     };
   }
 
+  function clampZoom(nextZoom: number) {
+    return Math.min(3, Math.max(1, nextZoom));
+  }
+
+  function getPointerPair() {
+    const entries = Array.from(pointersRef.current.values());
+    if (entries.length < 2) return null;
+    return [entries[0], entries[1]] as const;
+  }
+
+  function resetGestureState() {
+    dragRef.current = null;
+    pinchRef.current = null;
+  }
+
   useEffect(() => {
     if (!cropMetrics) return;
     setCropOffset((prev) => {
@@ -97,7 +122,8 @@ export function ProfileImageUploader({
     setCropOriginalBytes(0);
     setCropZoom(1);
     setCropOffset({ x: 0, y: 0 });
-    dragRef.current = null;
+    pointersRef.current.clear();
+    resetGestureState();
   }
 
   async function uploadCompressed(compressed: CompressedProfileImage) {
@@ -188,6 +214,7 @@ export function ProfileImageUploader({
         } satisfies ProfileImageCrop,
         {
           mimeType: "image/webp",
+          previewFrameSize,
           quality: 0.78,
           targetSize: 320,
         },
@@ -207,23 +234,61 @@ export function ProfileImageUploader({
   }
 
   function handleZoomChange(nextZoom: number) {
-    setCropZoom(nextZoom);
+    setCropZoom(clampZoom(nextZoom));
     setCropOffset((prev) => clampOffset(prev.x, prev.y));
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!cropImage) return;
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: cropOffset.x,
-      originY: cropOffset.y,
-    };
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const pointerPair = getPointerPair();
+    if (pointerPair) {
+      const [first, second] = pointerPair;
+      pinchRef.current = {
+        startDistance: Math.hypot(second.x - first.x, second.y - first.y),
+        startZoom: cropZoom,
+        startOffsetX: cropOffset.x,
+        startOffsetY: cropOffset.y,
+        startCenterX: (first.x + second.x) / 2,
+        startCenterY: (first.y + second.y) / 2,
+      };
+      dragRef.current = null;
+    } else {
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: cropOffset.x,
+        originY: cropOffset.y,
+      };
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const pointerPair = getPointerPair();
+    if (pointerPair && pinchRef.current) {
+      const [first, second] = pointerPair;
+      const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+      const centerX = (first.x + second.x) / 2;
+      const centerY = (first.y + second.y) / 2;
+      const nextZoom = clampZoom(
+        pinchRef.current.startZoom * (distance / Math.max(1, pinchRef.current.startDistance)),
+      );
+      const nextOffset = clampOffset(
+        pinchRef.current.startOffsetX + (centerX - pinchRef.current.startCenterX),
+        pinchRef.current.startOffsetY + (centerY - pinchRef.current.startCenterY),
+      );
+      setCropZoom(nextZoom);
+      setCropOffset(nextOffset);
+      return;
+    }
+
     if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
     const deltaX = event.clientX - dragRef.current.startX;
     const deltaY = event.clientY - dragRef.current.startY;
@@ -231,11 +296,51 @@ export function ProfileImageUploader({
   }
 
   function handlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
-    dragRef.current = null;
+    pointersRef.current.delete(event.pointerId);
+
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+
+    const remainingPointers = Array.from(pointersRef.current.entries());
+    if (remainingPointers.length >= 2) {
+      const pointerPair = getPointerPair();
+      if (pointerPair) {
+        const [first, second] = pointerPair;
+        pinchRef.current = {
+          startDistance: Math.hypot(second.x - first.x, second.y - first.y),
+          startZoom: cropZoom,
+          startOffsetX: cropOffset.x,
+          startOffsetY: cropOffset.y,
+          startCenterX: (first.x + second.x) / 2,
+          startCenterY: (first.y + second.y) / 2,
+        };
+        dragRef.current = null;
+      }
+      return;
+    }
+
+    pinchRef.current = null;
+
+    if (remainingPointers.length === 1) {
+      const [pointerId, point] = remainingPointers[0];
+      dragRef.current = {
+        pointerId,
+        startX: point.x,
+        startY: point.y,
+        originX: cropOffset.x,
+        originY: cropOffset.y,
+      };
+      return;
+    }
+
+    dragRef.current = null;
+  }
+
+  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const step = event.deltaY > 0 ? -0.12 : 0.12;
+    handleZoomChange(cropZoom + step);
   }
 
   const activeImage = previewImage ?? currentImage;
@@ -282,7 +387,6 @@ export function ProfileImageUploader({
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className="text-base font-extrabold text-[var(--brand-text)]">프로필 사진 다듬기</p>
-                <p className="brand-text-subtle mt-1 text-xs">드래그해서 위치를 맞추고, 슬라이더로 확대/축소하세요.</p>
               </div>
               <button
                 className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
@@ -295,13 +399,13 @@ export function ProfileImageUploader({
 
             <div className="mb-4 flex flex-col items-center gap-4">
               <div
-                className="brand-panel-white relative h-[240px] w-[240px] touch-none overflow-hidden rounded-[2rem]"
+                className="brand-panel-white relative h-[260px] w-[260px] touch-none overflow-hidden rounded-[2rem]"
                 onPointerCancel={handlePointerEnd}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerEnd}
+                onWheel={handleWheel}
               >
-                <div className="pointer-events-none absolute inset-0 rounded-[2rem] shadow-[inset_0_0_0_1px_var(--brand-primary-border)]" />
                 {cropMetrics ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -317,44 +421,13 @@ export function ProfileImageUploader({
                     }}
                   />
                 ) : null}
-              </div>
-
-              <div className="brand-panel-white flex w-full items-center gap-3 rounded-2xl px-4 py-3">
-                <span className="text-xs font-bold text-[var(--brand-text)]">축소</span>
-                <input
-                  className="w-full accent-[var(--brand-primary)]"
-                  max="3"
-                  min="1"
-                  onChange={(event) => handleZoomChange(Number(event.target.value))}
-                  step="0.01"
-                  type="range"
-                  value={cropZoom}
+                <div
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-white/95 shadow-[0_0_0_999px_rgba(0,22,92,0.72)]"
+                  style={{
+                    height: `${cropGuideSize}px`,
+                    width: `${cropGuideSize}px`,
+                  }}
                 />
-                <span className="text-xs font-bold text-[var(--brand-text)]">확대</span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="brand-avatar-shell relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">
-                  {cropMetrics ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      alt="원형 썸네일 미리보기"
-                      className="absolute max-w-none"
-                      src={cropSourceUrl}
-                      style={{
-                        height: `${cropMetrics.height * (64 / previewFrameSize)}px`,
-                        left: `${(cropMetrics.centeredX + cropOffset.x) * (64 / previewFrameSize)}px`,
-                        top: `${(cropMetrics.centeredY + cropOffset.y) * (64 / previewFrameSize)}px`,
-                        width: `${cropMetrics.width * (64 / previewFrameSize)}px`,
-                      }}
-                    />
-                  ) : null}
-                </div>
-                <p className="brand-text-subtle text-xs leading-5">
-                  오른쪽 원형 미리보기 기준으로
-                  <br />
-                  실제 썸네일 표시 영역을 확인할 수 있습니다.
-                </p>
               </div>
             </div>
 

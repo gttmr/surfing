@@ -4,6 +4,13 @@ import path from "path";
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
+import {
+  buildProfileImageObjectName,
+  deleteGcsProfileImageByUrl,
+  hasGcsProfileImageBucket,
+  isGcsProfileImageUrl,
+  saveGcsProfileImage,
+} from "@/lib/profile-image-storage";
 
 export const runtime = "nodejs";
 
@@ -105,16 +112,21 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const uploaded = process.env.BLOB_READ_WRITE_TOKEN
-      ? await (async () => {
-          const { put } = await loadBlobApi();
-          return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
-            access: "public",
-            addRandomSuffix: false,
-            contentType: file.type,
-          });
-        })()
-      : await saveLocalUpload(session.kakaoId, file);
+    const uploaded = hasGcsProfileImageBucket()
+      ? await saveGcsProfileImage(
+          buildProfileImageObjectName(session.kakaoId, extensionFor(file.type)),
+          file,
+        )
+      : process.env.BLOB_READ_WRITE_TOKEN
+        ? await (async () => {
+            const { put } = await loadBlobApi();
+            return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
+              access: "public",
+              addRandomSuffix: false,
+              contentType: file.type,
+            });
+          })()
+        : await saveLocalUpload(session.kakaoId, file);
 
     const user = await prisma.user.update({
       where: { kakaoId: session.kakaoId },
@@ -136,6 +148,10 @@ export async function POST(req: NextRequest) {
       if (isLocalUploadUrl(existing.customProfileImageUrl)) {
         void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
           console.error("Failed to delete previous local profile image", error);
+        });
+      } else if (isGcsProfileImageUrl(existing.customProfileImageUrl)) {
+        void deleteGcsProfileImageByUrl(existing.customProfileImageUrl).catch((error) => {
+          console.error("Failed to delete previous GCS profile image", error);
         });
       } else if (process.env.BLOB_READ_WRITE_TOKEN) {
         void loadBlobApi()
@@ -189,6 +205,10 @@ export async function DELETE(req: NextRequest) {
     if (isLocalUploadUrl(existing.customProfileImageUrl)) {
       void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
         console.error("Failed to delete local profile image", error);
+      });
+    } else if (isGcsProfileImageUrl(existing.customProfileImageUrl)) {
+      void deleteGcsProfileImageByUrl(existing.customProfileImageUrl).catch((error) => {
+        console.error("Failed to delete GCS profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
       void loadBlobApi()
