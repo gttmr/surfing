@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { AdminMeetingDetailPageClient } from "@/components/admin/AdminMeetingDetailPageClient";
 import { getAdminMeetingDetail } from "@/lib/admin-page-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminMeetingDetailPage({
   params,
 }: {
