@@ -20,5 +20,5 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true });
-  return setAdminCookie(res);
+  return await setAdminCookie(res);
 }

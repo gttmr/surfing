@@ -1,25 +1,53 @@
 import { cookies } from "next/headers";
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE,
+  decodeSession,
+  encodeSession,
+  getSessionPayload,
+} from "@/lib/session";
 
-const COOKIE_NAME = "admin_session";
-const SESSION_VALUE = "authenticated";
-
-export async function isAdminAuthenticated(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return cookieStore.get(COOKIE_NAME)?.value === SESSION_VALUE;
+function buildAdminSessionToken(payload: Awaited<ReturnType<typeof getSessionPayload>>) {
+  return encodeSession({
+    ...payload,
+    adminAuthenticated: true,
+  });
 }
 
-export function setAdminCookie(response: Response): Response {
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const session = await getSessionPayload();
+  return !!session?.adminAuthenticated;
+}
+
+export async function setAdminCookie(response: Response): Promise<Response> {
+  const session = await getSessionPayload();
   response.headers.set(
     "Set-Cookie",
-    `${COOKIE_NAME}=${SESSION_VALUE}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
+    `${SESSION_COOKIE}=${buildAdminSessionToken(session)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`
   );
   return response;
 }
 
-export function clearAdminCookie(response: Response): Response {
+export async function clearAdminCookie(response: Response): Promise<Response> {
+  const cookieStore = await cookies();
+  const existingToken = cookieStore.get(SESSION_COOKIE)?.value;
+  const payload = existingToken ? decodeSession(existingToken) : null;
+
+  if (payload?.kakaoId && payload.nickname) {
+    response.headers.set(
+      "Set-Cookie",
+      `${SESSION_COOKIE}=${encodeSession({
+        kakaoId: payload.kakaoId,
+        nickname: payload.nickname,
+        profileImage: payload.profileImage,
+      })}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`
+    );
+    return response;
+  }
+
   response.headers.set(
     "Set-Cookie",
-    `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
+    `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
   );
   return response;
 }
