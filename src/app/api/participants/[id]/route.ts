@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { shouldApplyPenalty, DEFAULT_PENALTY_MESSAGE } from "@/lib/penalty";
 
 // 회원이 자신의 참가를 취소
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = getSessionFromRequest(req);
+  const user = await getActiveSessionFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
@@ -107,7 +107,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
 // 신청 정보 업데이트 (정회원 또는 연동된 동반인 본인)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = getSessionFromRequest(req);
+  const user = await getActiveSessionFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }

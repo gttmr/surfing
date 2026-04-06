@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 
 // 내 프로필 정보 가져오기
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 // 내 프로필 수정
 export async function PUT(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }

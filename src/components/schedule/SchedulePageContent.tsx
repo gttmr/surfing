@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { getActiveSession } from "@/lib/active-session";
 import { resolveProfileImage } from "@/lib/profile-image";
 import SurfClubLandingPage from "@/components/landing/SurfClubLandingPage";
 
@@ -8,7 +8,7 @@ export default async function SchedulePageContent({
 }: {
   initialSelectedDate?: string | null;
 }) {
-  const sessionUser = await getSession();
+  const sessionUser = await getActiveSession();
   let isAdmin = false;
   let dbUnavailable = false;
   let userForClient = sessionUser

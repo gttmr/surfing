@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const { date, startTime, endTime, location, description, isOpen, meetingType } = body;
 
   const isAdmin = await isAdminAuthenticated();
-  const sessionUser = getSessionFromRequest(req);
+  const sessionUser = await getActiveSessionFromRequest(req);
 
   // 비정기 모임은 로그인한 일반 회원도 생성 가능
   if (!isAdmin) {

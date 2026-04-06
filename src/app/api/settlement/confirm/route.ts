@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -39,4 +39,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
-

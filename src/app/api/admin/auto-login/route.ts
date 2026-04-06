@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { setAdminCookie } from "@/lib/auth";
 
 // 카카오 로그인된 ADMIN 역할 사용자는 비밀번호 없이 관리자 인증
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }

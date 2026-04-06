@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 
 type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
 type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
 
 export async function POST(req: NextRequest) {
-  const user = getSessionFromRequest(req);
+  const user = await getActiveSessionFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "카카오 로그인이 필요합니다" }, { status: 401 });
   }

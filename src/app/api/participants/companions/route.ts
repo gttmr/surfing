@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 
 // 참가 완료 후 동반인 추가 신청
 export async function POST(req: NextRequest) {
-  const user = getSessionFromRequest(req);
+  const user = await getActiveSessionFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
 // 동반인 개별 취소
 export async function DELETE(req: NextRequest) {
-  const user = getSessionFromRequest(req);
+  const user = await getActiveSessionFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }

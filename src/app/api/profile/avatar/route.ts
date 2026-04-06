@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
-import { getSessionFromRequest } from "@/lib/session";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 
 export const runtime = "nodejs";
 
@@ -71,7 +71,7 @@ async function loadBlobApi(): Promise<BlobApi> {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getActiveSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }

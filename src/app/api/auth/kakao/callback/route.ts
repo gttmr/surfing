@@ -109,8 +109,9 @@ export async function GET(req: NextRequest) {
   let isNewUser = false;
   try {
     const existing = await prisma.user.findUnique({ where: { kakaoId } });
-    const wasDeleted = !existing && !!(await prisma.deletedKakaoId.findUnique({ where: { kakaoId } }));
-    isNewUser = !existing;
+    const deletedRecord = await prisma.deletedKakaoId.findUnique({ where: { kakaoId } });
+    const wasDeleted = !!deletedRecord;
+    isNewUser = !existing || wasDeleted;
     await prisma.user.upsert({
       where: { kakaoId },
       update: {
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
       },
     });
     // 재가입 처리 완료 후 삭제 이력 제거
-    if (wasDeleted) {
+    if (deletedRecord) {
       await prisma.deletedKakaoId.delete({ where: { kakaoId } });
     }
   } catch (dbError) {
