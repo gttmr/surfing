@@ -176,7 +176,7 @@ export function AdminMessagesPageClient({
             메시지 관리
           </h1>
           <p className="brand-text-muted mt-1 text-sm">
-            홈 상단 공지와 운영 안내 문구를 한 화면에서 정리합니다.
+            공지는 알림센터 히스토리로 쌓이고, 고정된 공지는 목록 맨 위에 유지됩니다.
           </p>
         </div>
         <div className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">
@@ -192,7 +192,7 @@ export function AdminMessagesPageClient({
                 {editingId ? "공지 수정" : "새 공지 작성"}
               </h2>
               <p className="brand-text-subtle mt-1 text-xs">
-                고정된 공지는 메인 헤더의 공지 팝업에서 바로 확인할 수 있습니다.
+                등록한 공지는 알림센터에 남고, 고정된 공지는 다른 공지보다 먼저 노출됩니다.
               </p>
             </div>
             {editingId ? (
@@ -228,16 +228,16 @@ export function AdminMessagesPageClient({
                 onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))}
                 rows={5}
                 className="brand-input w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none"
-                placeholder="공지 팝업과 운영 메시지에 보여줄 내용을 입력하세요."
+                placeholder="알림센터에 남길 공지 내용을 입력하세요."
               />
               <p className="brand-text-subtle mt-1 text-right text-xs">{form.body.length}자</p>
             </div>
 
             <label className="brand-panel-white flex items-center justify-between rounded-2xl px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-[var(--brand-text)]">홈 상단 공지로 고정</p>
+                <p className="text-sm font-semibold text-[var(--brand-text)]">알림센터 최상단 고정</p>
                 <p className="brand-text-subtle mt-0.5 text-xs">
-                  하나만 고정되며, 홈 헤더의 공지 팝업에서 우선 보여집니다.
+                  하나만 고정되며, 읽음 여부와 관계없이 알림센터에서 가장 위에 표시됩니다.
                 </p>
               </div>
               <input
@@ -318,7 +318,7 @@ export function AdminMessagesPageClient({
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-base font-bold text-[var(--brand-text)]">공지 목록</h2>
-          <span className="brand-text-subtle text-xs">최근 수정 순으로 표시됩니다.</span>
+          <span className="brand-text-subtle text-xs">고정 공지 우선, 이후 최근 수정 순입니다.</span>
         </div>
 
         {notices.length === 0 ? (
@@ -333,7 +333,7 @@ export function AdminMessagesPageClient({
                   <div className="min-w-0 flex-1">
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       {notice.isPinned ? (
-                        <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">상단 공지</span>
+                        <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">최상단 고정</span>
                       ) : (
                         <span className="brand-chip-accent rounded-full px-2 py-1 text-xs font-bold">일반 공지</span>
                       )}
@@ -351,7 +351,7 @@ export function AdminMessagesPageClient({
                       onClick={() => handlePinToggle(notice)}
                       className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold"
                     >
-                      {notice.isPinned ? "고정 해제" : "상단 고정"}
+                      {notice.isPinned ? "고정 해제" : "최상단 고정"}
                     </button>
                     <button
                       type="button"

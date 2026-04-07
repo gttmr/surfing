@@ -7,8 +7,11 @@ export type HomeUser = {
 };
 
 export type NoticeItem = {
+  id: number;
   title: string;
   body: string;
+  isPinned: boolean;
+  createdAt: string;
   updatedAt: string;
 };
 

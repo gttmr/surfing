@@ -207,7 +207,7 @@ export default function SurfClubLandingPage({
   meetings,
   user,
   isAdmin,
-  pinnedNotice,
+  notices,
   participantOptionPricingGuide,
   initialMeetingDetailsById,
   initialSignupDataByMeetingId,
@@ -220,7 +220,7 @@ export default function SurfClubLandingPage({
   meetings: MeetingWithCounts[];
   user: HomeUser | null;
   isAdmin: boolean;
-  pinnedNotice: NoticeItem | null;
+  notices: NoticeItem[];
   participantOptionPricingGuide: string;
   initialMeetingDetailsById: Record<number, DetailedMeeting>;
   initialSignupDataByMeetingId: Record<number, SignupInitialData>;
@@ -262,9 +262,9 @@ export default function SurfClubLandingPage({
     initialSelectedDate,
   });
 
-  const hasPinnedNotice = Boolean(pinnedNotice);
+  const hasNotices = notices.length > 0;
   const hasPendingSettlement = pendingSettlements.length > 0;
-  const hasAlertCenter = hasPinnedNotice || hasPendingSettlement;
+  const hasAlertCenter = hasNotices || hasPendingSettlement;
 
   async function markSettlementConfirmed(meetingId: number, keepalive = false) {
     try {
@@ -328,15 +328,15 @@ export default function SurfClubLandingPage({
   const alertItems = useMemo<AlertItem[]>(() => {
     const items: AlertItem[] = [];
 
-    if (pinnedNotice) {
-      const key = `notice:${pinnedNotice.updatedAt}`;
+    for (const notice of notices) {
+      const key = `notice:${notice.id}:${notice.updatedAt}`;
       items.push({
         key,
         type: "notice",
-        title: pinnedNotice.title,
-        subtitle: "공지사항",
+        title: notice.title,
+        subtitle: notice.isPinned ? "공지사항 · 최상단 고정" : "공지사항",
         unread: !readAlertKeys.includes(key),
-        notice: pinnedNotice,
+        notice,
       });
     }
 
@@ -353,7 +353,7 @@ export default function SurfClubLandingPage({
     }
 
     return items;
-  }, [pendingSettlements, pinnedNotice, readAlertKeys]);
+  }, [notices, pendingSettlements, readAlertKeys]);
   const hasUnreadAlerts = alertItems.some((item) => item.unread);
 
   function moveMonth(direction: -1 | 1) {

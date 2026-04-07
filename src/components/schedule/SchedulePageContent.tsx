@@ -103,7 +103,7 @@ export default async function SchedulePageContent({
       }
     : null;
   let meetingsForClient: MeetingWithCounts[] = [];
-  let pinnedNotice: NoticeItem | null = null;
+  let noticesForClient: NoticeItem[] = [];
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
   let initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   let initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
@@ -115,7 +115,7 @@ export default async function SchedulePageContent({
     const [
       dbUser,
       meetings,
-      pinned,
+      notices,
       settings,
       settlementGroups,
     ] = await Promise.all([
@@ -135,9 +135,8 @@ export default async function SchedulePageContent({
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: { participants: { select: { status: true } } },
       }),
-      prisma.notice.findFirst({
-        where: { isPinned: true },
-        orderBy: { createdAt: "desc" },
+      prisma.notice.findMany({
+        orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.setting.findMany({
         where: {
@@ -177,9 +176,14 @@ export default async function SchedulePageContent({
       approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
     }));
 
-    pinnedNotice = pinned
-      ? { title: pinned.title, body: pinned.body, updatedAt: pinned.updatedAt.toISOString() }
-      : null;
+    noticesForClient = notices.map((notice) => ({
+      id: notice.id,
+      title: notice.title,
+      body: notice.body,
+      isPinned: notice.isPinned,
+      createdAt: notice.createdAt.toISOString(),
+      updatedAt: notice.updatedAt.toISOString(),
+    }));
 
     const settingsMap = new Map(settings.map((item) => [item.key, item.value]));
     participantOptionPricingGuide =
@@ -352,7 +356,7 @@ export default async function SchedulePageContent({
       isAdmin={isAdmin}
       meetings={meetingsForClient}
       participantOptionPricingGuide={participantOptionPricingGuide}
-      pinnedNotice={pinnedNotice}
+      notices={noticesForClient}
       user={userForClient}
     />
   );
