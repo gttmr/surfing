@@ -229,10 +229,10 @@ export default function EmbeddedMeetingDetail({
     lesson: participants.filter((participant) => participant.hasLesson).length,
     rentalOnly: participants.filter((participant) => participant.hasRental).length,
   };
-  const unconfirmedRecipients = settlementStatus?.recipients.filter((recipient) => !recipient.confirmed) ?? [];
-  const confirmedRecipients = settlementStatus?.recipients.filter((recipient) => recipient.confirmed) ?? [];
-  const unconfirmedTotalFee = unconfirmedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
-  const confirmedTotalFee = confirmedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
+  const pendingRecipients = settlementStatus?.recipients.filter((recipient) => !recipient.completed) ?? [];
+  const completedRecipients = settlementStatus?.recipients.filter((recipient) => recipient.completed) ?? [];
+  const pendingTotalFee = pendingRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
+  const completedTotalFee = completedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
 
   function formatWon(value: number) {
     return `${value.toLocaleString("ko-KR")}원`;
@@ -266,17 +266,17 @@ export default function EmbeddedMeetingDetail({
   function SettlementRecipientList({
     title,
     recipients,
-    confirmed,
+    completed,
   }: {
     title: string;
     recipients: AdminSettlementStatusSummary["recipients"];
-    confirmed: boolean;
+    completed: boolean;
   }) {
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-extrabold text-[var(--brand-text)]">{title}</h4>
-          <span className={`${confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-[10px] font-bold`}>
+          <span className={`${completed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-[10px] font-bold`}>
             {recipients.length}
           </span>
         </div>
@@ -293,7 +293,7 @@ export default function EmbeddedMeetingDetail({
                     <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
                     <p className="brand-text-subtle mt-1 text-xs">
                       {recipient.itemCount === 1 ? "1건" : `${recipient.itemCount}건 합산`}
-                      {confirmed && recipient.confirmedAt ? ` · ${formatConfirmedAt(recipient.confirmedAt)} 확인` : ""}
+                      {completed && recipient.completedAt ? ` · ${formatConfirmedAt(recipient.completedAt)} 송금완료` : ""}
                     </p>
                   </div>
                   <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
@@ -423,14 +423,18 @@ export default function EmbeddedMeetingDetail({
             </div>
           ) : settlementStatus ? (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">아직 안 읽음</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(unconfirmedTotalFee)}</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">정산 대기</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(pendingTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">이체 버튼 누름</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(confirmedTotalFee)}</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">송금완료 금액</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(completedTotalFee)}</p>
+                </div>
+                <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
+                  <p className="brand-text-subtle text-[11px] font-bold">송금완료 인원</p>
+                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.completedCount}</p>
                 </div>
               </div>
 
@@ -440,8 +444,8 @@ export default function EmbeddedMeetingDetail({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <SettlementRecipientList title="미확인" recipients={unconfirmedRecipients} confirmed={false} />
-                  <SettlementRecipientList title="확인" recipients={confirmedRecipients} confirmed={true} />
+                  <SettlementRecipientList title="정산 대기" recipients={pendingRecipients} completed={false} />
+                  <SettlementRecipientList title="송금완료" recipients={completedRecipients} completed={true} />
                 </div>
               )}
             </>

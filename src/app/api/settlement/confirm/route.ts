@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const meetingId = Number(body?.meetingId);
+  const completed = body?.completed;
   if (!Number.isInteger(meetingId)) {
     return NextResponse.json({ error: "meetingId가 필요합니다." }, { status: 400 });
   }
@@ -21,13 +22,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "정산 대상이 아닙니다." }, { status: 404 });
   }
 
-  await prisma.settlementConfirmation.upsert({
-    where: {
-      meetingId_recipientKakaoId: {
+  const key = {
+    meetingId_recipientKakaoId: {
+      meetingId,
+      recipientKakaoId: session.kakaoId,
+    },
+  };
+
+  if (typeof completed === "boolean") {
+    if (!completed) {
+      await prisma.settlementConfirmation.deleteMany({
+        where: {
+          meetingId,
+          recipientKakaoId: session.kakaoId,
+        },
+      });
+      return NextResponse.json({ ok: true, completed: false });
+    }
+
+    await prisma.settlementConfirmation.upsert({
+      where: key,
+      create: {
         meetingId,
         recipientKakaoId: session.kakaoId,
       },
-    },
+      update: {
+        confirmedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ ok: true, completed: true });
+  }
+
+  await prisma.settlementConfirmation.upsert({
+    where: key,
     create: {
       meetingId,
       recipientKakaoId: session.kakaoId,
@@ -37,5 +65,5 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, completed: true });
 }

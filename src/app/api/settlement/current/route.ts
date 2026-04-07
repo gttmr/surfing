@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   });
   const settingsMap = new Map(settings.map((item) => [item.key, item.value]));
   return NextResponse.json({
-    pending: settlements.filter((item) => !item.isConfirmed),
+    pending: settlements,
     settlementAccount: {
       bankName: settingsMap.get(SETTLEMENT_BANK_NAME_KEY) ?? "",
       accountNumber: settingsMap.get(SETTLEMENT_ACCOUNT_NUMBER_KEY) ?? "",

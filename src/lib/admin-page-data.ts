@@ -127,8 +127,8 @@ export type AdminSettlementRecipient = {
   recipientName: string;
   recipientType: "self" | "linked_companion" | "owner";
   totalFee: number;
-  confirmed: boolean;
-  confirmedAt: string | null;
+  completed: boolean;
+  completedAt: string | null;
   items: {
     participantId: number;
     participantName: string;
@@ -349,11 +349,11 @@ async function loadSettlementContext(meetingId: number) {
   );
 
   const recipients = groupParticipantsForSettlement(meeting.participants, pricing, adjustmentMap).map((recipient) => {
-    const confirmedAt = confirmationMap.get(recipient.recipientKakaoId) ?? null;
+    const completedAt = confirmationMap.get(recipient.recipientKakaoId) ?? null;
     return {
       ...recipient,
-      confirmed: confirmedAt !== null,
-      confirmedAt,
+      completed: completedAt !== null,
+      completedAt,
     };
   });
 
@@ -399,7 +399,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       settlementOpen: meeting.settlementOpen,
     },
     participants,
-    confirmedRecipientCount: recipients.filter((recipient) => recipient.confirmed).length,
+    confirmedRecipientCount: recipients.filter((recipient) => recipient.completed).length,
     recipients,
   };
 }
@@ -413,11 +413,11 @@ export async function getAdminSettlementStatusData(meetingId: number): Promise<A
     .sort((a, b) => a.recipientType.localeCompare(b.recipientType))
     .sort((a, b) => a.recipientName.localeCompare(b.recipientName, "ko-KR"));
 
-  const confirmedCount = meeting.settlementOpen
-    ? sortedRecipients.filter((recipient) => recipient.confirmed).length
+  const completedCount = meeting.settlementOpen
+    ? sortedRecipients.filter((recipient) => recipient.completed).length
     : 0;
-  const unconfirmedCount = meeting.settlementOpen
-    ? sortedRecipients.filter((recipient) => !recipient.confirmed).length
+  const pendingCount = meeting.settlementOpen
+    ? sortedRecipients.filter((recipient) => !recipient.completed).length
     : 0;
 
   return {
@@ -427,8 +427,8 @@ export async function getAdminSettlementStatusData(meetingId: number): Promise<A
     },
     summary: {
       totalRecipientCount: sortedRecipients.length,
-      confirmedCount,
-      unconfirmedCount,
+      completedCount,
+      pendingCount,
     },
     recipients: sortedRecipients.map((recipient) => ({
       recipientKakaoId: recipient.recipientKakaoId,
@@ -436,8 +436,8 @@ export async function getAdminSettlementStatusData(meetingId: number): Promise<A
       recipientType: recipient.recipientType,
       totalFee: recipient.totalFee,
       itemCount: recipient.items.length,
-      confirmed: meeting.settlementOpen ? recipient.confirmed : false,
-      confirmedAt: meeting.settlementOpen ? recipient.confirmedAt : null,
+      completed: meeting.settlementOpen ? recipient.completed : false,
+      completedAt: meeting.settlementOpen ? recipient.completedAt : null,
     })),
   };
 }

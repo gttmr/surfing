@@ -11,7 +11,8 @@ export type SettlementMeetingGroup = {
     settlementOpen: boolean;
   };
   group: ReturnType<typeof groupParticipantsForSettlement>[number];
-  isConfirmed: boolean;
+  isCompleted: boolean;
+  completedAt: string | null;
 };
 
 export async function getSettlementGroupsForKakaoId(kakaoId: string) {
@@ -66,7 +67,9 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
       meetingId: { in: Array.from(meetingsMap.keys()) },
     },
   });
-  const confirmedMeetingIds = new Set(confirmations.map((item) => item.meetingId));
+  const completionMap = new Map(
+    confirmations.map((item) => [item.meetingId, item.confirmedAt.toISOString()])
+  );
 
   return Array.from(meetingsMap.values())
     .map((meetingParticipants) => {
@@ -96,9 +99,9 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
           settlementOpen: meeting.settlementOpen,
         },
         group: myGroup,
-        isConfirmed: confirmedMeetingIds.has(meeting.id),
+        isCompleted: completionMap.has(meeting.id),
+        completedAt: completionMap.get(meeting.id) ?? null,
       } satisfies SettlementMeetingGroup;
     })
     .filter(Boolean) as SettlementMeetingGroup[];
 }
-

@@ -193,7 +193,7 @@ export default async function SchedulePageContent({
       accountNumber: settingsMap.get(SETTLEMENT_ACCOUNT_NUMBER_KEY) ?? DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
       accountHolder: settingsMap.get(SETTLEMENT_ACCOUNT_HOLDER_KEY) ?? DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
     };
-    initialPendingSettlements = settlementGroups.filter((item) => !item.isConfirmed);
+    initialPendingSettlements = settlementGroups;
 
     const initialView = findInitialView(meetingsForClient, today, initialSelectedDate);
     const selectedMeetingIds = initialView.selectedDate

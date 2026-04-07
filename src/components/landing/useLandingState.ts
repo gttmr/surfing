@@ -97,8 +97,8 @@ export function useLandingState({
 
   function handleSettlementStatusChange(meetingId: number, status: AdminSettlementStatusSummary) {
     setMeetingSettlementStatusOverrides((prev) => (
-      prev[meetingId]?.summary.unconfirmedCount === status.summary.unconfirmedCount &&
-      prev[meetingId]?.summary.confirmedCount === status.summary.confirmedCount &&
+      prev[meetingId]?.summary.pendingCount === status.summary.pendingCount &&
+      prev[meetingId]?.summary.completedCount === status.summary.completedCount &&
       prev[meetingId]?.meeting.settlementOpen === status.meeting.settlementOpen
         ? prev
         : { ...prev, [meetingId]: status }

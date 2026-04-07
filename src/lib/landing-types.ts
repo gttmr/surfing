@@ -37,6 +37,8 @@ export type SettlementSummary = {
       adjustments: { id: number; label: string; amount: number }[];
     }[];
   };
+  isCompleted: boolean;
+  completedAt: string | null;
 };
 
 export type SettlementAccount = {
@@ -123,8 +125,8 @@ export type AdminSettlementRecipientSummary = {
   recipientType: "self" | "linked_companion" | "owner";
   totalFee: number;
   itemCount: number;
-  confirmed: boolean;
-  confirmedAt: string | null;
+  completed: boolean;
+  completedAt: string | null;
 };
 
 export type AdminSettlementStatusSummary = {
@@ -134,8 +136,8 @@ export type AdminSettlementStatusSummary = {
   };
   summary: {
     totalRecipientCount: number;
-    confirmedCount: number;
-    unconfirmedCount: number;
+    completedCount: number;
+    pendingCount: number;
   };
   recipients: AdminSettlementRecipientSummary[];
 };

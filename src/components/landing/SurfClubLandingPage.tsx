@@ -266,16 +266,26 @@ export default function SurfClubLandingPage({
   const hasPendingSettlement = pendingSettlements.length > 0;
   const hasAlertCenter = hasNotices || hasPendingSettlement;
 
-  async function markSettlementConfirmed(meetingId: number, keepalive = false) {
+  async function markSettlementCompleted(meetingId: number, completed = true, keepalive = false) {
     try {
       const res = await fetch("/api/settlement/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId }),
+        body: JSON.stringify({ meetingId, completed }),
         keepalive,
       });
       if (!res.ok) return false;
-      setPendingSettlements((prev) => prev.filter((item) => item.meeting.id !== meetingId));
+      setPendingSettlements((prev) =>
+        prev.map((item) =>
+          item.meeting.id === meetingId
+            ? {
+                ...item,
+                isCompleted: completed,
+                completedAt: completed ? new Date().toISOString() : null,
+              }
+            : item
+        )
+      );
       return true;
     } catch {
       return false;
@@ -286,7 +296,7 @@ export default function SurfClubLandingPage({
     if (!settlementAccount?.accountNumber) return;
     try {
       await navigator.clipboard.writeText(settlementAccount.accountNumber);
-      await markSettlementConfirmed(meetingId);
+      await markSettlementCompleted(meetingId, true);
     } catch {
       // no-op
     }
@@ -296,7 +306,7 @@ export default function SurfClubLandingPage({
     if (!settlementAccount) return;
     const tossUrl = buildTossTransferUrl(settlementAccount, amount);
     if (!tossUrl) return;
-    void markSettlementConfirmed(meetingId, true);
+    void markSettlementCompleted(meetingId, true, true);
     window.location.href = tossUrl;
   }
 
@@ -316,13 +326,13 @@ export default function SurfClubLandingPage({
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
   const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
-  const selectedSettlementUnconfirmedCount = isAdmin
+  const selectedSettlementPendingCount = isAdmin
     ? selectedMeetings.reduce((sum, meeting) => {
         const status = meetingSettlementStatusOverrides[meeting.id] ?? initialSettlementStatusByMeetingId[meeting.id];
-        return sum + (status?.summary.unconfirmedCount ?? 0);
+        return sum + (status?.summary.pendingCount ?? 0);
       }, 0)
     : 0;
-  const selectedSettlementBadge = String(Math.min(selectedSettlementUnconfirmedCount, 99));
+  const selectedSettlementBadge = String(Math.min(selectedSettlementPendingCount, 99));
   const calendarCells = buildCalendarCells(year, month);
   const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);
   const alertItems = useMemo<AlertItem[]>(() => {
@@ -346,8 +356,10 @@ export default function SurfClubLandingPage({
         key,
         type: "settlement",
         title: `${settlement.meeting.date} 정산 안내`,
-        subtitle: `총 ${formatWon(settlement.group.totalFee)}`,
-        unread: !readAlertKeys.includes(key),
+        subtitle: settlement.isCompleted
+          ? `총 ${formatWon(settlement.group.totalFee)} · 송금완료`
+          : `총 ${formatWon(settlement.group.totalFee)}`,
+        unread: true,
         settlement,
       });
     }
@@ -371,7 +383,7 @@ export default function SurfClubLandingPage({
 
   function handleToggleAlertItem(item: AlertItem) {
     setExpandedAlertKey((prev) => (prev === item.key ? null : item.key));
-    if (item.unread) {
+    if (item.type === "notice" && item.unread) {
       persistReadAlertKeys([...readAlertKeys, item.key]);
     }
   }
@@ -396,6 +408,9 @@ export default function SurfClubLandingPage({
         onOpenTossTransfer={openTossTransfer}
         onCopySettlementAccount={(meetingId) => {
           void copySettlementAccount(meetingId);
+        }}
+        onToggleSettlementCompleted={(meetingId, completed) => {
+          void markSettlementCompleted(meetingId, completed);
         }}
       />
 

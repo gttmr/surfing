@@ -190,8 +190,8 @@ export function AdminMeetingSettlementPageClient({
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
-                          <span className={`${recipient.confirmed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
-                            {recipient.confirmed ? "확인 완료" : "미확인"}
+                          <span className={`${recipient.completed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
+                            {recipient.completed ? "송금완료" : "정산 대기"}
                           </span>
                         </div>
                         <p className="brand-text-subtle mt-1 text-xs">

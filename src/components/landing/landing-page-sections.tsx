@@ -151,6 +151,7 @@ type AlertCenterProps = {
   onToggleItem: (item: AlertItem) => void;
   onOpenTossTransfer: (meetingId: number, amount?: number) => void;
   onCopySettlementAccount: (meetingId: number) => void;
+  onToggleSettlementCompleted: (meetingId: number, completed: boolean) => void;
 };
 
 export function AlertCenterModal({
@@ -162,6 +163,7 @@ export function AlertCenterModal({
   onToggleItem,
   onOpenTossTransfer,
   onCopySettlementAccount,
+  onToggleSettlementCompleted,
 }: AlertCenterProps) {
   if (!open) return null;
 
@@ -253,6 +255,22 @@ export function AlertCenterModal({
                                   type="button"
                                 >
                                   계좌번호 복사
+                                </button>
+                                <button
+                                  className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${
+                                    item.settlement.isCompleted
+                                      ? "brand-panel-white border border-[var(--brand-divider)] text-[var(--brand-text-subtle)]"
+                                      : "brand-button-primary"
+                                  }`}
+                                  onClick={() =>
+                                    onToggleSettlementCompleted(
+                                      item.settlement.meeting.id,
+                                      !item.settlement.isCompleted
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  {item.settlement.isCompleted ? "송금완료됨" : "송금완료"}
                                 </button>
                               </div>
                             </>
