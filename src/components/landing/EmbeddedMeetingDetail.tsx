@@ -80,7 +80,7 @@ export default function EmbeddedMeetingDetail({
   initialMeeting?: DetailedMeeting;
   initialSettlementStatus?: AdminSettlementStatusSummary;
   initialSignupData?: SignupInitialData;
-  onMeetingSummaryChange?: (meetingId: number, approvedCount: number) => void;
+  onMeetingSummaryChange?: (meetingId: number, approvedCount: number, participantCount: number) => void;
   onSettlementStatusChange?: (meetingId: number, status: AdminSettlementStatusSummary) => void;
 }) {
   const [meeting, setMeeting] = useState<DetailedMeeting | null>(initialMeeting ?? null);
@@ -106,7 +106,7 @@ export default function EmbeddedMeetingDetail({
       const data = await res.json();
       const nextMeeting = normalizeMeetingDetail(data);
       setMeeting(nextMeeting);
-      onMeetingSummaryChange?.(meetingId, nextMeeting.approvedCount);
+      onMeetingSummaryChange?.(meetingId, nextMeeting.approvedCount, nextMeeting.participantsList.length);
       setError(false);
       return nextMeeting;
     } catch {
@@ -165,7 +165,7 @@ export default function EmbeddedMeetingDetail({
     if (!initialMeeting) {
       void fetchMeeting();
     } else {
-      onMeetingSummaryChange?.(meetingId, initialMeeting.approvedCount);
+      onMeetingSummaryChange?.(meetingId, initialMeeting.approvedCount, initialMeeting.participantsList.length);
     }
   }, [fetchMeeting, initialMeeting, meetingId, onMeetingSummaryChange]);
 

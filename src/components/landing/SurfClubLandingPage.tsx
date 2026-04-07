@@ -242,6 +242,7 @@ export default function SurfClubLandingPage({
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
+    meetingParticipantCountOverrides,
     meetingSettlementStatusOverrides,
     sortedMeetings,
     setYear,
@@ -254,6 +255,7 @@ export default function SurfClubLandingPage({
     persistReadAlertKeys,
     handleMeetingSummaryChange,
     handleSettlementStatusChange,
+    handleSettlementCompletionChange,
   } = useLandingState({
     meetings,
     user,
@@ -275,17 +277,21 @@ export default function SurfClubLandingPage({
         keepalive,
       });
       if (!res.ok) return false;
+      const completedAt = completed ? new Date().toISOString() : null;
       setPendingSettlements((prev) =>
         prev.map((item) =>
           item.meeting.id === meetingId
             ? {
                 ...item,
                 isCompleted: completed,
-                completedAt: completed ? new Date().toISOString() : null,
+                completedAt,
               }
             : item
         )
       );
+      if (user?.kakaoId) {
+        handleSettlementCompletionChange(meetingId, user.kakaoId, completed, completedAt);
+      }
       return true;
     } catch {
       return false;
@@ -324,7 +330,10 @@ export default function SurfClubLandingPage({
   const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
   const hasSelectedMeetings = selectedMeetings.length > 0;
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
-  const selectedParticipantCount = selectedMeetings.reduce((sum, meeting) => sum + meeting.approvedCount, 0);
+  const selectedParticipantCount = selectedMeetings.reduce(
+    (sum, meeting) => sum + (meetingParticipantCountOverrides[meeting.id] ?? meeting.approvedCount),
+    0
+  );
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
   const selectedSettlementPendingCount = isAdmin
     ? selectedMeetings.reduce((sum, meeting) => {

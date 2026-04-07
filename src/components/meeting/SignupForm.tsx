@@ -90,8 +90,10 @@ export function SignupForm({
       setNewCompanions,
       setShowCancelConfirm,
       setCancelResult,
-      toggleMainOption,
-      toggleMySignupOption,
+      setMainBusChoice,
+      setMainShopOption,
+      setMySignupBusChoice,
+      setMySignupShopOption,
       setCompanionOpt,
       handleAddNewCompanion,
       updateNewCompanion,
@@ -155,7 +157,8 @@ export function SignupForm({
         hasBus={hasBus}
         hasLesson={hasLesson}
         hasRental={hasRental}
-        onToggleMainOption={toggleMainOption}
+        onSetMainBusChoice={setMainBusChoice}
+        onSetMainShopOption={setMainShopOption}
         onUpdateLinkedOption={(field, value) => {
           void handleUpdateLinkedOption(field, value);
         }}
@@ -216,7 +219,8 @@ export function SignupForm({
         }}
         onCloseDetails={closeMySignupDetails}
         onMySignupNoteChange={setMySignupNote}
-        onToggleMySignupOption={toggleMySignupOption}
+        onSetMySignupBusChoice={setMySignupBusChoice}
+        onSetMySignupShopOption={setMySignupShopOption}
         onToggleExpandedCompanion={(id) => {
           setExpandedManagedCompanions((prev) => {
             const next = new Set(prev);
@@ -273,7 +277,8 @@ export function SignupForm({
         setNameError("");
       }}
       onNoteChange={setNote}
-      onToggleMainOption={toggleMainOption}
+      onSetMainBusChoice={setMainBusChoice}
+      onSetMainShopOption={setMainShopOption}
       onSelectCompanion={(id) => {
         setSelectedCompanions((prev) => {
           const next = new Set(prev);

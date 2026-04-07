@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export function KakaoIcon() {
   return (
@@ -12,9 +12,28 @@ export function KakaoIcon() {
 
 export function OptionPricingHelp({ guide }: { guide: string }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         type="button"
         aria-label="참가 옵션 가격 안내"
@@ -44,6 +63,98 @@ type ChoiceItemProps = {
   onChange: () => void;
   disabled?: boolean;
 };
+
+function segmentedButtonClass(active: boolean, disabled?: boolean) {
+  return [
+    "flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
+    active
+      ? "bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)]"
+      : "bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] border border-[var(--brand-divider-strong)]",
+    disabled ? "cursor-not-allowed opacity-50" : active ? "" : "hover:border-[var(--brand-primary-border-strong)]",
+  ].join(" ");
+}
+
+export function ShuttleBusChoice({
+  boarded,
+  onChange,
+  disabled,
+  trailing,
+}: {
+  boarded: boolean;
+  onChange: (next: boolean) => void;
+  disabled?: boolean;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--brand-text)]">셔틀버스</p>
+        {trailing}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (!boarded) onChange(true);
+          }}
+          disabled={disabled}
+          className={segmentedButtonClass(boarded, disabled)}
+        >
+          탑승
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (boarded) onChange(false);
+          }}
+          disabled={disabled}
+          className={segmentedButtonClass(!boarded, disabled)}
+        >
+          미탑승
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function ShopOptionChoice({
+  value,
+  onChange,
+  disabled,
+  trailing,
+}: {
+  value: "lesson" | "rental" | null;
+  onChange: (next: "lesson" | "rental" | null) => void;
+  disabled?: boolean;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--brand-text)]">샵 이용</p>
+        {trailing}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(value === "lesson" ? null : "lesson")}
+          disabled={disabled}
+          className={segmentedButtonClass(value === "lesson", disabled)}
+        >
+          강습+장비대여
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(value === "rental" ? null : "rental")}
+          disabled={disabled}
+          className={segmentedButtonClass(value === "rental", disabled)}
+        >
+          장비 대여만
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function RadioOptionItem({
   label,

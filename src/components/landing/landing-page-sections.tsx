@@ -448,7 +448,7 @@ export function MeetingTabs({
             type="button"
           >
             정산 현황
-            <span className={`${activeTab === "settlement" ? "brand-chip-dark" : "brand-chip-soft"} flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold`}>
+            <span className="brand-chip-soft flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
               {settlementBadge ?? "0"}
             </span>
           </button>

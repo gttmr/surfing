@@ -132,7 +132,7 @@ export function useSignupFormState({
   const [profileName, setProfileName] = useState<string | null>(initialData?.userProfile?.name ?? null);
   const [note, setNote] = useState("");
   const [hasLesson, setHasLesson] = useState(false);
-  const [hasBus, setHasBus] = useState(false);
+  const [hasBus, setHasBus] = useState(true);
   const [hasRental, setHasRental] = useState(false);
   const [participantOptionPricingGuide, setParticipantOptionPricingGuide] = useState(
     initialData?.participantOptionPricingGuide ?? initialGuide ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE
@@ -349,44 +349,22 @@ export function useSignupFormState({
     }));
   }
 
-  function toggleMainOption(field: "hasLesson" | "hasBus" | "hasRental") {
-    if (field === "hasLesson") {
-      setHasLesson((current) => {
-        const next = !current;
-        if (next) setHasRental(false);
-        return next;
-      });
-      return;
-    }
-    if (field === "hasRental") {
-      setHasRental((current) => {
-        const next = !current;
-        if (next) setHasLesson(false);
-        return next;
-      });
-      return;
-    }
-    setHasBus((current) => !current);
+  function setMainBusChoice(boarded: boolean) {
+    setHasBus(boarded);
   }
 
-  function toggleMySignupOption(field: "hasLesson" | "hasBus" | "hasRental") {
-    if (field === "hasLesson") {
-      setMySignupHasLesson((current) => {
-        const next = !current;
-        if (next) setMySignupHasRental(false);
-        return next;
-      });
-      return;
-    }
-    if (field === "hasRental") {
-      setMySignupHasRental((current) => {
-        const next = !current;
-        if (next) setMySignupHasLesson(false);
-        return next;
-      });
-      return;
-    }
-    setMySignupHasBus((current) => !current);
+  function setMainShopOption(option: "lesson" | "rental" | null) {
+    setHasLesson(option === "lesson");
+    setHasRental(option === "rental");
+  }
+
+  function setMySignupBusChoice(boarded: boolean) {
+    setMySignupHasBus(boarded);
+  }
+
+  function setMySignupShopOption(option: "lesson" | "rental" | null) {
+    setMySignupHasLesson(option === "lesson");
+    setMySignupHasRental(option === "rental");
   }
 
   function closeMySignupDetails() {
@@ -471,7 +449,7 @@ export function useSignupFormState({
       setNewCompanionInput("");
       setNote("");
       setHasLesson(false);
-      setHasBus(false);
+      setHasBus(true);
       setHasRental(false);
       await syncFromUpdatedMeeting();
       setSubmitting(false);
@@ -607,7 +585,7 @@ export function useSignupFormState({
       }
 
       setHasLesson(false);
-      setHasBus(false);
+      setHasBus(true);
       setHasRental(false);
       await syncFromUpdatedMeeting();
     } catch {
@@ -738,8 +716,10 @@ export function useSignupFormState({
       setNewCompanions,
       setShowCancelConfirm,
       setCancelResult,
-      toggleMainOption,
-      toggleMySignupOption,
+      setMainBusChoice,
+      setMainShopOption,
+      setMySignupBusChoice,
+      setMySignupShopOption,
       setCompanionOpt,
       handleAddNewCompanion,
       updateNewCompanion,

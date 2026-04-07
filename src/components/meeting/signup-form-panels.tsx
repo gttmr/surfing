@@ -13,10 +13,10 @@ import type {
   SubmissionResult,
 } from "@/components/meeting/useSignupFormState";
 import {
-  CheckboxOptionItem,
   KakaoIcon,
   OptionPricingHelp,
-  RadioOptionItem,
+  ShopOptionChoice,
+  ShuttleBusChoice,
 } from "@/components/meeting/signup-form-controls";
 
 type OptionField = "hasLesson" | "hasBus" | "hasRental";
@@ -52,7 +52,8 @@ type CompanionPanelProps = {
   hasBus: boolean;
   hasLesson: boolean;
   hasRental: boolean;
-  onToggleMainOption: (field: OptionField) => void;
+  onSetMainBusChoice: (boarded: boolean) => void;
+  onSetMainShopOption: (option: "lesson" | "rental" | null) => void;
   onUpdateLinkedOption: (field: OptionField, value: boolean) => void;
   onApplyLinkedCompanion: () => void;
 };
@@ -66,7 +67,8 @@ export function CompanionSignupPanel({
   hasBus,
   hasLesson,
   hasRental,
-  onToggleMainOption,
+  onSetMainBusChoice,
+  onSetMainShopOption,
   onUpdateLinkedOption,
   onApplyLinkedCompanion,
 }: CompanionPanelProps) {
@@ -101,33 +103,26 @@ export function CompanionSignupPanel({
           </div>
 
           <div className="brand-panel-white rounded-xl p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-[var(--brand-text)]">
-                내 참가 옵션 변경 <span className="brand-text-subtle text-xs font-normal">(선택)</span>
-              </p>
-              <OptionPricingHelp guide={participantOptionPricingGuide} />
-            </div>
-            <div className="space-y-2">
-              <CheckboxOptionItem
-                label="셔틀 버스"
-                icon="🚌"
-                checked={linkedStatus.participant.hasBus}
-                onChange={() => onUpdateLinkedOption("hasBus", !linkedStatus.participant!.hasBus)}
+            <div className="space-y-4 pl-0">
+              <ShuttleBusChoice
+                boarded={linkedStatus.participant.hasBus}
+                onChange={(next) => onUpdateLinkedOption("hasBus", next)}
                 disabled={updatingLinked}
               />
-              <RadioOptionItem
-                label="강습+장비대여"
-                icon="🏄‍♂️"
-                checked={linkedStatus.participant.hasLesson}
-                onChange={() => onUpdateLinkedOption("hasLesson", !linkedStatus.participant!.hasLesson)}
+              <ShopOptionChoice
+                value={
+                  linkedStatus.participant.hasLesson
+                    ? "lesson"
+                    : linkedStatus.participant.hasRental
+                      ? "rental"
+                      : null
+                }
+                onChange={(next) => {
+                  onUpdateLinkedOption("hasLesson", next === "lesson");
+                  onUpdateLinkedOption("hasRental", next === "rental");
+                }}
                 disabled={updatingLinked}
-              />
-              <RadioOptionItem
-                label="장비 대여만"
-                icon="🩳"
-                checked={linkedStatus.participant.hasRental}
-                onChange={() => onUpdateLinkedOption("hasRental", !linkedStatus.participant!.hasRental)}
-                disabled={updatingLinked}
+                trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
               />
             </div>
           </div>
@@ -135,16 +130,18 @@ export function CompanionSignupPanel({
       ) : linkedStatus.ownerApplied ? (
         <div className="space-y-3">
           <div className="brand-panel-white rounded-xl p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-[var(--brand-text)]">
-                내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span>
-              </p>
-              <OptionPricingHelp guide={participantOptionPricingGuide} />
-            </div>
-            <div className="space-y-2">
-              <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => onToggleMainOption("hasBus")} disabled={submittingLinked} />
-              <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => onToggleMainOption("hasLesson")} disabled={submittingLinked} />
-              <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => onToggleMainOption("hasRental")} disabled={submittingLinked} />
+            <div className="space-y-4 pl-0">
+              <ShuttleBusChoice
+                boarded={hasBus}
+                onChange={onSetMainBusChoice}
+                disabled={submittingLinked}
+              />
+              <ShopOptionChoice
+                value={hasLesson ? "lesson" : hasRental ? "rental" : null}
+                onChange={onSetMainShopOption}
+                disabled={submittingLinked}
+                trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+              />
             </div>
           </div>
 
@@ -216,7 +213,8 @@ type ExistingSignupPanelProps = {
   onOpenDetails: () => void;
   onCloseDetails: () => void;
   onMySignupNoteChange: (value: string) => void;
-  onToggleMySignupOption: (field: OptionField) => void;
+  onSetMySignupBusChoice: (boarded: boolean) => void;
+  onSetMySignupShopOption: (option: "lesson" | "rental" | null) => void;
   onToggleExpandedCompanion: (id: number) => void;
   onAddCompanionToMeeting: (id: number) => void;
   onCancelCompanion: (id: number) => void;
@@ -251,7 +249,8 @@ export function ExistingSignupPanel({
   onOpenDetails,
   onCloseDetails,
   onMySignupNoteChange,
-  onToggleMySignupOption,
+  onSetMySignupBusChoice,
+  onSetMySignupShopOption,
   onToggleExpandedCompanion,
   onAddCompanionToMeeting,
   onCancelCompanion,
@@ -333,16 +332,18 @@ export function ExistingSignupPanel({
               </div>
 
               <div>
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[var(--brand-text)]">
-                    내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span>
-                  </p>
-                  <OptionPricingHelp guide={participantOptionPricingGuide} />
-                </div>
-                <div className="space-y-2">
-                  <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={mySignupHasBus} onChange={() => onToggleMySignupOption("hasBus")} disabled={savingMySignup} />
-                  <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={mySignupHasLesson} onChange={() => onToggleMySignupOption("hasLesson")} disabled={savingMySignup} />
-                  <RadioOptionItem label="장비 대여만" icon="🩳" checked={mySignupHasRental} onChange={() => onToggleMySignupOption("hasRental")} disabled={savingMySignup} />
+                <div className="space-y-4 pl-0">
+                  <ShuttleBusChoice
+                    boarded={mySignupHasBus}
+                    onChange={onSetMySignupBusChoice}
+                    disabled={savingMySignup}
+                  />
+                  <ShopOptionChoice
+                    value={mySignupHasLesson ? "lesson" : mySignupHasRental ? "rental" : null}
+                    onChange={onSetMySignupShopOption}
+                    disabled={savingMySignup}
+                    trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                  />
                 </div>
               </div>
 
@@ -415,35 +416,41 @@ export function ExistingSignupPanel({
                         )}
                       </div>
                       {isExpanded ? (
-                        <div className="space-y-2">
-                          <CheckboxOptionItem
-                            label="셔틀 버스"
-                            icon="🚌"
-                            checked={isSignedUp ? (companionData?.hasBus ?? false) : options.hasBus}
-                            onChange={() => isSignedUp
-                              ? onUpdateCompanionOption(companion.id, "hasBus", !(companionData?.hasBus ?? false))
-                              : onSetCompanionOption(companion.id, "hasBus", !options.hasBus)
+                        <div className="space-y-4 pl-0">
+                          <ShuttleBusChoice
+                            boarded={isSignedUp ? (companionData?.hasBus ?? false) : options.hasBus}
+                            onChange={(next) =>
+                              isSignedUp
+                                ? onUpdateCompanionOption(companion.id, "hasBus", next)
+                                : onSetCompanionOption(companion.id, "hasBus", next)
                             }
                             disabled={isLoading}
                           />
-                          <RadioOptionItem
-                            label="강습+장비대여"
-                            icon="🏄‍♂️"
-                            checked={isSignedUp ? (companionData?.hasLesson ?? false) : options.hasLesson}
-                            onChange={() => isSignedUp
-                              ? onUpdateCompanionOption(companion.id, "hasLesson", !(companionData?.hasLesson ?? false))
-                              : onSetCompanionOption(companion.id, "hasLesson", !options.hasLesson)
+                          <ShopOptionChoice
+                            value={
+                              isSignedUp
+                                ? companionData?.hasLesson
+                                  ? "lesson"
+                                  : companionData?.hasRental
+                                    ? "rental"
+                                    : null
+                                : options.hasLesson
+                                  ? "lesson"
+                                  : options.hasRental
+                                    ? "rental"
+                                    : null
                             }
-                            disabled={isLoading}
-                          />
-                          <RadioOptionItem
-                            label="장비 대여만"
-                            icon="🩳"
-                            checked={isSignedUp ? (companionData?.hasRental ?? false) : options.hasRental}
-                            onChange={() => isSignedUp
-                              ? onUpdateCompanionOption(companion.id, "hasRental", !(companionData?.hasRental ?? false))
-                              : onSetCompanionOption(companion.id, "hasRental", !options.hasRental)
-                            }
+                            onChange={(next) => {
+                              const hasLessonNext = next === "lesson";
+                              const hasRentalNext = next === "rental";
+                              if (isSignedUp) {
+                                onUpdateCompanionOption(companion.id, "hasLesson", hasLessonNext);
+                                onUpdateCompanionOption(companion.id, "hasRental", hasRentalNext);
+                              } else {
+                                onSetCompanionOption(companion.id, "hasLesson", hasLessonNext);
+                                onSetCompanionOption(companion.id, "hasRental", hasRentalNext);
+                              }
+                            }}
                             disabled={isLoading}
                           />
                         </div>
@@ -536,7 +543,8 @@ type RegularPanelProps = {
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onNameChange: (value: string) => void;
   onNoteChange: (value: string) => void;
-  onToggleMainOption: (field: OptionField) => void;
+  onSetMainBusChoice: (boarded: boolean) => void;
+  onSetMainShopOption: (option: "lesson" | "rental" | null) => void;
   onSelectCompanion: (id: number) => void;
   onSetCompanionOption: (id: number, field: OptionField, value: boolean) => void;
   onNewCompanionInputChange: (value: string) => void;
@@ -565,7 +573,8 @@ export function RegularSignupPanel({
   onSubmit,
   onNameChange,
   onNoteChange,
-  onToggleMainOption,
+  onSetMainBusChoice,
+  onSetMainShopOption,
   onSelectCompanion,
   onSetCompanionOption,
   onNewCompanionInputChange,
@@ -608,16 +617,18 @@ export function RegularSignupPanel({
       </div>
 
       <div className="brand-panel-white rounded-xl p-3">
-        <div className="mb-2.5 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-[var(--brand-text)]">
-            내 참가 옵션 <span className="brand-text-subtle text-xs font-normal">(선택)</span>
-          </p>
-          <OptionPricingHelp guide={participantOptionPricingGuide} />
-        </div>
-        <div className="space-y-2">
-          <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={hasBus} onChange={() => onToggleMainOption("hasBus")} disabled={submitting} />
-          <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={hasLesson} onChange={() => onToggleMainOption("hasLesson")} disabled={submitting} />
-          <RadioOptionItem label="장비 대여만" icon="🩳" checked={hasRental} onChange={() => onToggleMainOption("hasRental")} disabled={submitting} />
+        <div className="space-y-4 pl-0">
+          <ShuttleBusChoice
+            boarded={hasBus}
+            onChange={onSetMainBusChoice}
+            disabled={submitting}
+          />
+          <ShopOptionChoice
+            value={hasLesson ? "lesson" : hasRental ? "rental" : null}
+            onChange={onSetMainShopOption}
+            disabled={submitting}
+            trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+          />
         </div>
       </div>
 
@@ -665,10 +676,20 @@ export function RegularSignupPanel({
                     <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{companion.name}</span>
                   </button>
                   {isSelected ? (
-                    <div className="mt-2 space-y-2 pl-8">
-                      <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={options.hasBus} onChange={() => onSetCompanionOption(companion.id, "hasBus", !options.hasBus)} disabled={submitting} />
-                      <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={options.hasLesson} onChange={() => onSetCompanionOption(companion.id, "hasLesson", !options.hasLesson)} disabled={submitting} />
-                      <RadioOptionItem label="장비 대여만" icon="🩳" checked={options.hasRental} onChange={() => onSetCompanionOption(companion.id, "hasRental", !options.hasRental)} disabled={submitting} />
+                    <div className="mt-2 space-y-4 pl-8">
+                      <ShuttleBusChoice
+                        boarded={options.hasBus}
+                        onChange={(next) => onSetCompanionOption(companion.id, "hasBus", next)}
+                        disabled={submitting}
+                      />
+                      <ShopOptionChoice
+                        value={options.hasLesson ? "lesson" : options.hasRental ? "rental" : null}
+                        onChange={(next) => {
+                          onSetCompanionOption(companion.id, "hasLesson", next === "lesson");
+                          onSetCompanionOption(companion.id, "hasRental", next === "rental");
+                        }}
+                        disabled={submitting}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -718,10 +739,20 @@ export function RegularSignupPanel({
                       ✕
                     </button>
                   </div>
-                  <div className="space-y-2 pl-0">
-                    <CheckboxOptionItem label="셔틀 버스" icon="🚌" checked={newCompanion.hasBus} onChange={() => onUpdateNewCompanion(index, "hasBus", !newCompanion.hasBus)} disabled={submitting} />
-                    <RadioOptionItem label="강습+장비대여" icon="🏄‍♂️" checked={newCompanion.hasLesson} onChange={() => onUpdateNewCompanion(index, "hasLesson", !newCompanion.hasLesson)} disabled={submitting} />
-                    <RadioOptionItem label="장비 대여만" icon="🩳" checked={newCompanion.hasRental} onChange={() => onUpdateNewCompanion(index, "hasRental", !newCompanion.hasRental)} disabled={submitting} />
+                  <div className="space-y-4 pl-0">
+                    <ShuttleBusChoice
+                      boarded={newCompanion.hasBus}
+                      onChange={(next) => onUpdateNewCompanion(index, "hasBus", next)}
+                      disabled={submitting}
+                    />
+                    <ShopOptionChoice
+                      value={newCompanion.hasLesson ? "lesson" : newCompanion.hasRental ? "rental" : null}
+                      onChange={(next) => {
+                        onUpdateNewCompanion(index, "hasLesson", next === "lesson");
+                        onUpdateNewCompanion(index, "hasRental", next === "rental");
+                      }}
+                      disabled={submitting}
+                    />
                   </div>
                 </div>
               ))}

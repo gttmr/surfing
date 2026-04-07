@@ -48,6 +48,7 @@ export function useLandingState({
   const [pendingSettlements, setPendingSettlements] = useState<SettlementSummary[]>(initialPendingSettlements);
   const [settlementAccount, setSettlementAccount] = useState<SettlementAccount | null>(initialSettlementAccount);
   const [meetingApprovedCountOverrides, setMeetingApprovedCountOverrides] = useState<Record<number, number>>({});
+  const [meetingParticipantCountOverrides, setMeetingParticipantCountOverrides] = useState<Record<number, number>>({});
   const [meetingSettlementStatusOverrides, setMeetingSettlementStatusOverrides] = useState<Record<number, AdminSettlementStatusSummary>>({});
 
   const sortedMeetings = useMemo(() => sortMeetings(meetings), [meetings]);
@@ -89,9 +90,12 @@ export function useLandingState({
     }
   }
 
-  function handleMeetingSummaryChange(meetingId: number, approvedCount: number) {
+  function handleMeetingSummaryChange(meetingId: number, approvedCount: number, participantCount: number) {
     setMeetingApprovedCountOverrides((prev) => (
       prev[meetingId] === approvedCount ? prev : { ...prev, [meetingId]: approvedCount }
+    ));
+    setMeetingParticipantCountOverrides((prev) => (
+      prev[meetingId] === participantCount ? prev : { ...prev, [meetingId]: participantCount }
     ));
   }
 
@@ -103,6 +107,43 @@ export function useLandingState({
         ? prev
         : { ...prev, [meetingId]: status }
     ));
+  }
+
+  function handleSettlementCompletionChange(
+    meetingId: number,
+    recipientKakaoId: string,
+    completed: boolean,
+    completedAt: string | null
+  ) {
+    setMeetingSettlementStatusOverrides((prev) => {
+      const current = prev[meetingId];
+      if (!current) return prev;
+
+      const recipient = current.recipients.find((item) => item.recipientKakaoId === recipientKakaoId);
+      if (!recipient || recipient.completed === completed) return prev;
+
+      const nextRecipients = current.recipients.map((item) =>
+        item.recipientKakaoId === recipientKakaoId
+          ? { ...item, completed, completedAt }
+          : item
+      );
+
+      const nextCompletedCount = nextRecipients.filter((item) => item.completed).length;
+      const nextPendingCount = nextRecipients.length - nextCompletedCount;
+
+      return {
+        ...prev,
+        [meetingId]: {
+          ...current,
+          recipients: nextRecipients,
+          summary: {
+            ...current.summary,
+            completedCount: nextCompletedCount,
+            pendingCount: nextPendingCount,
+          },
+        },
+      };
+    });
   }
 
   return {
@@ -117,6 +158,7 @@ export function useLandingState({
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
+    meetingParticipantCountOverrides,
     meetingSettlementStatusOverrides,
     sortedMeetings,
     setYear,
@@ -129,5 +171,6 @@ export function useLandingState({
     persistReadAlertKeys,
     handleMeetingSummaryChange,
     handleSettlementStatusChange,
+    handleSettlementCompletionChange,
   };
 }
