@@ -5,6 +5,7 @@ import {
   InvalidParticipantOptionsError,
   normalizeParticipantOptions,
 } from "@/lib/participant-options";
+import { createParticipantWithRecoveredSequence } from "@/lib/participant-sequence";
 import { runSerializableTransaction } from "@/lib/transaction";
 
 // 참가 완료 후 동반인 추가 신청
@@ -80,17 +81,15 @@ export async function POST(req: NextRequest) {
             submittedAt: new Date(),
           },
         })
-      : await tx.participant.create({
-          data: {
-            meetingId: mid,
-            name: companion.name,
-            kakaoId: user.kakaoId,
-            kakaoNickname: companion.name,
-            companionId: cid,
-            note: `${myParticipant.name}의 동반`,
-            ...options,
-            status: "APPROVED",
-          },
+      : await createParticipantWithRecoveredSequence(tx, {
+          meetingId: mid,
+          name: companion.name,
+          kakaoId: user.kakaoId,
+          kakaoNickname: companion.name,
+          companionId: cid,
+          note: `${myParticipant.name}의 동반`,
+          ...options,
+          status: "APPROVED",
         });
 
     return { status: 201, body: participant };

@@ -5,6 +5,7 @@ import {
   InvalidParticipantOptionsError,
   normalizeParticipantOptions,
 } from "@/lib/participant-options";
+import { createParticipantWithRecoveredSequence } from "@/lib/participant-sequence";
 import { runSerializableTransaction } from "@/lib/transaction";
 
 type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
@@ -129,16 +130,14 @@ export async function POST(req: NextRequest) {
             submittedAt: new Date(),
           },
         })
-      : await tx.participant.create({
-          data: {
-            meetingId: meetingIdNumber,
-            name: name.trim(),
-            kakaoId: user.kakaoId,
-            kakaoNickname: user.nickname,
-            note: note?.trim() || null,
-            ...mainOptions,
-            status: "APPROVED",
-          },
+      : await createParticipantWithRecoveredSequence(tx, {
+          meetingId: meetingIdNumber,
+          name: name.trim(),
+          kakaoId: user.kakaoId,
+          kakaoNickname: user.nickname,
+          note: note?.trim() || null,
+          ...mainOptions,
+          status: "APPROVED",
         });
 
     const allCompanionEntries: Array<{
@@ -207,17 +206,15 @@ export async function POST(req: NextRequest) {
             },
           });
         } else {
-          await tx.participant.create({
-            data: {
-              meetingId: meetingIdNumber,
-              name: companion.name,
-              kakaoId: user.kakaoId,
-              kakaoNickname: companion.name,
-              companionId: companion.id,
-              note: `${name.trim()}의 동반`,
-              ...options,
-              status: "APPROVED",
-            },
+          await createParticipantWithRecoveredSequence(tx, {
+            meetingId: meetingIdNumber,
+            name: companion.name,
+            kakaoId: user.kakaoId,
+            kakaoNickname: companion.name,
+            companionId: companion.id,
+            note: `${name.trim()}의 동반`,
+            ...options,
+            status: "APPROVED",
           });
         }
 
