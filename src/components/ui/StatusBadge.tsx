@@ -12,18 +12,18 @@ const STATUS_CONFIG: Record<
 > = {
   APPROVED: {
     label: "참가 확정",
-    className: "bg-green-50 text-green-700 border border-green-200",
-    dot: "bg-green-500",
+    className: "brand-alert-success",
+    dot: "brand-status-dot-success",
   },
   WAITLISTED: {
     label: "대기자",
-    className: "bg-blue-50 text-blue-700 border border-blue-200",
-    dot: "bg-blue-500",
+    className: "brand-alert-info",
+    dot: "brand-status-dot-info",
   },
   CANCELLED: {
     label: "취소됨",
-    className: "bg-slate-100 text-slate-500 border border-slate-200",
-    dot: "bg-slate-400",
+    className: "bg-[var(--brand-dimmed-surface)] text-[var(--brand-dimmed-text)] border border-[var(--brand-dimmed-border)]",
+    dot: "brand-status-dot-dimmed",
   },
 };
 
