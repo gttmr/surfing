@@ -35,6 +35,8 @@
   --brand-dimmed-text: #4b5563;
   --brand-shadow: rgba(0, 29, 110, 0.1);
   --brand-ring: rgba(127, 181, 255, 0.35);
+  --brand-overlay: rgba(0, 29, 110, 0.24);
+  --brand-overlay-strong: rgba(0, 29, 110, 0.34);
   --brand-frame-shadow: 0 10px 30px var(--brand-shadow);
   --brand-header-shadow: 0 8px 24px var(--brand-shadow);
   --brand-avatar-shadow: 0 18px 40px var(--brand-shadow);

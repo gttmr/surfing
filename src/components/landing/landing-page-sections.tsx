@@ -154,7 +154,7 @@ export function AlertCenterModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-[rgba(0,29,110,0.24)] px-4 py-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] bg-[var(--brand-overlay)] px-4 py-6" onClick={onClose}>
       <div
         className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]"
         onClick={(event) => event.stopPropagation()}

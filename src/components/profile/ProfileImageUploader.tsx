@@ -382,8 +382,8 @@ export function ProfileImageUploader({
       </div>
 
       {cropImage && cropSourceUrl ? (
-        <div className="fixed inset-0 z-[70] bg-[rgba(0,29,110,0.34)] px-4 py-6">
-          <div className="brand-card-soft mx-auto mt-12 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]">
+        <div className="fixed inset-0 z-[70] bg-[var(--brand-overlay-strong)] px-4 py-6">
+          <div className="brand-card-soft mx-auto mt-12 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_var(--brand-shadow)]">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <p className="text-base font-extrabold text-[var(--brand-text)]">프로필 사진 다듬기</p>
