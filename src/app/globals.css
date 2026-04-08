@@ -34,6 +34,8 @@
   --brand-dimmed-border: #9ca3af;
   --brand-dimmed-text: #4b5563;
   --brand-companion: #c2580a;
+  --brand-calendar-sun: #ef4444;
+  --brand-calendar-sat: #3b82f6;
   --brand-shadow: rgba(0, 29, 110, 0.1);
   --brand-ring: rgba(127, 181, 255, 0.35);
   --brand-overlay: rgba(0, 29, 110, 0.24);
@@ -280,6 +282,23 @@ body {
   background-color: var(--brand-dimmed-surface);
   border: 1px solid var(--brand-dimmed-border);
   color: var(--brand-dimmed-text);
+}
+
+.brand-input-error {
+  background-color: #fef2f2;
+  border: 1px solid #f87171;
+  color: var(--brand-text);
+}
+
+.brand-input-error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.brand-form-error {
+  color: #dc2626;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .brand-toggle-active {

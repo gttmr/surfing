@@ -153,7 +153,7 @@ export function AlertCenterModal({
   return (
     <div className="fixed inset-0 z-[60] bg-[var(--brand-overlay)] px-4 py-6" onClick={onClose}>
       <div
-        className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_rgba(0,29,110,0.22)]"
+        className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[var(--brand-avatar-shadow)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -364,9 +364,9 @@ export function CalendarSection({
                         ? "bg-[var(--brand-primary-soft-strong)] font-bold text-[var(--brand-primary-text)]"
                         : cell.inCurrentMonth
                           ? dow === 0
-                            ? "text-red-500"
+                            ? "text-[var(--brand-calendar-sun)]"
                             : dow === 6
-                              ? "text-blue-500"
+                              ? "text-[var(--brand-calendar-sat)]"
                               : "text-[var(--brand-text)]"
                           : "text-[var(--brand-text-subtle)]"
                   }`}

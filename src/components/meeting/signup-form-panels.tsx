@@ -595,7 +595,7 @@ export function RegularSignupPanel({
 
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-          이름 <span className="text-red-500">*</span>
+          이름 <span className="brand-form-error">*</span>
           {profileName ? (
             <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 변경 가능)</span>
           ) : (
@@ -610,10 +610,10 @@ export function RegularSignupPanel({
           placeholder="홍길동"
           disabled={submitting}
           className={`w-full rounded-lg px-4 py-2.5 text-sm outline-none ${
-            nameError ? "border border-red-400 bg-red-50" : profileName ? "brand-input-dimmed" : "brand-input"
+            nameError ? "brand-input-error" : profileName ? "brand-input-dimmed" : "brand-input"
           } disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]`}
         />
-        {nameError ? <p className="mt-1 text-xs text-red-500">{nameError}</p> : null}
+        {nameError ? <p className="brand-form-error">{nameError}</p> : null}
       </div>
 
       <div className="brand-panel-white rounded-xl p-3">
@@ -734,7 +734,7 @@ export function RegularSignupPanel({
                     <button
                       type="button"
                       onClick={() => onRemoveNewCompanion(index)}
-                      className="brand-text-subtle ml-1 text-xs transition-colors hover:text-red-500"
+                      className="brand-text-subtle ml-1 text-xs transition-colors hover:text-[var(--brand-calendar-sun)]"
                     >
                       ✕
                     </button>

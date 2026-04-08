@@ -73,7 +73,7 @@ export function AdminLoginPageClient({ shouldAutoLogin }: { shouldAutoLogin: boo
                 className="brand-input w-full rounded-xl px-4 py-2.5 text-sm outline-none"
                 autoFocus
               />
-              {error ? <p className="mt-1.5 text-xs text-red-500">{error}</p> : null}
+              {error ? <p className="brand-form-error mt-1.5">{error}</p> : null}
             </div>
 
             <button
