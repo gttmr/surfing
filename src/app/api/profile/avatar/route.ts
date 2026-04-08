@@ -1,6 +1,7 @@
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
+import { del, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
@@ -16,23 +17,12 @@ export const runtime = "nodejs";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_UPLOAD_BYTES = 1024 * 1024;
+const STORAGE_CONFIG_ERROR =
+  "프로필 이미지 저장소가 설정되지 않았습니다. 관리자에게 문의해주세요.";
 
 type BlobUploadResult = {
   pathname: string;
   url: string;
-};
-
-type BlobApi = {
-  put: (
-    pathname: string,
-    body: File,
-    options: {
-      access: "public";
-      addRandomSuffix: boolean;
-      contentType: string;
-    },
-  ) => Promise<BlobUploadResult>;
-  del: (url: string) => Promise<void>;
 };
 
 function extensionFor(contentType: string) {
@@ -73,8 +63,8 @@ async function saveLocalUpload(kakaoId: string, file: File) {
   };
 }
 
-async function loadBlobApi(): Promise<BlobApi> {
-  return (0, eval)('import("@vercel/blob")') as Promise<BlobApi>;
+function canUseLocalUploadFallback() {
+  return process.env.NODE_ENV !== "production" && !process.env.VERCEL;
 }
 
 export async function POST(req: NextRequest) {
@@ -112,21 +102,23 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const uploaded = hasGcsProfileImageBucket()
-      ? await saveGcsProfileImage(
-          buildProfileImageObjectName(session.kakaoId, extensionFor(file.type)),
-          file,
-        )
-      : process.env.BLOB_READ_WRITE_TOKEN
-        ? await (async () => {
-            const { put } = await loadBlobApi();
-            return put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
-              access: "public",
-              addRandomSuffix: false,
-              contentType: file.type,
-            });
-          })()
-        : await saveLocalUpload(session.kakaoId, file);
+    let uploaded: BlobUploadResult;
+    if (hasGcsProfileImageBucket()) {
+      uploaded = await saveGcsProfileImage(
+        buildProfileImageObjectName(session.kakaoId, extensionFor(file.type)),
+        file,
+      );
+    } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+      uploaded = await put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType: file.type,
+      });
+    } else if (canUseLocalUploadFallback()) {
+      uploaded = await saveLocalUpload(session.kakaoId, file);
+    } else {
+      return NextResponse.json({ error: STORAGE_CONFIG_ERROR }, { status: 503 });
+    }
 
     const user = await prisma.user.update({
       where: { kakaoId: session.kakaoId },
@@ -154,11 +146,9 @@ export async function POST(req: NextRequest) {
           console.error("Failed to delete previous GCS profile image", error);
         });
       } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-        void loadBlobApi()
-          .then(({ del }) => del(existingImageUrl))
-          .catch((error) => {
-            console.error("Failed to delete previous custom profile image", error);
-          });
+        void del(existingImageUrl).catch((error) => {
+          console.error("Failed to delete previous custom profile image", error);
+        });
       }
     }
 
@@ -211,11 +201,9 @@ export async function DELETE(req: NextRequest) {
         console.error("Failed to delete GCS profile image", error);
       });
     } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-      void loadBlobApi()
-        .then(({ del }) => del(existingImageUrl))
-        .catch((error) => {
-          console.error("Failed to delete custom profile image", error);
-        });
+      void del(existingImageUrl).catch((error) => {
+        console.error("Failed to delete custom profile image", error);
+      });
     }
   }
 
