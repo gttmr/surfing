@@ -13,4 +13,3 @@ export interface MeetingWithCounts {
   approvedCount: number;
 }
 
-export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];

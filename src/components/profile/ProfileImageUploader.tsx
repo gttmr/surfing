@@ -378,7 +378,7 @@ export function ProfileImageUploader({
           </label>
         </div>
 
-        {error ? <p className="mt-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">{error}</p> : null}
+        {error ? <p className="brand-chip-danger mt-2 rounded-full px-3 py-1.5 text-xs font-semibold">{error}</p> : null}
       </div>
 
       {cropImage && cropSourceUrl ? (

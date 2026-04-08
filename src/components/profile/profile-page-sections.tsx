@@ -69,7 +69,7 @@ export function ProfileSetupModal({
         <div className="flex min-h-[24rem] flex-col">
           <div>
             <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-              회원 유형 <span className="text-red-400">*</span>
+              회원 유형 <span className="text-[var(--brand-error)]">*</span>
               <span className="brand-text-subtle ml-1 text-xs font-normal">(가입 후 변경 불가)</span>
             </label>
             <div className="flex gap-2">
@@ -107,7 +107,7 @@ export function ProfileSetupModal({
             {setupMemberType === "REGULAR" ? (
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                  이름 <span className="text-red-400">*</span>
+                  이름 <span className="text-[var(--brand-error)]">*</span>
                 </label>
                 <input
                   autoFocus
@@ -122,7 +122,7 @@ export function ProfileSetupModal({
               <div className="space-y-3">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                    소속 정회원 선택 <span className="text-red-400">*</span>
+                    소속 정회원 선택 <span className="text-[var(--brand-error)]">*</span>
                   </label>
                   {regularMembers.length === 0 ? (
                     <p className="brand-text-subtle py-3 text-center text-xs">동반인을 등록한 정회원이 없습니다</p>
@@ -149,7 +149,7 @@ export function ProfileSetupModal({
                 {selectedOwnerKakaoId ? (
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                      내 이름 선택 <span className="text-red-400">*</span>
+                      내 이름 선택 <span className="text-[var(--brand-error)]">*</span>
                     </label>
                     {loadingOwnerCompanions ? (
                       <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
@@ -288,7 +288,7 @@ export function ProfileHeaderSection({
             </span>
           ) : null}
           {(user?.penaltyCount ?? 0) > 0 ? (
-            <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+            <span className="brand-chip-danger rounded-full px-2 py-0.5 text-xs font-bold">
               패널티 {user?.penaltyCount}회
             </span>
           ) : null}
@@ -430,7 +430,7 @@ export function BasicProfileSection({
           {!isRegular ? (
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                소속 정회원 <span className="text-red-400">*</span>
+                소속 정회원 <span className="text-[var(--brand-error)]">*</span>
               </label>
               {isCompanionWithoutOwner ? (
                 <div className="brand-panel-white mb-2 rounded-xl px-4 py-3">
@@ -470,7 +470,7 @@ export function BasicProfileSection({
           {!isRegular && selectedOwnerKakaoId ? (
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                내 이름 선택 <span className="text-red-400">*</span>
+                내 이름 선택 <span className="text-[var(--brand-error)]">*</span>
               </label>
               {loadingOwnerCompanions ? (
                 <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
@@ -512,7 +512,7 @@ export function BasicProfileSection({
           saving || !profileSaveValid
             ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
             : saved
-              ? "bg-green-500 text-white"
+              ? "brand-button-confirm"
               : "brand-button-primary active:scale-[0.99]"
         }`}
       >
@@ -582,14 +582,14 @@ export function CompanionManagementSection({
                 <p className="text-sm font-semibold text-[var(--brand-text)]">{companion.name}</p>
                 {"linkedKakaoId" in companion && companion.linkedKakaoId ? (
                   <div className="mt-0.5 flex items-center gap-1.5">
-                    <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-600">카카오 연동</span>
+                    <span className="brand-chip-success rounded px-1.5 py-0.5 text-[10px] font-bold">카카오 연동</span>
                   </div>
                 ) : null}
               </div>
               <button
                 type="button"
                 onClick={() => onRemoveCompanion(companion.id)}
-                className="brand-text-subtle px-2 py-1 text-xs transition-colors hover:text-red-500"
+                className="brand-text-subtle px-2 py-1 text-xs transition-colors hover:text-[var(--brand-error)]"
               >
                 삭제
               </button>
@@ -624,7 +624,7 @@ export function MobileProfileSaveDock({
             saving || !profileSaveValid
               ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
               : saved
-                ? "bg-green-500 text-white"
+                ? "brand-button-confirm"
                 : "brand-button-primary active:scale-[0.99]"
           }`}
           disabled={saving || !profileSaveValid}

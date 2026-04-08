@@ -8,6 +8,7 @@ import type {
   SignupInitialData,
 } from "@/lib/landing-types";
 import { kakaoLogin } from "@/lib/kakao";
+import { DAY_KO } from "@/lib/format";
 import {
   CancelResultPanel,
   CompanionSignupPanel,
@@ -186,7 +187,7 @@ export function SignupForm({
   if (myParticipant) {
     const signedUpCount = Object.keys(signedUpCompanionData).length;
     const dateObj = new Date(`${meeting.date}T00:00:00`);
-    const dayName = ["일", "월", "화", "수", "목", "금", "토"][dateObj.getDay()];
+    const dayName = DAY_KO[dateObj.getDay()];
     const [, month, day] = meeting.date.split("-");
     const meetingDisplay = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName}) ${meeting.startTime}`;
     return (

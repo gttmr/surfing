@@ -478,7 +478,7 @@ export function ExistingSignupPanel({
                 <button
                   onClick={onCancel}
                   disabled={cancelling}
-                  className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]"
+                  className="brand-button-danger-solid flex-1 rounded-lg py-2.5 text-sm font-bold transition-colors hover:opacity-90 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]"
                 >
                   {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
                 </button>

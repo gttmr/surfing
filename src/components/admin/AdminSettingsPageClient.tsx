@@ -98,12 +98,12 @@ export function AdminSettingsPageClient({
 
             <div>
               <label className="brand-text-muted mb-2 block text-xs font-bold">미리보기</label>
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="brand-alert-error rounded-xl p-4">
                 <div className="mb-2 text-center">
                   <span className="text-2xl">⚠️</span>
                 </div>
                 <p className="mb-2 text-center text-sm font-bold text-[var(--brand-text)]">참가가 취소되었습니다</p>
-                <div className="rounded-lg bg-red-100 p-3 text-sm text-red-700">
+                <div className="rounded-lg bg-[#fecaca]/60 p-3 text-sm text-[var(--brand-error)]">
                   {form.penaltyMessage || "(메시지 없음)"}
                 </div>
               </div>

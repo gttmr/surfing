@@ -363,7 +363,7 @@ export function AdminMessagesPageClient({
                     <button
                       type="button"
                       onClick={() => handleDelete(notice.id)}
-                      className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                      className="brand-button-danger rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
                     >
                       삭제
                     </button>

@@ -335,7 +335,7 @@ export function CalendarSection({
             <div
               key={day + index}
               className="text-[10px] font-bold uppercase tracking-[0.32em]"
-              style={{ color: index === 0 ? "#ef4444" : index === 6 ? "#2563eb" : "var(--brand-text-subtle)" }}
+              style={{ color: index === 0 ? "var(--brand-calendar-sun)" : index === 6 ? "var(--brand-calendar-sat)" : "var(--brand-text-subtle)" }}
             >
               {day}
             </div>
