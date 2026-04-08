@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
 import {
@@ -85,6 +85,7 @@ export default function SurfClubLandingPage({
     setIsAlertCenterOpen,
     setExpandedAlertKey,
     setPendingSettlements,
+    setSettlementAccount,
     persistReadAlertKeys,
     markSettlementInProgress,
     handleMeetingSummaryChange,
@@ -97,6 +98,23 @@ export default function SurfClubLandingPage({
     initialSettlementAccount,
     initialSelectedDate,
   });
+
+  // P1: Settlement data lazy-loaded client-side instead of blocking SSR
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    fetch("/api/settlement/current")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setPendingSettlements(data.pending ?? []);
+        if (data.settlementAccount) {
+          setSettlementAccount(data.settlementAccount);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user, setPendingSettlements, setSettlementAccount]);
 
   const hasNotices = notices.length > 0;
   const hasPendingSettlement = pendingSettlements.length > 0;

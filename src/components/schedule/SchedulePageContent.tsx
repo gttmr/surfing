@@ -1,29 +1,19 @@
 import SurfClubLandingPage from "@/components/landing/SurfClubLandingPage";
-import { getActiveSession } from "@/lib/active-session";
-import { getAdminSettlementStatusData } from "@/lib/admin-page-data";
+import { isSessionUserActive } from "@/lib/active-session";
 import { prisma } from "@/lib/db";
-import { findInitialView } from "@/lib/home-view";
+import { findInitialView, normalizeSelectedDate } from "@/lib/home-view";
 import type {
   DetailedMeeting,
-  AdminSettlementStatusSummary,
   HomeUser,
   NoticeItem,
-  SettlementAccount,
-  SettlementSummary,
   SignupInitialData,
 } from "@/lib/landing-types";
 import { resolveProfileImage } from "@/lib/profile-image";
 import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
-  DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
-  DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
-  DEFAULT_SETTLEMENT_BANK_NAME,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
-  SETTLEMENT_ACCOUNT_HOLDER_KEY,
-  SETTLEMENT_ACCOUNT_NUMBER_KEY,
-  SETTLEMENT_BANK_NAME_KEY,
 } from "@/lib/settings";
-import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
+import { getSession } from "@/lib/session";
 import type { MeetingWithCounts } from "@/lib/types";
 import { getTodayInSeoul } from "@/lib/date";
 
@@ -85,43 +75,57 @@ function buildDetailedMeeting(meeting: {
   };
 }
 
+const DETAILED_MEETING_INCLUDE = {
+  participants: {
+    orderBy: [{ status: "asc" as const }, { submittedAt: "asc" as const }],
+    include: {
+      user: {
+        select: {
+          profileImage: true,
+          customProfileImageUrl: true,
+        },
+      },
+    },
+  },
+};
+
 export default async function SchedulePageContent({
   initialSelectedDate = null,
 }: {
   initialSelectedDate?: string | null;
 }) {
   const today = getTodayInSeoul();
-  const sessionUser = await getActiveSession();
+  const session = await getSession();
+  const validatedDate = normalizeSelectedDate(initialSelectedDate);
 
   let isAdmin = false;
   let dbUnavailable = false;
-  let userForClient: HomeUser | null = sessionUser
-    ? {
-        kakaoId: sessionUser.kakaoId,
-        nickname: sessionUser.nickname,
-        profileImage: sessionUser.profileImage,
-      }
-    : null;
+  let userForClient: HomeUser | null = null;
   let meetingsForClient: MeetingWithCounts[] = [];
   let noticesForClient: NoticeItem[] = [];
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
   const initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   const initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
-  let initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary> = {};
-  let initialPendingSettlements: SettlementSummary[] = [];
-  let initialSettlementAccount: SettlementAccount | null = null;
 
   try {
+    // P0: session validation runs in parallel with all other queries
+    // P1: settlement data removed — loaded client-side via /api/settlement/current
+    // P2: admin settlement status removed — loaded client-side on tab switch
+    // P3: detailed meetings + companions fetched in parallel when date is known
     const [
+      isActive,
       dbUser,
       meetings,
       notices,
       settings,
-      settlementGroups,
+      prefetchedDetailedMeetings,
+      regularCompanions,
+      linkedCompanion,
     ] = await Promise.all([
-      sessionUser
+      session ? isSessionUserActive(session.kakaoId) : false,
+      session
         ? prisma.user.findUnique({
-            where: { kakaoId: sessionUser.kakaoId },
+            where: { kakaoId: session.kakaoId },
             select: {
               role: true,
               memberType: true,
@@ -130,7 +134,7 @@ export default async function SchedulePageContent({
               customProfileImageUrl: true,
             },
           })
-        : Promise.resolve(null),
+        : null,
       prisma.meeting.findMany({
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: { participants: { select: { status: true } } },
@@ -139,21 +143,33 @@ export default async function SchedulePageContent({
         orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.setting.findMany({
-        where: {
-          key: {
-            in: [
-              PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
-              SETTLEMENT_BANK_NAME_KEY,
-              SETTLEMENT_ACCOUNT_NUMBER_KEY,
-              SETTLEMENT_ACCOUNT_HOLDER_KEY,
-            ],
-          },
-        },
+        where: { key: PARTICIPANT_OPTION_PRICING_GUIDE_KEY },
       }),
-      sessionUser ? getSettlementGroupsForKakaoId(sessionUser.kakaoId) : Promise.resolve([]),
+      validatedDate
+        ? prisma.meeting.findMany({
+            where: { date: validatedDate },
+            orderBy: [{ date: "asc" }, { startTime: "asc" }],
+            include: DETAILED_MEETING_INCLUDE,
+          })
+        : Promise.resolve([]),
+      session
+        ? prisma.companion.findMany({
+            where: { ownerKakaoId: session.kakaoId, archivedAt: null },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+      session
+        ? prisma.companion.findFirst({
+            where: { linkedKakaoId: session.kakaoId, archivedAt: null },
+            include: { owner: { select: { name: true, kakaoId: true } } },
+          })
+        : Promise.resolve(null),
     ]);
 
-    isAdmin = dbUser?.role === "ADMIN";
+    const sessionUser = session && isActive ? session : null;
+
+    isAdmin = !!(sessionUser && dbUser?.role === "ADMIN");
 
     if (sessionUser && dbUser) {
       userForClient = {
@@ -185,15 +201,8 @@ export default async function SchedulePageContent({
       updatedAt: notice.updatedAt.toISOString(),
     }));
 
-    const settingsMap = new Map(settings.map((item) => [item.key, item.value]));
     participantOptionPricingGuide =
-      settingsMap.get(PARTICIPANT_OPTION_PRICING_GUIDE_KEY) ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
-    initialSettlementAccount = {
-      bankName: settingsMap.get(SETTLEMENT_BANK_NAME_KEY) ?? DEFAULT_SETTLEMENT_BANK_NAME,
-      accountNumber: settingsMap.get(SETTLEMENT_ACCOUNT_NUMBER_KEY) ?? DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
-      accountHolder: settingsMap.get(SETTLEMENT_ACCOUNT_HOLDER_KEY) ?? DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
-    };
-    initialPendingSettlements = settlementGroups;
+      settings[0]?.value ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
 
     const initialView = findInitialView(meetingsForClient, today, initialSelectedDate);
     const selectedMeetingIds = initialView.selectedDate
@@ -201,40 +210,15 @@ export default async function SchedulePageContent({
       : [];
 
     if (selectedMeetingIds.length > 0) {
-      const detailedMeetings = await prisma.meeting.findMany({
-        where: { id: { in: selectedMeetingIds } },
-        orderBy: [{ date: "asc" }, { startTime: "asc" }],
-        include: {
-          participants: {
-            orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
-            include: {
-              user: {
-                select: {
-                  profileImage: true,
-                  customProfileImageUrl: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const regularCompanions =
-        sessionUser && dbUser?.memberType === "REGULAR"
-          ? await prisma.companion.findMany({
-              where: { ownerKakaoId: sessionUser.kakaoId, archivedAt: null },
-              orderBy: { createdAt: "asc" },
-              select: { id: true, name: true },
-            })
-          : [];
-
-      const linkedCompanion =
-        sessionUser && dbUser?.memberType === "COMPANION"
-          ? await prisma.companion.findFirst({
-              where: { linkedKakaoId: sessionUser.kakaoId, archivedAt: null },
-              include: { owner: { select: { name: true, kakaoId: true } } },
-            })
-          : null;
+      // Use prefetched data if date matched, otherwise fetch for auto-selected date
+      const detailedMeetings =
+        validatedDate && prefetchedDetailedMeetings.length > 0
+          ? prefetchedDetailedMeetings
+          : await prisma.meeting.findMany({
+              where: { id: { in: selectedMeetingIds } },
+              orderBy: [{ date: "asc" }, { startTime: "asc" }],
+              include: DETAILED_MEETING_INCLUDE,
+            });
 
       for (const meeting of detailedMeetings) {
         const detailedMeeting = buildDetailedMeeting(meeting);
@@ -325,19 +309,6 @@ export default async function SchedulePageContent({
           linkedStatus,
         };
       }
-
-      if (isAdmin) {
-        const settlementStatusEntries = await Promise.all(
-          selectedMeetingIds.map(async (meetingId) => {
-            const data = await getAdminSettlementStatusData(meetingId);
-            return data ? [meetingId, data] as const : null;
-          })
-        );
-
-        initialSettlementStatusByMeetingId = Object.fromEntries(
-          settlementStatusEntries.filter((entry): entry is readonly [number, AdminSettlementStatusSummary] => entry !== null)
-        );
-      }
     }
   } catch (error) {
     dbUnavailable = true;
@@ -348,10 +319,10 @@ export default async function SchedulePageContent({
     <SurfClubLandingPage
       dbUnavailable={dbUnavailable}
       initialMeetingDetailsById={initialMeetingDetailsById}
-      initialSettlementStatusByMeetingId={initialSettlementStatusByMeetingId}
-      initialPendingSettlements={initialPendingSettlements}
+      initialSettlementStatusByMeetingId={{}}
+      initialPendingSettlements={[]}
       initialSelectedDate={initialSelectedDate}
-      initialSettlementAccount={initialSettlementAccount}
+      initialSettlementAccount={null}
       initialSignupDataByMeetingId={initialSignupDataByMeetingId}
       isAdmin={isAdmin}
       meetings={meetingsForClient}

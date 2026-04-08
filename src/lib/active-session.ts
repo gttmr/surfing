@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession, getSessionFromRequest, type SessionUser } from "@/lib/session";
 
-async function isSessionUserActive(kakaoId: string) {
+export async function isSessionUserActive(kakaoId: string) {
   const [deleted, user] = await Promise.all([
     prisma.deletedKakaoId.findUnique({
       where: { kakaoId },

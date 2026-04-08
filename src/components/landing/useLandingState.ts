@@ -225,6 +225,7 @@ export function useLandingState({
     setIsAlertCenterOpen,
     setExpandedAlertKey,
     setPendingSettlements,
+    setSettlementAccount,
     persistReadAlertKeys,
     markSettlementInProgress,
     handleMeetingSummaryChange,
