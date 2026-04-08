@@ -85,7 +85,7 @@ export function CompanionSignupPanel({
   return (
     <div className="space-y-4">
       {serverError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{serverError}</div>
+        <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
       <div className="brand-panel-white rounded-xl p-4 text-sm">
@@ -95,7 +95,7 @@ export function CompanionSignupPanel({
 
       {linkedStatus.participant ? (
         <div className="space-y-3">
-          <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "border border-green-200 bg-green-50" : "brand-panel-white"}`}>
+          <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "brand-alert-success" : "brand-panel-white"}`}>
             <div className="mb-1 text-2xl">✓</div>
             <p className="text-sm font-bold text-[var(--brand-text)]">
               {linkedStatus.participant.status === "APPROVED" ? "참가 확정" : "대기 중"}
@@ -172,14 +172,14 @@ export function CancelResultPanel({
 }) {
   return (
     <div className="space-y-4">
-      <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "border border-red-200 bg-red-50" : "brand-panel-white"}`}>
+      <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "brand-alert-error" : "brand-panel-white"}`}>
         <div className="mb-3 text-3xl">{cancelResult.penalty ? "⚠️" : "✓"}</div>
         <p className="mb-2 font-bold text-[var(--brand-text)]">참가가 취소되었습니다</p>
         {cancelResult.cancelledCompanions > 0 ? (
           <p className="brand-text-muted mb-2 text-sm">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
         ) : null}
         {cancelResult.penalty && cancelResult.penaltyMessage ? (
-          <div className="mt-3 rounded-lg bg-red-100 p-3 text-sm text-red-700">{cancelResult.penaltyMessage}</div>
+          <div className="brand-alert-error mt-3 rounded-lg p-3 text-sm">{cancelResult.penaltyMessage}</div>
         ) : null}
       </div>
       <button onClick={onReset} className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-colors">
@@ -266,7 +266,7 @@ export function ExistingSignupPanel({
     <div className="space-y-4">
       {submissionResult ? (
         <div className="brand-panel-white rounded-2xl p-5 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+          <div className="brand-alert-success mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full">
             <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
             </svg>
@@ -301,17 +301,17 @@ export function ExistingSignupPanel({
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+        <div className="brand-alert-success rounded-xl p-5 text-center">
           <div className="mb-2 text-3xl">✓</div>
-          <p className="font-bold text-green-800">
+          <p className="font-bold">
             {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
           </p>
-          {signedUpCount > 0 ? <p className="mt-1 text-sm text-green-600">동반인 {signedUpCount}명도 함께 신청되었습니다</p> : null}
+          {signedUpCount > 0 ? <p className="mt-1 text-sm opacity-80">동반인 {signedUpCount}명도 함께 신청되었습니다</p> : null}
         </div>
       )}
 
       {serverError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{serverError}</div>
+        <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
       {!showMySignupDetails ? (
@@ -378,7 +378,7 @@ export function ExistingSignupPanel({
                   const options = companionOptions[companion.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
 
                   return (
-                    <div key={companion.id} className={`rounded-lg p-3 ${isSignedUp ? "border border-green-200 bg-green-50" : "brand-list-item"}`}>
+                    <div key={companion.id} className={`rounded-lg p-3 ${isSignedUp ? "brand-alert-success" : "brand-list-item"}`}>
                       <div className="mb-2 flex items-center gap-2">
                         <button
                           className="flex flex-1 items-center gap-3 text-left"
@@ -397,7 +397,7 @@ export function ExistingSignupPanel({
                         </button>
                         {isSignedUp ? (
                           <button
-                            className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                            className="brand-alert-error rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
                             disabled={isLoading}
                             onClick={() => onCancelCompanion(companion.id)}
                             type="button"
@@ -468,11 +468,11 @@ export function ExistingSignupPanel({
           )}
 
           {showCancelConfirm ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-5 space-y-3">
-              <p className="text-sm font-semibold text-red-800">정말 참가를 취소하시겠습니까?</p>
-              <p className="text-xs text-red-600">화요일 18시 이후 취소 시 패널티가 부과될 수 있습니다.</p>
+            <div className="brand-alert-error rounded-xl p-5 space-y-3">
+              <p className="text-sm font-semibold">정말 참가를 취소하시겠습니까?</p>
+              <p className="text-xs opacity-80">화요일 18시 이후 취소 시 패널티가 부과될 수 있습니다.</p>
               {signedUpCount > 0 ? (
-                <p className="text-xs font-bold text-red-700">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
+                <p className="text-xs font-bold">동반인 {signedUpCount}명의 참가도 함께 취소됩니다.</p>
               ) : null}
               <div className="flex gap-2">
                 <button
@@ -495,7 +495,7 @@ export function ExistingSignupPanel({
                 savingMySignup
                   ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
                   : mySignupSaved
-                    ? "bg-green-500 text-white"
+                    ? "brand-alert-success"
                     : "brand-button-primary active:scale-[0.99]"
               }`}
               disabled={savingMySignup}
@@ -512,7 +512,7 @@ export function ExistingSignupPanel({
           {!showCancelConfirm ? (
             <button
               onClick={() => onShowCancelConfirm(true)}
-              className="w-full rounded-xl border-2 border-red-200 py-3 text-sm font-bold text-red-600 transition-colors hover:bg-red-50"
+              className="brand-alert-error w-full rounded-xl border-2 py-3 text-sm font-bold transition-colors"
             >
               참가 취소하기
             </button>
@@ -590,7 +590,7 @@ export function RegularSignupPanel({
         <div className="brand-panel-white rounded-xl p-4 text-sm text-[var(--brand-text)]">이 모임에 이미 신청하셨습니다.</div>
       ) : null}
       {serverError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{serverError}</div>
+        <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
       <div>
