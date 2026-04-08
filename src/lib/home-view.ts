@@ -1,4 +1,5 @@
 import type { MeetingWithCounts } from "@/lib/types";
+import { pad } from "@/lib/format";
 
 export function sortMeetings(meetings: MeetingWithCounts[]) {
   return [...meetings].sort((a, b) => {
@@ -40,4 +41,48 @@ export function findDefaultDateForMonth(meetings: MeetingWithCounts[], year: num
   if (!monthMeetings.length) return null;
 
   return monthMeetings.find((meeting) => meeting.date >= today)?.date ?? monthMeetings[0].date;
+}
+
+export type CalendarCell = {
+  day: number;
+  date: string;
+  inCurrentMonth: boolean;
+};
+
+export function buildCalendarCells(year: number, month: number): CalendarCell[] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const prevLastDay = new Date(year, month, 0);
+  const startDow = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+  const trailingDays = (7 - ((startDow + totalDays) % 7)) % 7;
+  const cells: CalendarCell[] = [];
+
+  for (let day = prevLastDay.getDate() - startDow + 1; day <= prevLastDay.getDate(); day += 1) {
+    const prevMonthDate = new Date(year, month - 1, day);
+    cells.push({
+      day,
+      date: `${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth() + 1)}-${pad(day)}`,
+      inCurrentMonth: false,
+    });
+  }
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    cells.push({
+      day,
+      date: `${year}-${pad(month + 1)}-${pad(day)}`,
+      inCurrentMonth: true,
+    });
+  }
+
+  for (let day = 1; day <= trailingDays; day += 1) {
+    const nextMonthDate = new Date(year, month + 1, day);
+    cells.push({
+      day,
+      date: `${nextMonthDate.getFullYear()}-${pad(nextMonthDate.getMonth() + 1)}-${pad(day)}`,
+      inCurrentMonth: false,
+    });
+  }
+
+  return cells;
 }

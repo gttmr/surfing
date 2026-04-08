@@ -12,12 +12,9 @@ import type {
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
+import type { CalendarCell } from "@/lib/home-view";
 
-export type CalendarCell = {
-  day: number;
-  date: string;
-  inCurrentMonth: boolean;
-};
+export type { CalendarCell };
 
 export type AlertItem =
   | {

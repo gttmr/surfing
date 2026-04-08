@@ -105,3 +105,4 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
     })
     .filter(Boolean) as SettlementMeetingGroup[];
 }
+
