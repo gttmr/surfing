@@ -12,7 +12,7 @@ import type {
   SignupInitialData,
 } from "@/lib/landing-types";
 
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+import { DAY_KO, formatWon } from "@/lib/format";
 
 function sortWithCompanions(participants: MeetingParticipantItem[]) {
   const regulars = participants.filter((participant) => participant.companionId === null);
@@ -234,9 +234,6 @@ export default function EmbeddedMeetingDetail({
   const pendingTotalFee = pendingRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
   const completedTotalFee = completedRecipients.reduce((sum, recipient) => sum + recipient.totalFee, 0);
 
-  function formatWon(value: number) {
-    return `${value.toLocaleString("ko-KR")}원`;
-  }
 
   function formatConfirmedAt(value: string | null) {
     if (!value) return "";

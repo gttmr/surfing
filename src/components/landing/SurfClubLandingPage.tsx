@@ -25,15 +25,7 @@ import {
   MeetingTabs,
 } from "./landing-page-sections";
 import { useLandingState } from "./useLandingState";
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
-const MONTH_NAMES_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function formatWon(value: number) {
-  return `${value.toLocaleString("ko-KR")}원`;
-}
+import { DAY_KO, formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
 
 function buildTossTransferUrl(account: SettlementAccount, amount?: number) {
   const accountNumber = account.accountNumber.replace(/[^\d-]/g, "");

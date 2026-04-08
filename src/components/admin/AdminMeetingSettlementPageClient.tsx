@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminSettlementData } from "@/lib/admin-page-data";
+import { formatWon } from "@/lib/format";
 
 export function AdminMeetingSettlementPageClient({
   meetingId,
@@ -20,10 +21,6 @@ export function AdminMeetingSettlementPageClient({
   const [selectedRecipientKey, setSelectedRecipientKey] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
-
-  function formatWon(value: number) {
-    return `${value.toLocaleString("ko-KR")}원`;
-  }
 
   async function reloadSettlement() {
     setReloading(true);

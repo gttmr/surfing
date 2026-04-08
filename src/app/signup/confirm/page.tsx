@@ -2,8 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { ParticipantStatus } from "@/lib/types";
-
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+import { DAY_KO } from "@/lib/format";
 
 export default async function ConfirmPage({
   searchParams,

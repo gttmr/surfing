@@ -6,8 +6,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { getTodayInSeoul } from "@/lib/date";
 import type { AdminMeetingListItem } from "@/lib/admin-page-data";
-
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+import { DAY_KO } from "@/lib/format";
 
 export function AdminMeetingsPageClient({
   initialMeetings,

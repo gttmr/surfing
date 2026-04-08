@@ -2,12 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { getSession } from "@/lib/session";
 import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
+import { formatWon } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-function formatWon(value: number) {
-  return `${value.toLocaleString("ko-KR")}원`;
-}
 
 export default async function SettlementPage() {
   const session = await getSession();

@@ -8,8 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminMeetingDetail, AdminMeetingParticipant } from "@/lib/admin-page-data";
 import type { ParticipantStatus } from "@/lib/types";
-
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+import { DAY_KO } from "@/lib/format";
 
 type Tab = "approved" | "waitlisted" | "cancelled" | "all";
 

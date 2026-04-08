@@ -10,6 +10,7 @@ import type {
   SettlementAccount,
   SettlementSummary,
 } from "@/lib/landing-types";
+import { formatWon } from "@/lib/format";
 
 export type CalendarCell = {
   day: number;
@@ -64,9 +65,6 @@ function NoticeGlyph({ className = "" }: { className?: string }) {
   );
 }
 
-function formatWon(value: number) {
-  return `${value.toLocaleString("ko-KR")}원`;
-}
 
 function formatSettlementReasons(settlement: SettlementSummary) {
   const reasons = new Set<string>();

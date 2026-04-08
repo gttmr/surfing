@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
 import { getTodayInSeoul } from "@/lib/date";
+import { DAY_KO, MONTH_NAMES_KO } from "@/lib/format";
 
 const DAYS_EN = ["S", "M", "T", "W", "T", "F", "S"];
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
-const MONTH_NAMES_KO = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
 // ── 모임 상세 카드 ──────────────────────────────────────────────
 function MeetingDetailCard({
