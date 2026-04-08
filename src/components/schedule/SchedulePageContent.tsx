@@ -2,15 +2,19 @@ import SurfClubLandingPage from "@/components/landing/SurfClubLandingPage";
 import { getActiveSession } from "@/lib/active-session";
 import { getAdminSettlementStatusData } from "@/lib/admin-page-data";
 import { prisma } from "@/lib/db";
-import { findInitialView } from "@/lib/home-view";
+import {
+  buildDetailedMeeting,
+  buildSignupInitialData,
+  findInitialView,
+} from "@/lib/home-view";
 import type {
-  DetailedMeeting,
   AdminSettlementStatusSummary,
   HomeUser,
   NoticeItem,
   SettlementAccount,
   SettlementSummary,
   SignupInitialData,
+  DetailedMeeting,
 } from "@/lib/landing-types";
 import { resolveProfileImage } from "@/lib/profile-image";
 import {
@@ -26,64 +30,6 @@ import {
 import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
 import type { MeetingWithCounts } from "@/lib/types";
 import { getTodayInSeoul } from "@/lib/date";
-
-function buildDetailedMeeting(meeting: {
-  id: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  description: string | null;
-  isOpen: boolean;
-  meetingType: string;
-  createdByKakaoId: string | null;
-  participants: Array<{
-    id: number;
-    name: string;
-    note: string | null;
-    hasLesson: boolean;
-    hasBus: boolean;
-    hasRental: boolean;
-    status: string;
-    kakaoId: string;
-    companionId: number | null;
-    waitlistPosition: number | null;
-    user: {
-      profileImage: string | null;
-      customProfileImageUrl: string | null;
-    } | null;
-  }>;
-}): DetailedMeeting {
-  const participantsList = meeting.participants
-    .filter((participant) => participant.status !== "CANCELLED")
-    .map((participant) => ({
-      id: participant.id,
-      name: participant.name,
-      note: participant.note,
-      hasLesson: participant.hasLesson,
-      hasBus: participant.hasBus,
-      hasRental: participant.hasRental,
-      status: participant.status,
-      kakaoId: participant.kakaoId,
-      companionId: participant.companionId,
-      waitlistPosition: participant.waitlistPosition,
-      profileImage: resolveProfileImage(participant.user),
-    }));
-
-  return {
-    id: meeting.id,
-    date: meeting.date,
-    startTime: meeting.startTime,
-    endTime: meeting.endTime,
-    location: meeting.location,
-    description: meeting.description,
-    isOpen: meeting.isOpen,
-    meetingType: meeting.meetingType,
-    createdByKakaoId: meeting.createdByKakaoId,
-    approvedCount: participantsList.filter((participant) => participant.status === "APPROVED").length,
-    participantsList,
-  };
-}
 
 export default async function SchedulePageContent({
   initialSelectedDate = null,
@@ -112,13 +58,7 @@ export default async function SchedulePageContent({
   let initialSettlementAccount: SettlementAccount | null = null;
 
   try {
-    const [
-      dbUser,
-      meetings,
-      notices,
-      settings,
-      settlementGroups,
-    ] = await Promise.all([
+    const [dbUser, meetings, notices, settings, settlementGroups] = await Promise.all([
       sessionUser
         ? prisma.user.findUnique({
             where: { kakaoId: sessionUser.kakaoId },
@@ -173,7 +113,7 @@ export default async function SchedulePageContent({
       isOpen: meeting.isOpen,
       meetingType: meeting.meetingType,
       createdByKakaoId: meeting.createdByKakaoId,
-      approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
+      approvedCount: meeting.participants.filter((p) => p.status === "APPROVED").length,
     }));
 
     noticesForClient = notices.map((notice) => ({
@@ -197,145 +137,67 @@ export default async function SchedulePageContent({
 
     const initialView = findInitialView(meetingsForClient, today, initialSelectedDate);
     const selectedMeetingIds = initialView.selectedDate
-      ? meetingsForClient.filter((meeting) => meeting.date === initialView.selectedDate).map((meeting) => meeting.id)
+      ? meetingsForClient
+          .filter((meeting) => meeting.date === initialView.selectedDate)
+          .map((meeting) => meeting.id)
       : [];
 
     if (selectedMeetingIds.length > 0) {
-      const detailedMeetings = await prisma.meeting.findMany({
-        where: { id: { in: selectedMeetingIds } },
-        orderBy: [{ date: "asc" }, { startTime: "asc" }],
-        include: {
-          participants: {
-            orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
-            include: {
-              user: {
-                select: {
-                  profileImage: true,
-                  customProfileImageUrl: true,
-                },
+      const [detailedMeetings, regularCompanions, linkedCompanion] = await Promise.all([
+        prisma.meeting.findMany({
+          where: { id: { in: selectedMeetingIds } },
+          orderBy: [{ date: "asc" }, { startTime: "asc" }],
+          include: {
+            participants: {
+              orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
+              include: {
+                user: { select: { profileImage: true, customProfileImageUrl: true } },
               },
             },
           },
-        },
-      });
-
-      const regularCompanions =
+        }),
         sessionUser && dbUser?.memberType === "REGULAR"
-          ? await prisma.companion.findMany({
+          ? prisma.companion.findMany({
               where: { ownerKakaoId: sessionUser.kakaoId, archivedAt: null },
               orderBy: { createdAt: "asc" },
               select: { id: true, name: true },
             })
-          : [];
-
-      const linkedCompanion =
+          : Promise.resolve([]),
         sessionUser && dbUser?.memberType === "COMPANION"
-          ? await prisma.companion.findFirst({
+          ? prisma.companion.findFirst({
               where: { linkedKakaoId: sessionUser.kakaoId, archivedAt: null },
               include: { owner: { select: { name: true, kakaoId: true } } },
             })
-          : null;
+          : Promise.resolve(null),
+      ]);
 
       for (const meeting of detailedMeetings) {
         const detailedMeeting = buildDetailedMeeting(meeting);
         initialMeetingDetailsById[meeting.id] = detailedMeeting;
 
-        if (!sessionUser) continue;
+        if (!sessionUser || !dbUser) continue;
 
-        const myParticipant = detailedMeeting.participantsList.find(
-          (participant) =>
-            participant.kakaoId === sessionUser.kakaoId &&
-            participant.companionId === null &&
-            participant.status !== "CANCELLED"
-        );
-
-        const signedUpCompanionData = detailedMeeting.participantsList.reduce<Record<number, SignupInitialData["signedUpCompanionData"][number]>>(
-          (acc, participant) => {
-            if (
-              participant.kakaoId === sessionUser.kakaoId &&
-              participant.companionId !== null &&
-              participant.status !== "CANCELLED"
-            ) {
-              acc[participant.companionId] = {
-                participantId: participant.id,
-                hasLesson: participant.hasLesson,
-                hasBus: participant.hasBus,
-                hasRental: participant.hasRental,
-              };
-            }
-            return acc;
-          },
-          {}
-        );
-
-        const linkedStatus = dbUser?.memberType === "COMPANION"
-          ? linkedCompanion
-            ? {
-                linked: true,
-                ownerApplied: detailedMeeting.participantsList.some(
-                  (participant) =>
-                    participant.kakaoId === linkedCompanion.ownerKakaoId &&
-                    participant.companionId === null &&
-                    participant.status !== "CANCELLED"
-                ),
-                companion: {
-                  id: linkedCompanion.id,
-                  name: linkedCompanion.name,
-                  owner: linkedCompanion.owner,
-                },
-                participant: (() => {
-                  const participant = detailedMeeting.participantsList.find(
-                    (item) => item.companionId === linkedCompanion.id && item.status !== "CANCELLED"
-                  );
-                  return participant
-                    ? {
-                        id: participant.id,
-                        status: participant.status,
-                        hasLesson: participant.hasLesson,
-                        hasBus: participant.hasBus,
-                        hasRental: participant.hasRental,
-                      }
-                    : null;
-                })(),
-              }
-            : { linked: false, ownerApplied: false }
-          : null;
-
-        initialSignupDataByMeetingId[meeting.id] = {
-          userProfile: dbUser
-            ? {
-                memberType: dbUser.memberType,
-                name: dbUser.name,
-              }
-            : null,
+        initialSignupDataByMeetingId[meeting.id] = buildSignupInitialData(
+          detailedMeeting,
+          sessionUser.kakaoId,
+          dbUser,
+          regularCompanions,
+          linkedCompanion ?? null,
           participantOptionPricingGuide,
-          companions: regularCompanions,
-          myParticipant: myParticipant
-            ? {
-                id: myParticipant.id,
-                status: myParticipant.status,
-                waitlistPosition: myParticipant.waitlistPosition ?? null,
-                note: myParticipant.note ?? "",
-                hasLesson: !!myParticipant.hasLesson,
-                hasBus: !!myParticipant.hasBus,
-                hasRental: !!myParticipant.hasRental,
-              }
-            : null,
-          signedUpCompanionData,
-          linkedStatus,
-        };
+        );
       }
 
       if (isAdmin) {
         const settlementStatusEntries = await Promise.all(
           selectedMeetingIds.map(async (meetingId) => {
             const data = await getAdminSettlementStatusData(meetingId);
-            return data ? [meetingId, data] as const : null;
+            return data ? ([meetingId, data] as const) : null;
           })
         );
-
         initialSettlementStatusByMeetingId = Object.fromEntries(
-          settlementStatusEntries.filter((entry): entry is readonly [number, AdminSettlementStatusSummary] => entry !== null)
+          settlementStatusEntries.filter(
+            (entry): entry is readonly [number, AdminSettlementStatusSummary] => entry !== null
+          )
         );
       }
     }

@@ -1,5 +1,12 @@
 import type { MeetingWithCounts } from "@/lib/types";
 import { pad } from "@/lib/format";
+import type {
+  DetailedMeeting,
+  LinkedCompanionStatus,
+  MeetingParticipantItem,
+  SignupInitialData,
+} from "@/lib/landing-types";
+import { resolveProfileImage } from "@/lib/profile-image";
 
 export function sortMeetings(meetings: MeetingWithCounts[]) {
   return [...meetings].sort((a, b) => {
@@ -85,4 +92,157 @@ export function buildCalendarCells(year: number, month: number): CalendarCell[] 
   }
 
   return cells;
+}
+
+// ── 서버 데이터 조립 헬퍼 ──────────────────────────────────────
+
+type RawParticipant = {
+  id: number;
+  name: string;
+  note: string | null;
+  hasLesson: boolean;
+  hasBus: boolean;
+  hasRental: boolean;
+  status: string;
+  kakaoId: string;
+  companionId: number | null;
+  waitlistPosition: number | null;
+  user: { profileImage: string | null; customProfileImageUrl: string | null } | null;
+};
+
+type RawMeeting = {
+  id: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string | null;
+  isOpen: boolean;
+  meetingType: string;
+  createdByKakaoId: string | null;
+  participants: RawParticipant[];
+};
+
+export function buildDetailedMeeting(meeting: RawMeeting): DetailedMeeting {
+  const participantsList: MeetingParticipantItem[] = meeting.participants
+    .filter((p) => p.status !== "CANCELLED")
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      note: p.note,
+      hasLesson: p.hasLesson,
+      hasBus: p.hasBus,
+      hasRental: p.hasRental,
+      status: p.status,
+      kakaoId: p.kakaoId,
+      companionId: p.companionId,
+      waitlistPosition: p.waitlistPosition,
+      profileImage: resolveProfileImage(p.user),
+    }));
+
+  return {
+    id: meeting.id,
+    date: meeting.date,
+    startTime: meeting.startTime,
+    endTime: meeting.endTime,
+    location: meeting.location,
+    description: meeting.description,
+    isOpen: meeting.isOpen,
+    meetingType: meeting.meetingType,
+    createdByKakaoId: meeting.createdByKakaoId,
+    approvedCount: participantsList.filter((p) => p.status === "APPROVED").length,
+    participantsList,
+  };
+}
+
+type LinkedCompanionRow = {
+  id: number;
+  name: string;
+  ownerKakaoId: string;
+  owner: { name: string | null; kakaoId: string };
+} | null;
+
+type DbUserShape = {
+  memberType: string;
+  name: string | null;
+};
+
+export function buildSignupInitialData(
+  detailedMeeting: DetailedMeeting,
+  sessionKakaoId: string,
+  dbUser: DbUserShape,
+  regularCompanions: { id: number; name: string }[],
+  linkedCompanion: LinkedCompanionRow,
+  participantOptionPricingGuide: string,
+): SignupInitialData {
+  const myParticipant = detailedMeeting.participantsList.find(
+    (p) => p.kakaoId === sessionKakaoId && p.companionId === null && p.status !== "CANCELLED"
+  );
+
+  const signedUpCompanionData = detailedMeeting.participantsList.reduce<
+    SignupInitialData["signedUpCompanionData"]
+  >((acc, p) => {
+    if (p.kakaoId === sessionKakaoId && p.companionId !== null && p.status !== "CANCELLED") {
+      acc[p.companionId] = {
+        participantId: p.id,
+        hasLesson: p.hasLesson,
+        hasBus: p.hasBus,
+        hasRental: p.hasRental,
+      };
+    }
+    return acc;
+  }, {});
+
+  let linkedStatus: LinkedCompanionStatus | null = null;
+  if (dbUser.memberType === "COMPANION") {
+    if (linkedCompanion) {
+      const linkedParticipant = detailedMeeting.participantsList.find(
+        (p) => p.companionId === linkedCompanion.id && p.status !== "CANCELLED"
+      );
+      linkedStatus = {
+        linked: true,
+        ownerApplied: detailedMeeting.participantsList.some(
+          (p) =>
+            p.kakaoId === linkedCompanion.ownerKakaoId &&
+            p.companionId === null &&
+            p.status !== "CANCELLED"
+        ),
+        companion: {
+          id: linkedCompanion.id,
+          name: linkedCompanion.name,
+          owner: linkedCompanion.owner,
+        },
+        participant: linkedParticipant
+          ? {
+              id: linkedParticipant.id,
+              status: linkedParticipant.status,
+              hasLesson: linkedParticipant.hasLesson,
+              hasBus: linkedParticipant.hasBus,
+              hasRental: linkedParticipant.hasRental,
+            }
+          : null,
+      };
+    } else {
+      linkedStatus = { linked: false, ownerApplied: false };
+    }
+  }
+
+  return {
+    userProfile: { memberType: dbUser.memberType, name: dbUser.name },
+    participantOptionPricingGuide,
+    companions: regularCompanions,
+    myParticipant: myParticipant
+      ? {
+          id: myParticipant.id,
+          status: myParticipant.status,
+          waitlistPosition: myParticipant.waitlistPosition ?? null,
+          note: myParticipant.note ?? "",
+          hasLesson: !!myParticipant.hasLesson,
+          hasBus: !!myParticipant.hasBus,
+          hasRental: !!myParticipant.hasRental,
+        }
+      : null,
+    signedUpCompanionData,
+    linkedStatus,
+  };
 }
