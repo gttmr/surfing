@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "brand-chip-dark",
   MEMBER: "brand-chip-soft",
-  BANNED: "bg-red-100 text-red-700",
+  BANNED: "brand-chip-danger",
 };
 
 const MEMBER_TYPE_LABELS: Record<string, string> = {
@@ -155,10 +155,10 @@ export function AdminMembersPageClient({
             <span className="brand-chip-dark rounded-full px-2.5 py-1">관리자 {adminCount}</span>
           )}
           {penaltyCount > 0 && (
-            <span className="rounded-full bg-red-100 px-2.5 py-1 text-red-600">패널티 {penaltyCount}</span>
+            <span className="brand-chip-danger rounded-full px-2.5 py-1">패널티 {penaltyCount}</span>
           )}
           {bannedCount > 0 && (
-            <span className="rounded-full bg-red-100 px-2.5 py-1 text-red-600">차단 {bannedCount}</span>
+            <span className="brand-chip-danger rounded-full px-2.5 py-1">차단 {bannedCount}</span>
           )}
         </div>
       </div>
@@ -215,7 +215,7 @@ export function AdminMembersPageClient({
                         {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
                       </span>
                       {user.penaltyCount > 0 && (
-                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                        <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">
                           패널티 {user.penaltyCount}
                         </span>
                       )}
@@ -257,7 +257,7 @@ export function AdminMembersPageClient({
                       </p>
                       {selectedUser.penaltyCount > 0 && (
                         <div className="mt-1 flex items-center gap-2">
-                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                          <span className="brand-chip-danger rounded-full px-2 py-0.5 text-xs font-bold">
                             패널티 {selectedUser.penaltyCount}회
                           </span>
                           <button
@@ -300,7 +300,7 @@ export function AdminMembersPageClient({
                           className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
                             selectedUser.role === role
                               ? role === "BANNED"
-                                ? "bg-red-600 text-white shadow-sm"
+                                ? "brand-button-danger-solid shadow-sm"
                                 : role === "ADMIN"
                                   ? "brand-chip-dark"
                                   : "brand-chip-soft"
@@ -317,7 +317,7 @@ export function AdminMembersPageClient({
                     <label className="brand-text-muted mb-2 block text-xs font-bold">회원 삭제</label>
                     <button
                       onClick={() => handleDeleteUser(selectedUser.id)}
-                      className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100"
+                      className="brand-button-danger w-full rounded-xl px-4 py-2.5 text-sm font-bold transition-colors"
                       type="button"
                     >
                       회원 삭제하기
@@ -336,10 +336,10 @@ export function AdminMembersPageClient({
                               <span className="brand-link font-bold">모임</span>
                               <span className={`rounded px-1.5 py-0.5 font-bold ${
                                 participant.status === "APPROVED"
-                                  ? "bg-green-100 text-green-600"
+                                  ? "brand-chip-success"
                                   : participant.status === "WAITLISTED"
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "bg-slate-100 text-slate-500"
+                                    ? "brand-chip-soft"
+                                    : "bg-[var(--brand-dimmed-surface)] text-[var(--brand-dimmed-text)]"
                               }`}>
                                 {participant.status === "APPROVED"
                                   ? "참석"
@@ -348,7 +348,7 @@ export function AdminMembersPageClient({
                                     : "취소"}
                               </span>
                               {participant.isPenalized ? (
-                                <span className="rounded bg-red-100 px-1.5 py-0.5 font-bold text-red-600">
+                                <span className="brand-chip-danger rounded px-1.5 py-0.5 font-bold">
                                   패널티
                                 </span>
                               ) : null}

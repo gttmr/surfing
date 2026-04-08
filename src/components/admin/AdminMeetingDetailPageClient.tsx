@@ -155,14 +155,14 @@ export function AdminMeetingDetailPageClient({
             className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               meeting.isOpen
                 ? "brand-button-secondary"
-                : "bg-green-100 text-green-700 hover:bg-green-200"
+                : "brand-chip-success"
             }`}
           >
             {meeting.isOpen ? "신청 마감하기" : "신청 열기"}
           </button>
           <button
             onClick={handleDelete}
-            className="shrink-0 rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+            className="brand-button-danger shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             삭제
           </button>
@@ -220,7 +220,7 @@ export function AdminMeetingDetailPageClient({
                       ) : null}
                       <StatusBadge status={participant.status as ParticipantStatus} waitlistPosition={participant.waitlistPosition} size="sm" />
                       {participant.isPenalized ? (
-                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">패널티</span>
+                        <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">패널티</span>
                       ) : null}
                       {participant.hasBus ? (
                         <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span>
@@ -239,7 +239,7 @@ export function AdminMeetingDetailPageClient({
                     <p className="brand-text-subtle mt-1 text-xs">
                       {new Date(participant.submittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       {participant.cancelledAt ? (
-                        <span className="ml-2 text-red-400">
+                        <span className="brand-text-subtle ml-2">
                           취소: {new Date(participant.cancelledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                         </span>
                       ) : null}
@@ -249,7 +249,7 @@ export function AdminMeetingDetailPageClient({
                     {participant.status !== "APPROVED" && participant.status !== "CANCELLED" ? (
                       <button
                         onClick={() => handleAction(participant.id, "approve")}
-                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+                        className="brand-button-confirm rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
                       >
                         확정
                       </button>
@@ -257,7 +257,7 @@ export function AdminMeetingDetailPageClient({
                     {participant.status !== "CANCELLED" ? (
                       <button
                         onClick={() => handleAction(participant.id, "cancel")}
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                        className="brand-button-danger rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
                       >
                         취소
                       </button>
@@ -265,7 +265,7 @@ export function AdminMeetingDetailPageClient({
                     {participant.status === "CANCELLED" ? (
                       <button
                         onClick={() => handleAction(participant.id, "approve")}
-                        className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+                        className="brand-button-confirm rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
                       >
                         복구
                       </button>

@@ -210,6 +210,52 @@ body {
   border-color: var(--brand-primary-border-strong);
 }
 
+.brand-button-danger {
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.brand-button-danger:hover {
+  background-color: #fef2f2;
+}
+
+.brand-button-danger:disabled {
+  opacity: 0.5;
+}
+
+.brand-button-danger-solid {
+  background-color: #dc2626;
+  color: #ffffff;
+}
+
+.brand-button-danger-solid:hover {
+  background-color: #b91c1c;
+}
+
+.brand-button-danger-solid:disabled {
+  background-color: var(--brand-primary-soft);
+  color: var(--brand-text-subtle);
+}
+
+.brand-button-confirm {
+  background-color: #16a34a;
+  color: #ffffff;
+}
+
+.brand-button-confirm:hover {
+  background-color: #15803d;
+}
+
+.brand-chip-danger {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.brand-chip-success {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
 .brand-link {
   color: var(--brand-primary-text);
 }

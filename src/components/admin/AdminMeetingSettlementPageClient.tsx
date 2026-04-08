@@ -229,14 +229,14 @@ export function AdminMeetingSettlementPageClient({
                                     <div key={adjustment.id} className="brand-card-soft flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
                                       <div>
                                         <p className="text-sm font-semibold text-[var(--brand-text)]">{adjustment.label}</p>
-                                        <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-red-600" : "text-blue-600"}`}>
+                                        <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-[var(--brand-companion)]" : "text-[var(--brand-primary-text)]"}`}>
                                           {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
                                         </p>
                                       </div>
                                       <button
                                         type="button"
                                         onClick={() => handleDeleteAdjustment(adjustment.id)}
-                                        className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                                        className="brand-button-danger rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
                                       >
                                         삭제
                                       </button>
