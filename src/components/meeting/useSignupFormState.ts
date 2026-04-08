@@ -147,12 +147,14 @@ export function useSignupFormState({
   );
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [showMySignupDetails, setShowMySignupDetails] = useState(false);
-  const [savingMySignup, setSavingMySignup] = useState(false);
-  const [mySignupSaved, setMySignupSaved] = useState(false);
-  const [mySignupNote, setMySignupNote] = useState("");
-  const [mySignupHasLesson, setMySignupHasLesson] = useState(false);
-  const [mySignupHasBus, setMySignupHasBus] = useState(false);
-  const [mySignupHasRental, setMySignupHasRental] = useState(false);
+  const [mySignupEdit, setMySignupEdit] = useState({ note: "", hasLesson: false, hasBus: false, hasRental: false, saving: false, saved: false });
+  const setMySignupNote = (v: string) => setMySignupEdit((prev) => ({ ...prev, note: v }));
+  const setMySignupHasLesson = (v: boolean) => setMySignupEdit((prev) => ({ ...prev, hasLesson: v }));
+  const setMySignupHasBus = (v: boolean) => setMySignupEdit((prev) => ({ ...prev, hasBus: v }));
+  const setMySignupHasRental = (v: boolean) => setMySignupEdit((prev) => ({ ...prev, hasRental: v }));
+  const setSavingMySignup = (v: boolean) => setMySignupEdit((prev) => ({ ...prev, saving: v }));
+  const setMySignupSaved = (v: boolean) => setMySignupEdit((prev) => ({ ...prev, saved: v }));
+  const { note: mySignupNote, hasLesson: mySignupHasLesson, hasBus: mySignupHasBus, hasRental: mySignupHasRental, saving: savingMySignup, saved: mySignupSaved } = mySignupEdit;
   const [expandedManagedCompanions, setExpandedManagedCompanions] = useState<Set<number>>(new Set());
 
   const [companions, setCompanions] = useState<CompanionItem[]>(initialData?.companions ?? []);
@@ -165,17 +167,21 @@ export function useSignupFormState({
   );
   const [companionActionLoading, setCompanionActionLoading] = useState<number | null>(null);
 
-  const [cancelling, setCancelling] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [cancelResult, setCancelResult] = useState<{
-    penalty: boolean;
-    penaltyMessage: string | null;
-    cancelledCompanions: number;
-  } | null>(null);
+  const [cancelState, setCancelState] = useState<{
+    cancelling: boolean;
+    showConfirm: boolean;
+    result: { penalty: boolean; penaltyMessage: string | null; cancelledCompanions: number } | null;
+  }>({ cancelling: false, showConfirm: false, result: null });
+  const setCancelling = (v: boolean) => setCancelState((prev) => ({ ...prev, cancelling: v }));
+  const setShowCancelConfirm = (v: boolean) => setCancelState((prev) => ({ ...prev, showConfirm: v }));
+  const setCancelResult = (v: typeof cancelState.result) => setCancelState((prev) => ({ ...prev, result: v }));
+  const { cancelling, showConfirm: showCancelConfirm, result: cancelResult } = cancelState;
 
   const [linkedStatus, setLinkedStatus] = useState<LinkedCompanionStatus | null>(initialLinkedState);
-  const [updatingLinked, setUpdatingLinked] = useState(false);
-  const [submittingLinked, setSubmittingLinked] = useState(false);
+  const [linkedMeta, setLinkedMeta] = useState({ updating: false, submitting: false });
+  const setUpdatingLinked = (v: boolean) => setLinkedMeta((prev) => ({ ...prev, updating: v }));
+  const setSubmittingLinked = (v: boolean) => setLinkedMeta((prev) => ({ ...prev, submitting: v }));
+  const { updating: updatingLinked, submitting: submittingLinked } = linkedMeta;
 
   useEffect(() => {
     setHydrated(true);
