@@ -26,6 +26,7 @@ import {
 } from "./landing-page-sections";
 import { useLandingState } from "./useLandingState";
 import { DAY_KO, formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
+import { Icon } from "@/components/ui/Icon";
 
 function buildTossTransferUrl(account: SettlementAccount, amount?: number) {
   const accountNumber = account.accountNumber.replace(/[^\d-]/g, "");
@@ -85,19 +86,6 @@ function meetingTypeClass(meetingType: string) {
   return "brand-chip-soft";
 }
 
-function Icon({
-  name,
-  className = "",
-}: {
-  name: string;
-  className?: string;
-}) {
-  return (
-    <span aria-hidden className={`material-symbols-outlined leading-none ${className}`}>
-      {name}
-    </span>
-  );
-}
 
 function MeetingAction({
   meeting,

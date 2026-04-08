@@ -11,6 +11,7 @@ import type {
   SettlementSummary,
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
+import { Icon } from "@/components/ui/Icon";
 
 export type CalendarCell = {
   day: number;
@@ -36,19 +37,6 @@ export type AlertItem =
       settlement: SettlementSummary;
     };
 
-function Icon({
-  name,
-  className = "",
-}: {
-  name: string;
-  className?: string;
-}) {
-  return (
-    <span aria-hidden className={`material-symbols-outlined leading-none ${className}`}>
-      {name}
-    </span>
-  );
-}
 
 function NoticeGlyph({ className = "" }: { className?: string }) {
   return (
