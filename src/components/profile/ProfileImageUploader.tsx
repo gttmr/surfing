@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createProfileImageFromCrop,
   loadImageFromFile,
@@ -75,7 +75,7 @@ export function ProfileImageUploader({
     return { width, height, centeredX, centeredY };
   }, [cropImage, cropZoom]);
 
-  function clampOffset(nextX: number, nextY: number) {
+  const clampOffset = useCallback((nextX: number, nextY: number) => {
     if (!cropMetrics) return { x: nextX, y: nextY };
     const minDrawX = previewFrameSize - cropMetrics.width;
     const maxDrawX = 0;
@@ -87,7 +87,7 @@ export function ProfileImageUploader({
       x: nextDrawX - cropMetrics.centeredX,
       y: nextDrawY - cropMetrics.centeredY,
     };
-  }
+  }, [cropMetrics]);
 
   function clampZoom(nextZoom: number) {
     return Math.min(3, Math.max(1, nextZoom));
@@ -111,7 +111,7 @@ export function ProfileImageUploader({
       if (next.x === prev.x && next.y === prev.y) return prev;
       return next;
     });
-  }, [cropMetrics]);
+  }, [clampOffset, cropMetrics]);
 
   function closeCropper() {
     if (cropSourceUrl?.startsWith("blob:")) {

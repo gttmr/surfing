@@ -105,8 +105,8 @@ export default async function SchedulePageContent({
   let meetingsForClient: MeetingWithCounts[] = [];
   let noticesForClient: NoticeItem[] = [];
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
-  let initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
-  let initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
+  const initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
+  const initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
   let initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary> = {};
   let initialPendingSettlements: SettlementSummary[] = [];
   let initialSettlementAccount: SettlementAccount | null = null;

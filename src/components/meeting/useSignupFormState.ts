@@ -262,7 +262,7 @@ export function useSignupFormState({
     return () => {
       cancelled = true;
     };
-  }, [currentUser, initialData, initialGuide, meeting.id]);
+  }, [currentUser, initialData, initialGuide, meeting]);
 
   useEffect(() => {
     if (!user?.kakaoId) return;

@@ -61,7 +61,6 @@ export function ProfilePageClient({
     },
     actions: {
       setUser,
-      setShowSetup,
       setActiveTab,
       setName,
       setSetupName,
@@ -123,7 +122,6 @@ export function ProfilePageClient({
         saving={saving}
         linking={linking}
         setupName={setupName}
-        name={name}
         setupMemberType={setupMemberType}
         selectedOwnerKakaoId={selectedOwnerKakaoId}
         selectedCompanionId={selectedCompanionId}

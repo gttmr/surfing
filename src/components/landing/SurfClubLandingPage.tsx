@@ -19,115 +19,15 @@ import EmbeddedMeetingDetail from "./EmbeddedMeetingDetail";
 import {
   AlertCenterModal,
   type AlertItem,
-  type CalendarCell,
   CalendarSection,
   LandingHeader,
   MeetingTabs,
 } from "./landing-page-sections";
 import { useLandingState } from "./useLandingState";
-import { DAY_KO, formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
+import { formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
 import { buildTossTransferUrl } from "@/lib/toss";
-
-
-
-
-function MeetingAction({
-  meeting,
-  loggedIn,
-  today,
-}: {
-  meeting: MeetingWithCounts;
-  loggedIn: boolean;
-  today: string;
-}) {
-  const isPast = meeting.date < today;
-  const isClosed = !meeting.isOpen;
-
-  if (isPast || isClosed) {
-    return (
-      <div className="brand-panel flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold brand-text-subtle">
-        {isPast ? "지난 모임" : "모집 마감"}
-      </div>
-    );
-  }
-
-  if (!loggedIn) {
-    const returnTo = `/?date=${meeting.date}`;
-    return (
-      <a
-        className="brand-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold transition-all active:scale-[0.99]"
-        href={`/api/auth/kakao?returnTo=${encodeURIComponent(returnTo)}`}
-      >
-        로그인 후 참가하기
-        <Icon className="text-[20px]" name="login" />
-      </a>
-    );
-  }
-
-  return (
-    <div className="brand-highlight-panel rounded-2xl px-4 py-3 text-center text-sm font-semibold">
-      아래 상세 영역에서 바로 신청할 수 있습니다.
-    </div>
-  );
-}
-
-function MeetingCard({
-  meeting,
-  loggedIn,
-  today,
-}: {
-  meeting: MeetingWithCounts;
-  loggedIn: boolean;
-  today: string;
-}) {
-  const dateObj = new Date(`${meeting.date}T00:00:00`);
-  const dayName = DAY_KO[dateObj.getDay()];
-  const [, month, day] = meeting.date.split("-");
-
-  return (
-    <article className="brand-card-soft overflow-hidden rounded-2xl">
-      <div className="p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="brand-text-subtle mb-1 text-[10px] font-bold uppercase tracking-[0.32em]">날짜</p>
-            <p className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">
-              {parseInt(month, 10)}월 {parseInt(day, 10)}일 ({dayName})
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className="brand-chip-soft rounded-full px-2.5 py-1 text-[10px] font-bold">
-              {meeting.meetingType}
-            </span>
-            <span className="brand-chip-dark rounded-full px-2.5 py-1 text-[10px] font-bold">
-              참가자 {meeting.approvedCount}명
-            </span>
-          </div>
-        </div>
-
-        <div className="mb-6 space-y-2.5">
-          <div className="brand-text-muted flex items-center gap-2 text-sm">
-            <Icon className="text-[18px]" name="schedule" />
-            <span>{meeting.startTime} - {meeting.endTime}</span>
-          </div>
-          <div className="brand-text-muted flex items-center gap-2 text-sm">
-            <Icon className="text-[18px]" name="location_on" />
-            <span>{meeting.location}</span>
-          </div>
-          {meeting.description ? (
-            <div className="brand-text-muted flex items-start gap-2 text-sm">
-              <Icon className="mt-0.5 text-[18px]" name="info" />
-              <span className="line-clamp-3">{meeting.description}</span>
-            </div>
-          ) : null}
-        </div>
-
-        <MeetingAction loggedIn={loggedIn} meeting={meeting} today={today} />
-      </div>
-    </article>
-  );
-}
 
 export default function SurfClubLandingPage({
   meetings,
@@ -273,18 +173,6 @@ export default function SurfClubLandingPage({
   const alertItems = useMemo<AlertItem[]>(() => {
     const items: AlertItem[] = [];
 
-    for (const notice of notices) {
-      const key = `notice:${notice.id}:${notice.updatedAt}`;
-      items.push({
-        key,
-        type: "notice",
-        title: notice.title,
-        subtitle: notice.isPinned ? "공지사항 · 최상단 고정" : "공지사항",
-        unread: !readAlertKeys.includes(key),
-        notice,
-      });
-    }
-
     for (const settlement of pendingSettlements) {
       const key = `settlement:${settlement.meeting.id}:${settlement.group.totalFee}:${settlement.group.items.length}`;
       items.push({
@@ -296,6 +184,18 @@ export default function SurfClubLandingPage({
           : `총 ${formatWon(settlement.group.totalFee)}`,
         unread: true,
         settlement,
+      });
+    }
+
+    for (const notice of notices) {
+      const key = `notice:${notice.id}:${notice.updatedAt}`;
+      items.push({
+        key,
+        type: "notice",
+        title: notice.title,
+        subtitle: notice.isPinned ? "공지사항 · 공지 상단 고정" : "공지사항",
+        unread: !readAlertKeys.includes(key),
+        notice,
       });
     }
 
@@ -352,7 +252,6 @@ export default function SurfClubLandingPage({
       <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
         <CalendarSection
           year={year}
-          month={month}
           monthLabel={MONTH_NAMES_KO[month]}
           calendarCells={calendarCells}
           selectedDate={selectedDate}

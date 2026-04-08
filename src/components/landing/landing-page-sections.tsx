@@ -283,7 +283,6 @@ export function AlertCenterModal({
 
 export function CalendarSection({
   year,
-  month,
   monthLabel,
   calendarCells,
   selectedDate,
@@ -293,7 +292,6 @@ export function CalendarSection({
   onSelectDate,
 }: {
   year: number;
-  month: number;
   monthLabel: string;
   calendarCells: CalendarCell[];
   selectedDate: string | null;

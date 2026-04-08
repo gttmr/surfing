@@ -185,7 +185,6 @@ export function SignupForm({
 
   // ─── 이미 신청한 상태 (정회원) ────────────────────────────────────────────────────────────────────
   if (myParticipant) {
-    const signedUpCount = Object.keys(signedUpCompanionData).length;
     const dateObj = new Date(`${meeting.date}T00:00:00`);
     const dayName = DAY_KO[dateObj.getDay()];
     const [, month, day] = meeting.date.split("-");

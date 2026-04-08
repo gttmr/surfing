@@ -190,18 +190,24 @@ export function useProfilePageState({
   }, [linkedCompanionInfo, regularMembers, user?.memberType]);
 
   useEffect(() => {
-    if (!selectedOwnerKakaoId) return;
-    if (selectedOwnerKakaoId === loadedOwnerKakaoId) return;
-    setLoadingOwnerCompanions(true);
-    fetch(`/api/companions/by-owner?kakaoId=${encodeURIComponent(selectedOwnerKakaoId)}`)
-      .then((response) => response.ok ? response.json() : [])
-      .then((data) => {
+    async function loadOwnerCompanions() {
+      if (!selectedOwnerKakaoId) return;
+      if (selectedOwnerKakaoId === loadedOwnerKakaoId) return;
+      setLoadingOwnerCompanions(true);
+      try {
+        const response = await fetch(`/api/companions/by-owner?kakaoId=${encodeURIComponent(selectedOwnerKakaoId)}`);
+        const data = response.ok ? await response.json() : [];
         setOwnerCompanions(data);
         setLoadedOwnerKakaoId(selectedOwnerKakaoId);
         setSelectedCompanionId((prev) => (data.some((companion: OwnerCompanion) => companion.id === prev) ? prev : null));
-      })
-      .catch(() => setOwnerCompanions([]))
-      .finally(() => setLoadingOwnerCompanions(false));
+      } catch {
+        setOwnerCompanions([]);
+      } finally {
+        setLoadingOwnerCompanions(false);
+      }
+    }
+
+    void loadOwnerCompanions();
   }, [loadedOwnerKakaoId, selectedOwnerKakaoId]);
 
   const selectedSetupCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import {
   InvalidParticipantOptionsError,

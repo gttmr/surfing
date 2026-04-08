@@ -54,30 +54,46 @@ export function useLandingState({
   const sortedMeetings = useMemo(() => sortMeetings(meetings), [meetings]);
 
   useEffect(() => {
-    const nextView = findInitialView(meetings, today, requestedDate);
-    setYear(nextView.year);
-    setMonth(nextView.month);
-    setSelectedDate(nextView.selectedDate);
+    async function syncViewState() {
+      const nextView = findInitialView(meetings, today, requestedDate);
+      setYear(nextView.year);
+      setMonth(nextView.month);
+      setSelectedDate(nextView.selectedDate);
+    }
+
+    void syncViewState();
   }, [meetings, requestedDate, today]);
 
   useEffect(() => {
-    setActiveMeetingTab("apply");
+    async function resetActiveMeetingTab() {
+      setActiveMeetingTab("apply");
+    }
+
+    void resetActiveMeetingTab();
   }, [selectedDate]);
 
   useEffect(() => {
-    setPendingSettlements(initialPendingSettlements);
-    setSettlementAccount(initialSettlementAccount);
+    async function syncSettlementState() {
+      setPendingSettlements(initialPendingSettlements);
+      setSettlementAccount(initialSettlementAccount);
+    }
+
+    void syncSettlementState();
   }, [initialPendingSettlements, initialSettlementAccount]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(alertStorageKey(user?.kakaoId));
-      const parsed = raw ? JSON.parse(raw) : [];
-      setReadAlertKeys(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []);
-    } catch {
-      setReadAlertKeys([]);
+    async function syncReadAlertKeys() {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = window.localStorage.getItem(alertStorageKey(user?.kakaoId));
+        const parsed = raw ? JSON.parse(raw) : [];
+        setReadAlertKeys(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []);
+      } catch {
+        setReadAlertKeys([]);
+      }
     }
+
+    void syncReadAlertKeys();
   }, [user?.kakaoId]);
 
   function persistReadAlertKeys(nextKeys: string[]) {

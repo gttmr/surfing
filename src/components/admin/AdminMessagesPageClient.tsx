@@ -176,7 +176,7 @@ export function AdminMessagesPageClient({
             메시지 관리
           </h1>
           <p className="brand-text-muted mt-1 text-sm">
-            공지는 알림센터 히스토리로 쌓이고, 고정된 공지는 목록 맨 위에 유지됩니다.
+            공지는 알림센터 히스토리로 쌓이고, 고정된 공지는 다른 공지보다 먼저 노출됩니다.
           </p>
         </div>
         <div className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">
@@ -237,7 +237,7 @@ export function AdminMessagesPageClient({
               <div>
                 <p className="text-sm font-semibold text-[var(--brand-text)]">알림센터 최상단 고정</p>
                 <p className="brand-text-subtle mt-0.5 text-xs">
-                  하나만 고정되며, 읽음 여부와 관계없이 알림센터에서 가장 위에 표시됩니다.
+                  하나만 고정되며, 읽음 여부와 관계없이 다른 공지보다 먼저 표시됩니다.
                 </p>
               </div>
               <input

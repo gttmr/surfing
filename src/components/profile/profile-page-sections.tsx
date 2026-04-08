@@ -19,7 +19,6 @@ type SetupModalProps = {
   saving: boolean;
   linking: boolean;
   setupName: string;
-  name: string;
   setupMemberType: "REGULAR" | "COMPANION";
   selectedOwnerKakaoId: string | null;
   selectedCompanionId: number | null;
@@ -40,7 +39,6 @@ export function ProfileSetupModal({
   saving,
   linking,
   setupName,
-  name,
   setupMemberType,
   selectedOwnerKakaoId,
   selectedCompanionId,
