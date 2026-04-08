@@ -82,9 +82,6 @@ function buildCalendarCells(year: number, month: number) {
 }
 
 
-function meetingTypeClass(meetingType: string) {
-  return "brand-chip-soft";
-}
 
 
 function MeetingAction({
@@ -151,7 +148,7 @@ function MeetingCard({
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${meetingTypeClass(meeting.meetingType)}`}>
+            <span className="brand-chip-soft rounded-full px-2.5 py-1 text-[10px] font-bold">
               {meeting.meetingType}
             </span>
             <span className="brand-chip-dark rounded-full px-2.5 py-1 text-[10px] font-bold">
