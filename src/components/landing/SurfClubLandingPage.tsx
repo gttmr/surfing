@@ -195,7 +195,11 @@ export default function SurfClubLandingPage({
     : 0;
   const selectedSettlementBadge = String(Math.min(selectedSettlementPendingCount, 99));
   const calendarCells = buildCalendarCells(year, month);
-  const canCreateIrregularMeeting = Boolean(user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable);
+  const canCreateMeetingOnSelectedDate = Boolean(
+    user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable
+  );
+  const canCreateRegularMeeting = Boolean(isAdmin && canCreateMeetingOnSelectedDate);
+  const canCreateIrregularMeeting = Boolean(canCreateMeetingOnSelectedDate);
   const alertItems = useMemo<AlertItem[]>(() => {
     const items: AlertItem[] = [];
 
@@ -348,15 +352,29 @@ export default function SurfClubLandingPage({
           </section>
         ) : null}
 
-        {canCreateIrregularMeeting ? (
+        {canCreateMeetingOnSelectedDate ? (
           <section>
-            <Link
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-foreground)] shadow-sm transition-all hover:bg-[var(--brand-primary-hover)]"
-              href={`/meeting/create?date=${encodeURIComponent(selectedDate!)}`}
-            >
-              비정기모임 생성하기
-              <Icon className="text-[20px]" name="add_circle" />
-            </Link>
+            <div className="grid gap-3">
+              {canCreateRegularMeeting ? (
+                <Link
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--brand-primary)] bg-[var(--brand-primary)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-foreground)] transition-colors hover:bg-[var(--brand-primary-hover)]"
+                  href={`/admin/meetings?create=1&date=${encodeURIComponent(selectedDate!)}&type=${encodeURIComponent("정기")}`}
+                >
+                  정기 모임 생성
+                  <Icon className="text-[20px]" name="add_circle" />
+                </Link>
+              ) : null}
+
+              {canCreateIrregularMeeting ? (
+                <Link
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--brand-primary-border)] bg-[var(--brand-primary-soft)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-surface)]"
+                  href={`/meeting/create?date=${encodeURIComponent(selectedDate!)}`}
+                >
+                  비정기 모임 생성
+                  <Icon className="text-[20px]" name="add_circle" />
+                </Link>
+              ) : null}
+            </div>
           </section>
         ) : null}
       </main>

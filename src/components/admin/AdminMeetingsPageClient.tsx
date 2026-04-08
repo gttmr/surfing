@@ -10,16 +10,22 @@ import { DAY_KO } from "@/lib/format";
 
 export function AdminMeetingsPageClient({
   initialMeetings,
+  initialShowCreate = false,
+  initialCreateDate = "",
+  initialCreateType = "정기",
 }: {
   initialMeetings: AdminMeetingListItem[];
+  initialShowCreate?: boolean;
+  initialCreateDate?: string;
+  initialCreateType?: string;
 }) {
   const [meetings, setMeetings] = useState(initialMeetings);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newDate, setNewDate] = useState("");
+  const [showCreate, setShowCreate] = useState(initialShowCreate);
+  const [newDate, setNewDate] = useState(initialCreateDate);
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
   const [newLocation, setNewLocation] = useState("");
-  const [newMeetingType, setNewMeetingType] = useState("정기");
+  const [newMeetingType, setNewMeetingType] = useState(initialCreateType);
   const [newDescription, setNewDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
@@ -77,7 +83,7 @@ export function AdminMeetingsPageClient({
       setNewStartTime("");
       setNewEndTime("");
       setNewLocation("");
-      setNewMeetingType("정기");
+      setNewMeetingType(initialCreateType);
       setNewDescription("");
     } catch {
       addToast("모임 생성에 실패했습니다", "error");
