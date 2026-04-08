@@ -29,6 +29,12 @@ import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
 import { buildTossTransferUrl } from "@/lib/toss";
 
+function getSettlementAlertStatus(settlement: SettlementSummary, inProgressMeetingIds: number[]) {
+  if (settlement.isCompleted) return "completed";
+  if (inProgressMeetingIds.includes(settlement.meeting.id)) return "in_progress";
+  return "pending";
+}
+
 export default function SurfClubLandingPage({
   meetings,
   user,
@@ -65,6 +71,7 @@ export default function SurfClubLandingPage({
     isAlertCenterOpen,
     expandedAlertKey,
     readAlertKeys,
+    settlementProgressMeetingIds,
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
@@ -79,6 +86,7 @@ export default function SurfClubLandingPage({
     setExpandedAlertKey,
     setPendingSettlements,
     persistReadAlertKeys,
+    markSettlementInProgress,
     handleMeetingSummaryChange,
     handleSettlementStatusChange,
     handleSettlementCompletionChange,
@@ -128,7 +136,7 @@ export default function SurfClubLandingPage({
     if (!settlementAccount?.accountNumber) return;
     try {
       await navigator.clipboard.writeText(settlementAccount.accountNumber);
-      await markSettlementCompleted(meetingId, true);
+      markSettlementInProgress(meetingId);
     } catch {
       // no-op
     }
@@ -138,7 +146,7 @@ export default function SurfClubLandingPage({
     if (!settlementAccount) return;
     const tossUrl = buildTossTransferUrl(settlementAccount, amount);
     if (!tossUrl) return;
-    void markSettlementCompleted(meetingId, true, true);
+    markSettlementInProgress(meetingId);
     window.location.href = tossUrl;
   }
 
@@ -174,15 +182,20 @@ export default function SurfClubLandingPage({
     const items: AlertItem[] = [];
 
     for (const settlement of pendingSettlements) {
+      const settlementStatus = getSettlementAlertStatus(settlement, settlementProgressMeetingIds);
       const key = `settlement:${settlement.meeting.id}:${settlement.group.totalFee}:${settlement.group.items.length}`;
       items.push({
         key,
         type: "settlement",
         title: `${settlement.meeting.date} 정산 안내`,
-        subtitle: settlement.isCompleted
-          ? `총 ${formatWon(settlement.group.totalFee)} · 송금완료`
-          : `총 ${formatWon(settlement.group.totalFee)}`,
-        unread: true,
+        subtitle:
+          settlementStatus === "completed"
+            ? `총 ${formatWon(settlement.group.totalFee)} · 송금 완료`
+            : settlementStatus === "in_progress"
+              ? `총 ${formatWon(settlement.group.totalFee)} · 송금 진행 중`
+              : `총 ${formatWon(settlement.group.totalFee)} · 정산 필요`,
+        unread: settlementStatus !== "completed",
+        settlementStatus,
         settlement,
       });
     }
@@ -200,7 +213,7 @@ export default function SurfClubLandingPage({
     }
 
     return items;
-  }, [notices, pendingSettlements, readAlertKeys]);
+  }, [notices, pendingSettlements, readAlertKeys, settlementProgressMeetingIds]);
   const hasUnreadAlerts = alertItems.some((item) => item.unread);
 
   function moveMonth(direction: -1 | 1) {

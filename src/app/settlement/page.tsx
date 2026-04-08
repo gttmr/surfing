@@ -14,7 +14,7 @@ export default async function SettlementPage() {
         <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
           <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
             <Link href="/" className="flex h-12 items-center">
-              <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
+              <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
             </Link>
           </div>
         </header>
@@ -41,7 +41,7 @@ export default async function SettlementPage() {
       <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
           <Link href="/" className="flex h-12 items-center">
-            <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
+            <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
           </Link>
           <Link href="/" className="brand-link text-sm font-bold">홈</Link>
         </div>

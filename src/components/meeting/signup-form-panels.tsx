@@ -44,6 +44,7 @@ export function GuestSignupPanel({
 }
 
 type CompanionPanelProps = {
+  isIrregularMeeting: boolean;
   linkedStatus: LinkedCompanionStatus;
   serverError: string;
   participantOptionPricingGuide: string;
@@ -59,6 +60,7 @@ type CompanionPanelProps = {
 };
 
 export function CompanionSignupPanel({
+  isIrregularMeeting,
   linkedStatus,
   serverError,
   participantOptionPricingGuide,
@@ -102,48 +104,52 @@ export function CompanionSignupPanel({
             </p>
           </div>
 
-          <div className="brand-panel-white rounded-xl p-4">
-            <div className="space-y-4 pl-0">
-              <ShuttleBusChoice
-                boarded={linkedStatus.participant.hasBus}
-                onChange={(next) => onUpdateLinkedOption("hasBus", next)}
-                disabled={updatingLinked}
-              />
-              <ShopOptionChoice
-                value={
-                  linkedStatus.participant.hasLesson
-                    ? "lesson"
-                    : linkedStatus.participant.hasRental
-                      ? "rental"
-                      : null
-                }
-                onChange={(next) => {
-                  onUpdateLinkedOption("hasLesson", next === "lesson");
-                  onUpdateLinkedOption("hasRental", next === "rental");
-                }}
-                disabled={updatingLinked}
-                trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
-              />
+          {!isIrregularMeeting ? (
+            <div className="brand-panel-white rounded-xl p-4">
+              <div className="space-y-4 pl-0">
+                <ShuttleBusChoice
+                  boarded={linkedStatus.participant.hasBus}
+                  onChange={(next) => onUpdateLinkedOption("hasBus", next)}
+                  disabled={updatingLinked}
+                />
+                <ShopOptionChoice
+                  value={
+                    linkedStatus.participant.hasLesson
+                      ? "lesson"
+                      : linkedStatus.participant.hasRental
+                        ? "rental"
+                        : null
+                  }
+                  onChange={(next) => {
+                    onUpdateLinkedOption("hasLesson", next === "lesson");
+                    onUpdateLinkedOption("hasRental", next === "rental");
+                  }}
+                  disabled={updatingLinked}
+                  trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       ) : linkedStatus.ownerApplied ? (
         <div className="space-y-3">
-          <div className="brand-panel-white rounded-xl p-4">
-            <div className="space-y-4 pl-0">
-              <ShuttleBusChoice
-                boarded={hasBus}
-                onChange={onSetMainBusChoice}
-                disabled={submittingLinked}
-              />
-              <ShopOptionChoice
-                value={hasLesson ? "lesson" : hasRental ? "rental" : null}
-                onChange={onSetMainShopOption}
-                disabled={submittingLinked}
-                trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
-              />
+          {!isIrregularMeeting ? (
+            <div className="brand-panel-white rounded-xl p-4">
+              <div className="space-y-4 pl-0">
+                <ShuttleBusChoice
+                  boarded={hasBus}
+                  onChange={onSetMainBusChoice}
+                  disabled={submittingLinked}
+                />
+                <ShopOptionChoice
+                  value={hasLesson ? "lesson" : hasRental ? "rental" : null}
+                  onChange={onSetMainShopOption}
+                  disabled={submittingLinked}
+                  trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <button
             type="button"
@@ -190,6 +196,7 @@ export function CancelResultPanel({
 }
 
 type ExistingSignupPanelProps = {
+  isIrregularMeeting: boolean;
   meetingDisplay: string;
   participantOptionPricingGuide: string;
   profileName: string;
@@ -226,6 +233,7 @@ type ExistingSignupPanelProps = {
 };
 
 export function ExistingSignupPanel({
+  isIrregularMeeting,
   meetingDisplay,
   participantOptionPricingGuide,
   profileName,
@@ -331,21 +339,23 @@ export function ExistingSignupPanel({
                 <div className="brand-input-dimmed rounded-lg px-4 py-2.5 text-sm font-semibold">{profileName}</div>
               </div>
 
-              <div>
-                <div className="space-y-4 pl-0">
-                  <ShuttleBusChoice
-                    boarded={mySignupHasBus}
-                    onChange={onSetMySignupBusChoice}
-                    disabled={savingMySignup}
-                  />
-                  <ShopOptionChoice
-                    value={mySignupHasLesson ? "lesson" : mySignupHasRental ? "rental" : null}
-                    onChange={onSetMySignupShopOption}
-                    disabled={savingMySignup}
-                    trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
-                  />
+              {!isIrregularMeeting ? (
+                <div>
+                  <div className="space-y-4 pl-0">
+                    <ShuttleBusChoice
+                      boarded={mySignupHasBus}
+                      onChange={onSetMySignupBusChoice}
+                      disabled={savingMySignup}
+                    />
+                    <ShopOptionChoice
+                      value={mySignupHasLesson ? "lesson" : mySignupHasRental ? "rental" : null}
+                      onChange={onSetMySignupShopOption}
+                      disabled={savingMySignup}
+                      trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
@@ -415,7 +425,7 @@ export function ExistingSignupPanel({
                           </button>
                         )}
                       </div>
-                      {isExpanded ? (
+                      {isExpanded && !isIrregularMeeting ? (
                         <div className="space-y-4 pl-0">
                           <ShuttleBusChoice
                             boarded={isSignedUp ? (companionData?.hasBus ?? false) : options.hasBus}
@@ -524,6 +534,7 @@ export function ExistingSignupPanel({
 }
 
 type RegularPanelProps = {
+  isIrregularMeeting: boolean;
   duplicate: boolean;
   serverError: string;
   name: string;
@@ -554,6 +565,7 @@ type RegularPanelProps = {
 };
 
 export function RegularSignupPanel({
+  isIrregularMeeting,
   duplicate,
   serverError,
   name,
@@ -616,21 +628,23 @@ export function RegularSignupPanel({
         {nameError ? <p className="brand-form-error">{nameError}</p> : null}
       </div>
 
-      <div className="brand-panel-white rounded-xl p-3">
-        <div className="space-y-4 pl-0">
-          <ShuttleBusChoice
-            boarded={hasBus}
-            onChange={onSetMainBusChoice}
-            disabled={submitting}
-          />
-          <ShopOptionChoice
-            value={hasLesson ? "lesson" : hasRental ? "rental" : null}
-            onChange={onSetMainShopOption}
-            disabled={submitting}
-            trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
-          />
+      {!isIrregularMeeting ? (
+        <div className="brand-panel-white rounded-xl p-3">
+          <div className="space-y-4 pl-0">
+            <ShuttleBusChoice
+              boarded={hasBus}
+              onChange={onSetMainBusChoice}
+              disabled={submitting}
+            />
+            <ShopOptionChoice
+              value={hasLesson ? "lesson" : hasRental ? "rental" : null}
+              onChange={onSetMainShopOption}
+              disabled={submitting}
+              trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
@@ -639,7 +653,7 @@ export function RegularSignupPanel({
         <textarea
           value={note}
           onChange={(e) => onNoteChange(e.target.value.slice(0, 100))}
-          placeholder="처음 참가합니다, 주차 문의 등..."
+          placeholder={isIrregularMeeting ? "합류 시간, 준비물, 전달사항 등..." : "처음 참가합니다, 주차 문의 등..."}
           rows={2}
           disabled={submitting}
           className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]"
@@ -675,7 +689,7 @@ export function RegularSignupPanel({
                     </div>
                     <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{companion.name}</span>
                   </button>
-                  {isSelected ? (
+                  {isSelected && !isIrregularMeeting ? (
                     <div className="mt-2 space-y-4 pl-8">
                       <ShuttleBusChoice
                         boarded={options.hasBus}
@@ -739,21 +753,23 @@ export function RegularSignupPanel({
                       ✕
                     </button>
                   </div>
-                  <div className="space-y-4 pl-0">
-                    <ShuttleBusChoice
-                      boarded={newCompanion.hasBus}
-                      onChange={(next) => onUpdateNewCompanion(index, "hasBus", next)}
-                      disabled={submitting}
-                    />
-                    <ShopOptionChoice
-                      value={newCompanion.hasLesson ? "lesson" : newCompanion.hasRental ? "rental" : null}
-                      onChange={(next) => {
-                        onUpdateNewCompanion(index, "hasLesson", next === "lesson");
-                        onUpdateNewCompanion(index, "hasRental", next === "rental");
-                      }}
-                      disabled={submitting}
-                    />
-                  </div>
+                  {!isIrregularMeeting ? (
+                    <div className="space-y-4 pl-0">
+                      <ShuttleBusChoice
+                        boarded={newCompanion.hasBus}
+                        onChange={(next) => onUpdateNewCompanion(index, "hasBus", next)}
+                        disabled={submitting}
+                      />
+                      <ShopOptionChoice
+                        value={newCompanion.hasLesson ? "lesson" : newCompanion.hasRental ? "rental" : null}
+                        onChange={(next) => {
+                          onUpdateNewCompanion(index, "hasLesson", next === "lesson");
+                          onUpdateNewCompanion(index, "hasRental", next === "rental");
+                        }}
+                        disabled={submitting}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

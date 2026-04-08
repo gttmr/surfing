@@ -16,9 +16,14 @@ import type {
 } from "@/lib/landing-types";
 
 const ALERT_STORAGE_PREFIX = "surfing.alert.read.";
+const SETTLEMENT_PROGRESS_STORAGE_PREFIX = "surfing.settlement.progress.";
 
 function alertStorageKey(kakaoId?: string) {
   return `${ALERT_STORAGE_PREFIX}${kakaoId ?? "guest"}`;
+}
+
+function settlementProgressStorageKey(kakaoId?: string) {
+  return `${SETTLEMENT_PROGRESS_STORAGE_PREFIX}${kakaoId ?? "guest"}`;
 }
 
 export function useLandingState({
@@ -45,6 +50,7 @@ export function useLandingState({
   const [isAlertCenterOpen, setIsAlertCenterOpen] = useState(false);
   const [expandedAlertKey, setExpandedAlertKey] = useState<string | null>(null);
   const [readAlertKeys, setReadAlertKeys] = useState<string[]>([]);
+  const [settlementProgressMeetingIds, setSettlementProgressMeetingIds] = useState<number[]>([]);
   const [pendingSettlements, setPendingSettlements] = useState<SettlementSummary[]>(initialPendingSettlements);
   const [settlementAccount, setSettlementAccount] = useState<SettlementAccount | null>(initialSettlementAccount);
   const [meetingApprovedCountOverrides, setMeetingApprovedCountOverrides] = useState<Record<number, number>>({});
@@ -96,6 +102,25 @@ export function useLandingState({
     void syncReadAlertKeys();
   }, [user?.kakaoId]);
 
+  useEffect(() => {
+    async function syncSettlementProgress() {
+      if (typeof window === "undefined") return;
+      try {
+        const raw = window.localStorage.getItem(settlementProgressStorageKey(user?.kakaoId));
+        const parsed = raw ? JSON.parse(raw) : [];
+        setSettlementProgressMeetingIds(
+          Array.isArray(parsed)
+            ? parsed.filter((item): item is number => Number.isInteger(item))
+            : []
+        );
+      } catch {
+        setSettlementProgressMeetingIds([]);
+      }
+    }
+
+    void syncSettlementProgress();
+  }, [user?.kakaoId]);
+
   function persistReadAlertKeys(nextKeys: string[]) {
     setReadAlertKeys(nextKeys);
     if (typeof window === "undefined") return;
@@ -104,6 +129,21 @@ export function useLandingState({
     } catch {
       // no-op
     }
+  }
+
+  function persistSettlementProgressMeetingIds(nextIds: number[]) {
+    setSettlementProgressMeetingIds(nextIds);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(settlementProgressStorageKey(user?.kakaoId), JSON.stringify(nextIds));
+    } catch {
+      // no-op
+    }
+  }
+
+  function markSettlementInProgress(meetingId: number) {
+    if (settlementProgressMeetingIds.includes(meetingId)) return;
+    persistSettlementProgressMeetingIds([...settlementProgressMeetingIds, meetingId]);
   }
 
   function handleMeetingSummaryChange(meetingId: number, approvedCount: number, participantCount: number) {
@@ -171,6 +211,7 @@ export function useLandingState({
     isAlertCenterOpen,
     expandedAlertKey,
     readAlertKeys,
+    settlementProgressMeetingIds,
     pendingSettlements,
     settlementAccount,
     meetingApprovedCountOverrides,
@@ -185,6 +226,7 @@ export function useLandingState({
     setExpandedAlertKey,
     setPendingSettlements,
     persistReadAlertKeys,
+    markSettlementInProgress,
     handleMeetingSummaryChange,
     handleSettlementStatusChange,
     handleSettlementCompletionChange,

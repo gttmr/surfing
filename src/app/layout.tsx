@@ -2,9 +2,38 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sds-surfing.web.app";
+
 export const metadata: Metadata = {
-  title: "동호회 관리",
-  description: "동호회 모임 참가 신청 및 관리 사이트",
+  metadataBase: new URL(siteUrl),
+  applicationName: "SDS Surfing",
+  title: "SDS Surfing",
+  description: "SDS Surfing 모임 참가 신청 및 관리",
+  openGraph: {
+    title: "SDS Surfing",
+    description: "SDS Surfing 모임 참가 신청 및 관리",
+    siteName: "SDS Surfing",
+    type: "website",
+    url: siteUrl,
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SDS Surfing",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SDS Surfing",
+    description: "SDS Surfing 모임 참가 신청 및 관리",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 const kakaoJsKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;

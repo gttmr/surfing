@@ -35,6 +35,7 @@ export function SignupForm({
 }: SignupFormProps) {
   const searchParams = useSearchParams();
   const isClosed = !meeting.isOpen;
+  const isIrregularMeeting = meeting.meetingType === "비정기";
   const meetingHomeUrl = `/?date=${encodeURIComponent(meeting.date)}`;
   const {
     state: {
@@ -150,6 +151,7 @@ export function SignupForm({
 
     return (
       <CompanionSignupPanel
+        isIrregularMeeting={isIrregularMeeting}
         linkedStatus={linkedStatus}
         serverError={serverError}
         participantOptionPricingGuide={participantOptionPricingGuide}
@@ -191,6 +193,7 @@ export function SignupForm({
     const meetingDisplay = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName}) ${meeting.startTime}`;
     return (
       <ExistingSignupPanel
+        isIrregularMeeting={isIrregularMeeting}
         meetingDisplay={meetingDisplay}
         participantOptionPricingGuide={participantOptionPricingGuide}
         profileName={profileName ?? name}
@@ -253,6 +256,7 @@ export function SignupForm({
   // ─── 신청 폼 (정회원) ─────────────────────────────────────────────────────────────────────────────
   return (
     <RegularSignupPanel
+      isIrregularMeeting={isIrregularMeeting}
       duplicate={duplicate}
       serverError={serverError}
       name={name}

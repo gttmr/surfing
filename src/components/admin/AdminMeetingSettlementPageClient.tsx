@@ -249,7 +249,7 @@ export function AdminMeetingSettlementPageClient({
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-[1fr_120px_auto] gap-2">
+                              <div className="grid grid-cols-[minmax(0,1fr)_108px_auto] gap-2">
                                 <input
                                   value={draft.label}
                                   onChange={(event) =>
@@ -258,8 +258,8 @@ export function AdminMeetingSettlementPageClient({
                                       [participant.id]: { ...draft, label: event.target.value },
                                     }))
                                   }
-                                  placeholder="예: 뒤풀이, 늦게 합류, 할인"
-                                  className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
+                                  placeholder="항목명"
+                                  className="brand-input min-w-0 rounded-2xl px-4 py-3 text-sm outline-none"
                                 />
                                 <input
                                   value={draft.amount}
@@ -269,8 +269,10 @@ export function AdminMeetingSettlementPageClient({
                                       [participant.id]: { ...draft, amount: event.target.value },
                                     }))
                                   }
-                                  placeholder="10000 / -5000"
-                                  className="brand-input rounded-2xl px-4 py-3 text-sm outline-none"
+                                  inputMode="decimal"
+                                  pattern="[+-]?[0-9]*"
+                                  placeholder="금액"
+                                  className="brand-input min-w-0 rounded-2xl px-4 py-3 text-sm outline-none"
                                 />
                                 <button
                                   type="button"

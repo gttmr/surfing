@@ -31,6 +31,7 @@ export type AlertItem =
       title: string;
       subtitle: string;
       unread: boolean;
+      settlementStatus: "pending" | "in_progress" | "completed";
       settlement: SettlementSummary;
     };
 
@@ -102,7 +103,7 @@ export function LandingHeader({
     <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
       <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
         <div className="flex h-12 items-center">
-          <Image alt="Surfing club logo" className="h-auto w-[64px]" height={64} priority src="/logo.png" width={64} />
+          <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
         </div>
         <div className="flex items-center gap-2">
           {hasAlertCenter ? (
@@ -212,7 +213,23 @@ export function AlertCenterModal({
                       ) : (
                         <div className="space-y-3">
                           <div>
-                            <p className="brand-text-subtle text-xs font-bold uppercase tracking-[0.24em]">총 비용</p>
+                            <div className="mb-2">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+                                  item.settlementStatus === "completed"
+                                    ? "brand-chip-success"
+                                    : item.settlementStatus === "in_progress"
+                                      ? "brand-chip-strong"
+                                      : "brand-chip-soft"
+                                }`}
+                              >
+                                {item.settlementStatus === "completed"
+                                  ? "송금 완료"
+                                  : item.settlementStatus === "in_progress"
+                                    ? "송금 진행 중"
+                                    : "정산 필요"}
+                              </span>
+                            </div>
                             <p className="mt-2 text-[1.8rem] font-headline font-extrabold leading-none tracking-[-0.04em] text-[var(--brand-text)]">
                               {formatWon(item.settlement.group.totalFee)}
                             </p>
@@ -224,37 +241,42 @@ export function AlertCenterModal({
                                 {settlementAccount.bankName} {settlementAccount.accountNumber}
                                 {settlementAccount.accountHolder ? ` · 예금주 ${settlementAccount.accountHolder}` : ""}
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                <button
-                                  className="brand-button-primary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                  onClick={() => onOpenTossTransfer(item.settlement.meeting.id, item.settlement.group.totalFee)}
-                                  type="button"
-                                >
-                                  토스로 송금
-                                </button>
-                                <button
-                                  className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                  onClick={() => onCopySettlementAccount(item.settlement.meeting.id)}
-                                  type="button"
-                                >
-                                  계좌번호 복사
-                                </button>
-                                <button
-                                  className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${
-                                    item.settlement.isCompleted
-                                      ? "brand-panel-white border border-[var(--brand-divider)] text-[var(--brand-text-subtle)]"
-                                      : "brand-button-primary"
-                                  }`}
-                                  onClick={() =>
-                                    onToggleSettlementCompleted(
-                                      item.settlement.meeting.id,
-                                      !item.settlement.isCompleted
-                                    )
-                                  }
-                                  type="button"
-                                >
-                                  {item.settlement.isCompleted ? "송금완료됨" : "송금완료"}
-                                </button>
+                              <div className="space-y-2">
+                                {item.settlementStatus !== "completed" ? (
+                                  <>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        className="brand-button-primary rounded-xl px-4 py-2.5 text-sm font-bold"
+                                        onClick={() => onOpenTossTransfer(item.settlement.meeting.id, item.settlement.group.totalFee)}
+                                        type="button"
+                                      >
+                                        토스로 송금
+                                      </button>
+                                      <button
+                                        className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
+                                        onClick={() => onCopySettlementAccount(item.settlement.meeting.id)}
+                                        type="button"
+                                      >
+                                        계좌번호 복사
+                                      </button>
+                                    </div>
+                                    <button
+                                      className="brand-button-primary w-full rounded-xl px-4 py-2.5 text-sm font-bold"
+                                      onClick={() => onToggleSettlementCompleted(item.settlement.meeting.id, true)}
+                                      type="button"
+                                    >
+                                      송금완료했어요
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
+                                    onClick={() => onToggleSettlementCompleted(item.settlement.meeting.id, false)}
+                                    type="button"
+                                  >
+                                    완료 표시 해제
+                                  </button>
+                                )}
                               </div>
                             </>
                           ) : null}
