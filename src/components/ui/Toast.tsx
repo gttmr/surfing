@@ -20,27 +20,27 @@ export function Toast({ message, type = "info", onClose, duration = 3000 }: Toas
     return () => clearTimeout(t);
   }, [duration, onClose]);
 
-  const colors = {
-    success: "bg-green-600 text-white",
-    error: "bg-red-600 text-white",
-    info: "bg-slate-800 text-white",
-  };
+  const colorClass = {
+    success: "brand-toast-success",
+    error: "brand-toast-error",
+    info: "brand-toast-info",
+  }[type];
 
   const icons = {
-    success: "\u2713",
-    error: "\u2715",
-    info: "\u2139",
+    success: "✓",
+    error: "✕",
+    info: "ℹ",
   };
 
   return (
     <div
       className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
-        transition-all duration-300 ${colors[type]} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+        transition-all duration-300 ${colorClass} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
     >
       <span className="text-base">{icons[type]}</span>
       {message}
       <button onClick={() => { setVisible(false); setTimeout(onClose, 300); }} className="ml-2 opacity-70 hover:opacity-100">
-        \u2715
+        ✕
       </button>
     </div>
   );
