@@ -109,7 +109,7 @@ export function AdminMeetingsPageClient({
               {meeting.meetingType}
             </span>
             {!meeting.isOpen ? (
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">마감</span>
+              <span className="brand-chip-dimmed rounded-full px-1.5 py-0.5 text-xs">마감</span>
             ) : null}
             {meeting.createdByKakaoId ? (
               <span className="brand-chip-dark rounded-full px-1.5 py-0.5 text-xs">회원등록</span>

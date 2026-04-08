@@ -249,6 +249,11 @@ body {
   background-color: #15803d;
 }
 
+.brand-chip-dimmed {
+  background-color: var(--brand-dimmed-surface);
+  color: var(--brand-dimmed-text);
+}
+
 .brand-chip-danger {
   background-color: #fee2e2;
   color: #dc2626;
