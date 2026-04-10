@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type {
@@ -87,6 +87,7 @@ export default function EmbeddedMeetingDetail({
   const [loading, setLoading] = useState(!initialMeeting);
   const [error, setError] = useState(false);
   const [settlementStatus, setSettlementStatus] = useState<AdminSettlementStatusSummary | null>(initialSettlementStatus ?? null);
+  const settlementStatusFetchedRef = useRef(!!initialSettlementStatus);
   const [loadingSettlementStatus, setLoadingSettlementStatus] = useState(false);
   const [settlementStatusError, setSettlementStatusError] = useState(false);
   const [isDocumentVisible, setIsDocumentVisible] = useState(() => (
@@ -187,14 +188,11 @@ export default function EmbeddedMeetingDetail({
   }, []);
 
   useEffect(() => {
-    if (activeTab !== "status") return;
-    void fetchMeeting(true);
-  }, [activeTab, fetchMeeting]);
-
-  useEffect(() => {
     if (!isAdmin || activeTab !== "settlement") return;
-    void fetchSettlementStatus(Boolean(settlementStatus));
-  }, [activeTab, fetchSettlementStatus, isAdmin, settlementStatus]);
+    const isBackground = settlementStatusFetchedRef.current;
+    settlementStatusFetchedRef.current = true;
+    void fetchSettlementStatus(isBackground);
+  }, [activeTab, fetchSettlementStatus, isAdmin]);
 
   useEffect(() => {
     if (activeTab !== "status" || !isDocumentVisible) return;

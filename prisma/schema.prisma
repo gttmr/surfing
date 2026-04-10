@@ -19,6 +19,9 @@ model Meeting {
   meetingType       String        @default("정기") // 정기 | 비정기
   createdByKakaoId  String?       // null = admin, otherwise member's kakaoId
   participants      Participant[]
+  menuItems         MeetingFoodMenuItem[]
+  foodOrderItems    ParticipantFoodOrderItem[]
+  foodOrders        ParticipantFoodOrder[]
   chargeAdjustments ParticipantChargeAdjustment[]
   settlementConfirmations SettlementConfirmation[]
   createdAt         DateTime      @default(now())
@@ -43,6 +46,8 @@ model Participant {
   cancelledAt      DateTime?
   isPenalized      Boolean    @default(false) // 취소 시 패널티 적용 여부
   submittedAt      DateTime   @default(now())
+  foodOrderItems   ParticipantFoodOrderItem[]
+  foodOrders       ParticipantFoodOrder[]
   chargeAdjustments ParticipantChargeAdjustment[]
 
   @@unique([meetingId, kakaoId, companionId])
@@ -58,6 +63,65 @@ model ParticipantChargeAdjustment {
   updatedAt     DateTime    @updatedAt
   meeting       Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model FoodMenuItem {
+  id                Int                        @id @default(autoincrement())
+  name              String
+  price             Int
+  isActive          Boolean                    @default(true)
+  displayOrder      Int                        @default(0)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  meetingMenuItems  MeetingFoodMenuItem[]
+  orderItems        ParticipantFoodOrderItem[]
+}
+
+model MeetingFoodMenuItem {
+  id         Int          @id @default(autoincrement())
+  meetingId   Int
+  menuItemId  Int
+  isAvailable Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  meeting     Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  menuItem    FoodMenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, menuItemId])
+}
+
+model ParticipantFoodOrder {
+  id            Int                        @id @default(autoincrement())
+  meetingId     Int
+  participantId Int
+  createdAt     DateTime                   @default(now())
+  meeting       Meeting                    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant   Participant                @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  items         ParticipantFoodOrderItem[]
+
+  @@index([meetingId, participantId])
+}
+
+model ParticipantFoodOrderItem {
+  id                Int                  @id @default(autoincrement())
+  meetingId         Int
+  participantId     Int
+  foodOrderId       Int
+  menuItemId        Int
+  menuNameSnapshot  String
+  unitPriceSnapshot Int
+  quantity          Int
+  preparingQuantity Int                  @default(0)
+  servedQuantity    Int                  @default(0)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  meeting           Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant       Participant          @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  menuItem          FoodMenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  foodOrder         ParticipantFoodOrder @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, participantId])
+  @@index([foodOrderId])
 }
 
 model SettlementConfirmation {
@@ -86,7 +150,7 @@ model User {
   profileImage String?
   customProfileImageUrl String?
   phoneNumber  String?
-  role         String        @default("MEMBER")   // ADMIN, MEMBER, BANNED
+  role         String        @default("MEMBER")   // ADMIN, SHOP_OWNER, MEMBER, BANNED
   memberType   String        @default("REGULAR")  // REGULAR | COMPANION
   penaltyCount Int           @default(0)          // 누적 패널티 횟수
   createdAt    DateTime      @default(now())

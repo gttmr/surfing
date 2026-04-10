@@ -1,5 +1,3 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -34,13 +32,35 @@
   --brand-dimmed-border: #9ca3af;
   --brand-dimmed-text: #4b5563;
   --brand-companion: #c2580a;
+  --brand-companion-surface: #fee2c5;
   --brand-error: #dc2626;
+  --brand-danger: #dc2626;
+  --brand-danger-hover: #b91c1c;
+  --brand-danger-surface: #fef2f2;
+  --brand-danger-surface-strong: #fee2e2;
+  --brand-danger-surface-inline: rgba(254, 202, 202, 0.6);
+  --brand-danger-border: #fecaca;
+  --brand-danger-border-strong: #f87171;
+  --brand-danger-text: #991b1b;
+  --brand-danger-ring: rgba(220, 38, 38, 0.15);
+  --brand-success: #16a34a;
+  --brand-success-hover: #15803d;
+  --brand-success-surface: #f0fdf4;
+  --brand-success-surface-strong: #dcfce7;
+  --brand-success-border: #bbf7d0;
+  --brand-success-text: #166534;
   --brand-calendar-sun: #ef4444;
   --brand-calendar-sat: #3b82f6;
   --brand-shadow: rgba(0, 29, 110, 0.1);
   --brand-ring: rgba(127, 181, 255, 0.35);
   --brand-overlay: rgba(0, 29, 110, 0.24);
   --brand-overlay-strong: rgba(0, 29, 110, 0.34);
+  --brand-modal-scrim: rgba(0, 29, 110, 0.5);
+  --brand-crop-mask: rgba(0, 22, 92, 0.72);
+  --brand-crop-guide-border: rgba(255, 255, 255, 0.95);
+  --brand-surface-glass: rgba(255, 255, 255, 0.95);
+  --brand-primary-shadow-strong: 0 12px 24px rgba(0, 29, 110, 0.16);
+  --brand-primary-shadow-hover: 0 14px 28px rgba(0, 29, 110, 0.2);
   --brand-frame-shadow: 0 10px 30px var(--brand-shadow);
   --brand-header-shadow: 0 8px 24px var(--brand-shadow);
   --brand-avatar-shadow: 0 18px 40px var(--brand-shadow);
@@ -105,23 +125,23 @@ body {
 }
 
 .brand-alert-success {
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #166534;
+  background-color: var(--brand-success-surface);
+  border: 1px solid var(--brand-success-border);
+  color: var(--brand-success-text);
 }
 
 .brand-alert-error {
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
+  background-color: var(--brand-danger-surface);
+  border: 1px solid var(--brand-danger-border);
+  color: var(--brand-danger-text);
 }
 
-.brand-status-dot-success { background-color: #16a34a; }
+.brand-status-dot-success { background-color: var(--brand-success); }
 .brand-status-dot-info    { background-color: var(--brand-primary-soft-strong); }
 .brand-status-dot-dimmed  { background-color: var(--brand-dimmed-border); }
 
-.brand-toast-success { background-color: #16a34a; color: #ffffff; }
-.brand-toast-error   { background-color: #dc2626; color: #ffffff; }
+.brand-toast-success { background-color: var(--brand-success); color: #ffffff; }
+.brand-toast-error   { background-color: var(--brand-danger); color: #ffffff; }
 .brand-toast-info    { background-color: var(--brand-primary); color: var(--brand-primary-foreground); }
 
 .brand-highlight-panel {
@@ -146,7 +166,7 @@ body {
 }
 
 .brand-chip-companion {
-  background-color: #fee2c5;
+  background-color: var(--brand-companion-surface);
   color: var(--brand-primary-text);
 }
 
@@ -156,8 +176,8 @@ body {
 }
 
 .brand-avatar-shell {
-  background-color: #ffffff;
-  border: 2px solid #7fb5ff;
+  background-color: var(--brand-surface-elevated);
+  border: 2px solid var(--brand-primary-border);
   color: var(--brand-primary-foreground);
 }
 
@@ -188,12 +208,12 @@ body {
 .brand-button-primary {
   background-color: var(--brand-primary);
   color: var(--brand-primary-foreground);
-  box-shadow: 0 12px 24px rgba(0, 29, 110, 0.16);
+  box-shadow: var(--brand-primary-shadow-strong);
 }
 
 .brand-button-primary:hover {
   background-color: var(--brand-primary-hover);
-  box-shadow: 0 14px 28px rgba(0, 29, 110, 0.2);
+  box-shadow: var(--brand-primary-shadow-hover);
 }
 
 .brand-button-primary:disabled {
@@ -214,12 +234,12 @@ body {
 }
 
 .brand-button-danger {
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  border: 1px solid var(--brand-danger-border);
+  color: var(--brand-danger);
 }
 
 .brand-button-danger:hover {
-  background-color: #fef2f2;
+  background-color: var(--brand-danger-surface);
 }
 
 .brand-button-danger:disabled {
@@ -227,12 +247,12 @@ body {
 }
 
 .brand-button-danger-solid {
-  background-color: #dc2626;
+  background-color: var(--brand-danger);
   color: #ffffff;
 }
 
 .brand-button-danger-solid:hover {
-  background-color: #b91c1c;
+  background-color: var(--brand-danger-hover);
 }
 
 .brand-button-danger-solid:disabled {
@@ -241,12 +261,12 @@ body {
 }
 
 .brand-button-confirm {
-  background-color: #16a34a;
+  background-color: var(--brand-success);
   color: #ffffff;
 }
 
 .brand-button-confirm:hover {
-  background-color: #15803d;
+  background-color: var(--brand-success-hover);
 }
 
 .brand-chip-dimmed {
@@ -255,13 +275,19 @@ body {
 }
 
 .brand-chip-danger {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: var(--brand-danger-surface-strong);
+  color: var(--brand-danger);
 }
 
 .brand-chip-success {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: var(--brand-success-surface-strong);
+  color: var(--brand-success);
+}
+
+.brand-chip-preparing {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
 }
 
 .brand-link {
@@ -291,18 +317,18 @@ body {
 }
 
 .brand-input-error {
-  background-color: #fef2f2;
-  border: 1px solid #f87171;
+  background-color: var(--brand-danger-surface);
+  border: 1px solid var(--brand-danger-border-strong);
   color: var(--brand-text);
 }
 
 .brand-input-error:focus {
-  border-color: #dc2626;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  border-color: var(--brand-danger);
+  box-shadow: 0 0 0 3px var(--brand-danger-ring);
 }
 
 .brand-form-error {
-  color: #dc2626;
+  color: var(--brand-danger);
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
@@ -406,5 +432,19 @@ body {
 
 .brand-bottom-dock {
   border-top: 1px solid var(--brand-divider);
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: var(--brand-surface-glass);
+}
+
+.brand-modal-scrim {
+  background-color: var(--brand-modal-scrim);
+}
+
+.brand-crop-guide {
+  border: 2.5px solid var(--brand-crop-guide-border);
+  box-shadow: 0 0 0 999px var(--brand-crop-mask);
+}
+
+.brand-inline-danger {
+  background-color: var(--brand-danger-surface-inline);
+  color: var(--brand-danger);
 }

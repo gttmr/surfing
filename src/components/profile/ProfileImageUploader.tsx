@@ -422,7 +422,7 @@ export function ProfileImageUploader({
                   />
                 ) : null}
                 <div
-                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-white/95 shadow-[0_0_0_999px_rgba(0,22,92,0.72)]"
+                  className="brand-crop-guide pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
                   style={{
                     height: `${cropGuideSize}px`,
                     width: `${cropGuideSize}px`,

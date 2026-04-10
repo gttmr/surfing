@@ -104,5 +104,7 @@
 ## 브랜치/배포
 - 기준 작업 브랜치: `codex/landing-meeting-flow-main`
 - 최신 반영 커밋은 `main`과 동일하게 유지한다.
-- 현재 운영 배포는 Firebase Hosting(`sds-surfing.web.app`) -> Cloud Run(`sds-surfing`) 구조다.
-- 운영 리소스와 이사 대비 메모는 `docs/cloud-run-gcs-notes.md`에 별도로 정리했다.
+- 이전 운영 배포는 Firebase Hosting(`sds-surfing.web.app`) -> Cloud Run(`sds-surfing`) 구조였다.
+- 2026-04-08 기준으로 Cloud Run, Firebase Hosting, Artifact Registry, source bucket, 프로필 이미지 bucket 정리를 끝냈다.
+- 나중에 GCP로 돌아갈 때는 `Cloud Run source deploy를 기본 배포 방식으로 쓰지 않는다`.
+- 재발 방지용 배포 전략과 비용 메모는 `docs/cloud-run-gcs-notes.md`에 별도로 정리했다.

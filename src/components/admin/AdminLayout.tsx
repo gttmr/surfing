@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/admin/meetings", label: "모임관리", icon: "👥", exact: false },
   { href: "/admin/members", label: "회원관리", icon: "🧑‍💼", exact: false },
   { href: "/admin/pricing", label: "비용책정", icon: "💳", exact: false },
+  { href: "/admin/menus", label: "메뉴관리", icon: "☕", exact: false },
   { href: "/admin/settings", label: "설정", icon: "⚙️", exact: false },
 ];
 

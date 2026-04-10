@@ -108,7 +108,8 @@ export function ProfilePageClient({
   }
 
   const isRegular = (user?.memberType ?? "REGULAR") === "REGULAR";
-  const isAdmin = user?.role === "ADMIN";
+  const canAccessAdminPortal = user?.role === "ADMIN";
+  const canAccessShopPortal = user?.role === "ADMIN" || user?.role === "SHOP_OWNER";
   const isCompanionWithoutOwner = !isRegular && !linkedCompanionInfo?.linked;
   const profileDisplayName = user?.name || "이름 없음";
   const profileFallbackSeed = user?.kakaoId ?? profileDisplayName;
@@ -147,7 +148,8 @@ export function ProfilePageClient({
       <main className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
         <ProfileHeaderSection
           user={user}
-          isAdmin={isAdmin}
+          canAccessAdminPortal={canAccessAdminPortal}
+          canAccessShopPortal={canAccessShopPortal}
           profileDisplayName={profileDisplayName}
           profileFallbackSeed={profileFallbackSeed}
           companionsCount={companions.length}

@@ -71,6 +71,9 @@ export function SignupForm({
       newCompanions,
       signedUpCompanionData,
       companionActionLoading,
+      selectedCompanionIdsForMeeting,
+      newProfileCompanionInput,
+      addingCompanionToProfile,
       cancelling,
       showCancelConfirm,
       cancelResult,
@@ -88,6 +91,8 @@ export function SignupForm({
       setMySignupNote,
       setExpandedManagedCompanions,
       setSelectedCompanions,
+      setSelectedCompanionIdsForMeeting,
+      setNewProfileCompanionInput,
       setNewCompanionInput,
       setNewCompanions,
       setShowCancelConfirm,
@@ -103,6 +108,7 @@ export function SignupForm({
       handleSubmit,
       handleAddCompanionToMeeting,
       handleCancelCompanion,
+      handleAddCompanionToProfile,
       handleUpdateCompanionOption,
       handleUpdateLinkedOption,
       handleApplyLinkedCompanion,
@@ -151,6 +157,7 @@ export function SignupForm({
 
     return (
       <CompanionSignupPanel
+        meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
         linkedStatus={linkedStatus}
         serverError={serverError}
@@ -193,6 +200,7 @@ export function SignupForm({
     const meetingDisplay = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName}) ${meeting.startTime}`;
     return (
       <ExistingSignupPanel
+        meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
         meetingDisplay={meetingDisplay}
         participantOptionPricingGuide={participantOptionPricingGuide}
@@ -211,6 +219,7 @@ export function SignupForm({
         companionOptions={companionOptions}
         expandedManagedCompanions={expandedManagedCompanions}
         companionActionLoading={companionActionLoading}
+        selectedCompanionIdsForMeeting={selectedCompanionIdsForMeeting}
         savingMySignup={savingMySignup}
         showCancelConfirm={showCancelConfirm}
         cancelling={cancelling}
@@ -232,11 +241,13 @@ export function SignupForm({
             return next;
           });
         }}
-        onAddCompanionToMeeting={(id) => {
-          void handleAddCompanionToMeeting(id);
-        }}
-        onCancelCompanion={(id) => {
-          void handleCancelCompanion(id);
+        onToggleCompanionForMeeting={(id) => {
+          setSelectedCompanionIdsForMeeting((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          });
         }}
         onUpdateCompanionOption={(id, field, value) => {
           void handleUpdateCompanionOption(id, field, value);

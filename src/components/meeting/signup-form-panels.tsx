@@ -18,6 +18,7 @@ import {
   ShopOptionChoice,
   ShuttleBusChoice,
 } from "@/components/meeting/signup-form-controls";
+import { MeetingFoodOrderPanel } from "@/components/meeting/MeetingFoodOrderPanel";
 
 type OptionField = "hasLesson" | "hasBus" | "hasRental";
 
@@ -44,6 +45,7 @@ export function GuestSignupPanel({
 }
 
 type CompanionPanelProps = {
+  meetingId: number;
   isIrregularMeeting: boolean;
   linkedStatus: LinkedCompanionStatus;
   serverError: string;
@@ -60,6 +62,7 @@ type CompanionPanelProps = {
 };
 
 export function CompanionSignupPanel({
+  meetingId,
   isIrregularMeeting,
   linkedStatus,
   serverError,
@@ -130,6 +133,7 @@ export function CompanionSignupPanel({
               </div>
             </div>
           ) : null}
+          {linkedStatus.participant.status === "APPROVED" ? <MeetingFoodOrderPanel meetingId={meetingId} /> : null}
         </div>
       ) : linkedStatus.ownerApplied ? (
         <div className="space-y-3">
@@ -196,6 +200,7 @@ export function CancelResultPanel({
 }
 
 type ExistingSignupPanelProps = {
+  meetingId: number;
   isIrregularMeeting: boolean;
   meetingDisplay: string;
   participantOptionPricingGuide: string;
@@ -214,6 +219,7 @@ type ExistingSignupPanelProps = {
   companionOptions: Record<number, CompanionOption>;
   expandedManagedCompanions: Set<number>;
   companionActionLoading: number | null;
+  selectedCompanionIdsForMeeting: Set<number>;
   savingMySignup: boolean;
   showCancelConfirm: boolean;
   cancelling: boolean;
@@ -223,8 +229,7 @@ type ExistingSignupPanelProps = {
   onSetMySignupBusChoice: (boarded: boolean) => void;
   onSetMySignupShopOption: (option: "lesson" | "rental" | null) => void;
   onToggleExpandedCompanion: (id: number) => void;
-  onAddCompanionToMeeting: (id: number) => void;
-  onCancelCompanion: (id: number) => void;
+  onToggleCompanionForMeeting: (id: number) => void;
   onUpdateCompanionOption: (id: number, field: OptionField, value: boolean) => void;
   onSetCompanionOption: (id: number, field: OptionField, value: boolean) => void;
   onShowCancelConfirm: (show: boolean) => void;
@@ -233,6 +238,7 @@ type ExistingSignupPanelProps = {
 };
 
 export function ExistingSignupPanel({
+  meetingId,
   isIrregularMeeting,
   meetingDisplay,
   participantOptionPricingGuide,
@@ -251,6 +257,7 @@ export function ExistingSignupPanel({
   companionOptions,
   expandedManagedCompanions,
   companionActionLoading,
+  selectedCompanionIdsForMeeting,
   savingMySignup,
   showCancelConfirm,
   cancelling,
@@ -260,8 +267,7 @@ export function ExistingSignupPanel({
   onSetMySignupBusChoice,
   onSetMySignupShopOption,
   onToggleExpandedCompanion,
-  onAddCompanionToMeeting,
-  onCancelCompanion,
+  onToggleCompanionForMeeting,
   onUpdateCompanionOption,
   onSetCompanionOption,
   onShowCancelConfirm,
@@ -309,18 +315,20 @@ export function ExistingSignupPanel({
           </div>
         </div>
       ) : (
-        <div className="brand-alert-success rounded-xl p-5 text-center">
-          <div className="mb-2 text-3xl">✓</div>
-          <p className="font-bold">
+        <div className="brand-alert-success flex items-center gap-2 rounded-xl px-4 py-3">
+          <span className="text-sm font-bold">✓</span>
+          <span className="text-sm font-bold">
             {myParticipant.status === "APPROVED" ? "참가가 확정되었습니다" : `대기자 ${myParticipant.waitlistPosition}번째입니다`}
-          </p>
-          {signedUpCount > 0 ? <p className="mt-1 text-sm opacity-80">동반인 {signedUpCount}명도 함께 신청되었습니다</p> : null}
+            {signedUpCount > 0 ? ` · 동반인 ${signedUpCount}명 포함` : ""}
+          </span>
         </div>
       )}
 
       {serverError ? (
         <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
+
+      {myParticipant.status === "APPROVED" ? <MeetingFoodOrderPanel meetingId={meetingId} /> : null}
 
       {!showMySignupDetails ? (
         <button
@@ -374,30 +382,33 @@ export function ExistingSignupPanel({
             </div>
           </div>
 
-          {companions.length > 0 ? (
-            <div className="brand-panel-white rounded-xl p-4">
-              <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
+          <div className="brand-panel-white rounded-xl p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
                 <span className="text-base">👥</span> 동반인 참가 관리
               </p>
-              <div className="space-y-3">
+              <a href="/profile" className="brand-button-secondary rounded-lg px-2.5 py-1.5 text-xs font-bold">추가</a>
+            </div>
+            {companions.length > 0 ? (
+              <div className="space-y-2">
                 {companions.map((companion) => {
                   const companionData = signedUpCompanionData[companion.id];
                   const isSignedUp = !!companionData;
-                  const isLoading = companionActionLoading === companion.id;
+                  const isChecked = selectedCompanionIdsForMeeting.has(companion.id);
                   const isExpanded = expandedManagedCompanions.has(companion.id);
                   const options = companionOptions[companion.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
 
                   return (
-                    <div key={companion.id} className={`rounded-lg p-3 ${isSignedUp ? "brand-alert-success" : "brand-list-item"}`}>
-                      <div className="mb-2 flex items-center gap-2">
+                    <div key={companion.id} className="brand-list-item rounded-lg p-3">
+                      <div className="flex items-center gap-3">
                         <button
                           className="flex flex-1 items-center gap-3 text-left"
-                          disabled={isLoading}
-                          onClick={() => onToggleExpandedCompanion(companion.id)}
+                          disabled={savingMySignup}
+                          onClick={() => onToggleCompanionForMeeting(companion.id)}
                           type="button"
                         >
-                          <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isExpanded ? "brand-check-active brand-choice-indicator-active" : ""}`}>
-                            {isExpanded ? (
+                          <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isChecked ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+                            {isChecked ? (
                               <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
@@ -405,63 +416,46 @@ export function ExistingSignupPanel({
                           </div>
                           <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{companion.name}</span>
                         </button>
-                        {isSignedUp ? (
+                        {isSignedUp && !isIrregularMeeting ? (
                           <button
-                            className="brand-alert-error rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
-                            disabled={isLoading}
-                            onClick={() => onCancelCompanion(companion.id)}
+                            className="brand-text-subtle text-xs"
+                            onClick={() => onToggleExpandedCompanion(companion.id)}
                             type="button"
                           >
-                            {isLoading ? "..." : "취소"}
+                            {isExpanded ? "접기" : "옵션"}
                           </button>
-                        ) : (
-                          <button
-                            className="brand-button-secondary rounded-lg px-2 py-1 text-xs font-bold transition-colors disabled:opacity-50"
-                            disabled={isLoading}
-                            onClick={() => onAddCompanionToMeeting(companion.id)}
-                            type="button"
-                          >
-                            {isLoading ? "..." : "추가"}
-                          </button>
-                        )}
+                        ) : null}
                       </div>
-                      {isExpanded && !isIrregularMeeting ? (
-                        <div className="space-y-4 pl-0">
+                      {isExpanded && isSignedUp && !isIrregularMeeting ? (
+                        <div className="mt-3 space-y-4 border-t border-[var(--brand-divider)] pt-3 pl-8">
                           <ShuttleBusChoice
-                            boarded={isSignedUp ? (companionData?.hasBus ?? false) : options.hasBus}
-                            onChange={(next) =>
-                              isSignedUp
-                                ? onUpdateCompanionOption(companion.id, "hasBus", next)
-                                : onSetCompanionOption(companion.id, "hasBus", next)
-                            }
-                            disabled={isLoading}
+                            boarded={companionData.hasBus ?? false}
+                            onChange={(next) => onUpdateCompanionOption(companion.id, "hasBus", next)}
+                            disabled={savingMySignup}
                           />
                           <ShopOptionChoice
-                            value={
-                              isSignedUp
-                                ? companionData?.hasLesson
-                                  ? "lesson"
-                                  : companionData?.hasRental
-                                    ? "rental"
-                                    : null
-                                : options.hasLesson
-                                  ? "lesson"
-                                  : options.hasRental
-                                    ? "rental"
-                                    : null
-                            }
+                            value={companionData.hasLesson ? "lesson" : companionData.hasRental ? "rental" : null}
                             onChange={(next) => {
-                              const hasLessonNext = next === "lesson";
-                              const hasRentalNext = next === "rental";
-                              if (isSignedUp) {
-                                onUpdateCompanionOption(companion.id, "hasLesson", hasLessonNext);
-                                onUpdateCompanionOption(companion.id, "hasRental", hasRentalNext);
-                              } else {
-                                onSetCompanionOption(companion.id, "hasLesson", hasLessonNext);
-                                onSetCompanionOption(companion.id, "hasRental", hasRentalNext);
-                              }
+                              onUpdateCompanionOption(companion.id, "hasLesson", next === "lesson");
+                              onUpdateCompanionOption(companion.id, "hasRental", next === "rental");
                             }}
-                            disabled={isLoading}
+                            disabled={savingMySignup}
+                          />
+                        </div>
+                      ) : isChecked && !isSignedUp && !isIrregularMeeting ? (
+                        <div className="mt-3 space-y-4 border-t border-[var(--brand-divider)] pt-3 pl-8">
+                          <ShuttleBusChoice
+                            boarded={options.hasBus}
+                            onChange={(next) => onSetCompanionOption(companion.id, "hasBus", next)}
+                            disabled={savingMySignup}
+                          />
+                          <ShopOptionChoice
+                            value={options.hasLesson ? "lesson" : options.hasRental ? "rental" : null}
+                            onChange={(next) => {
+                              onSetCompanionOption(companion.id, "hasLesson", next === "lesson");
+                              onSetCompanionOption(companion.id, "hasRental", next === "rental");
+                            }}
+                            disabled={savingMySignup}
                           />
                         </div>
                       ) : null}
@@ -469,13 +463,10 @@ export function ExistingSignupPanel({
                   );
                 })}
               </div>
-            </div>
-          ) : (
-            <div className="brand-panel-white flex items-center justify-between rounded-xl p-4">
-              <span className="brand-text-muted text-sm">등록된 동반인이 없습니다</span>
-              <a href="/profile" className="brand-link text-xs font-semibold">동반인 등록 &rarr;</a>
-            </div>
-          )}
+            ) : (
+              <p className="brand-text-muted text-sm">등록된 동반인이 없습니다. 추가 버튼을 눌러 등록하세요.</p>
+            )}
+          </div>
 
           {showCancelConfirm ? (
             <div className="brand-alert-error rounded-xl p-5 space-y-3">

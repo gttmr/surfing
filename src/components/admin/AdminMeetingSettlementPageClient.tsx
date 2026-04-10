@@ -216,12 +216,33 @@ export function AdminMeetingSettlementPageClient({
                                   </p>
                                   <p className="brand-text-subtle mt-1 text-xs">
                                     참가 {formatWon(participant.breakdown.baseFee)} · 강습 {formatWon(participant.breakdown.lessonFee)} · 대여 {formatWon(participant.breakdown.rentalFee)}
+                                    {participant.breakdown.foodSubtotal > 0
+                                      ? ` · 식음료 ${formatWon(participant.breakdown.foodSubtotal)} · 지원 -${formatWon(participant.breakdown.foodSupportApplied)}`
+                                      : ""}
                                   </p>
                                 </div>
                                 <span className="rounded-full bg-[var(--brand-primary-soft-accent)] px-2.5 py-1 text-xs font-bold text-[var(--brand-primary-text)]">
                                   {formatWon(participant.breakdown.totalFee)}
                                 </span>
                               </div>
+
+                              {participant.foodOrders.length > 0 ? (
+                                <div className="mb-4 space-y-2">
+                                  {participant.foodOrders.map((item) => (
+                                    <div key={item.id} className="brand-panel-white flex items-center justify-between rounded-2xl px-4 py-3">
+                                      <div>
+                                        <p className="text-sm font-semibold text-[var(--brand-text)]">{item.menuNameSnapshot}</p>
+                                        <p className="brand-text-subtle mt-1 text-xs">
+                                          {formatWon(item.unitPriceSnapshot)} · 수량 {item.quantity}
+                                        </p>
+                                      </div>
+                                      <span className="text-sm font-bold text-[var(--brand-text)]">
+                                        {formatWon(item.unitPriceSnapshot * item.quantity)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
 
                               <div className="mb-4 space-y-2">
                                 {participant.adjustments.length > 0 ? (
