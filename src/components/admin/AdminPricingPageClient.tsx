@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
+import {
+  PRICING_SETTING_KEYS,
+  type PricingSettingKey,
+} from "@/lib/settings";
 import type { AdminPricingState } from "@/lib/admin-page-data";
 
 const PRICING_FIELDS: Array<{
@@ -65,6 +68,7 @@ export function AdminPricingPageClient({
       companionLessonRental: companionBase + companionLesson + companionRental,
       regularRentalOnly: regularBase + regularRental,
       companionRentalOnly: companionBase + companionRental,
+      foodSupportCap: parseWon(pricing.foodOrderSupportCap),
     };
   }, [pricing]);
 
@@ -79,10 +83,7 @@ export function AdminPricingPageClient({
 
     try {
       const updates = Object.fromEntries(
-        (Object.entries(pricing) as Array<[PricingSettingKey, string]>).map(([key, value]) => [
-          key,
-          String(parseWon(value)),
-        ])
+        Object.entries(pricing).map(([key, value]) => [key, String(parseWon(value))])
       );
       const res = await fetch("/api/admin/settings", {
         method: "PUT",
@@ -102,7 +103,7 @@ export function AdminPricingPageClient({
     <AdminLayout>
       <div className="mb-6">
         <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">비용 책정하기</h1>
-        <p className="brand-text-muted mt-1 text-sm">정회원/동반인별 기본 참가비, 강습비, 장비 대여비를 관리합니다.</p>
+        <p className="brand-text-muted mt-1 text-sm">참가비, 옵션 비용, 식음료 지원 한도를 운영 기준에 맞춰 한 번에 저장합니다.</p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
@@ -179,12 +180,60 @@ export function AdminPricingPageClient({
           </div>
         </div>
 
+        <div className="brand-card-soft rounded-3xl p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-extrabold text-[var(--brand-text)]">식음료 지원 정책</h2>
+              <p className="brand-text-subtle mt-1 text-xs">참가자 1인 기준으로 식음료 주문 총액에서 차감할 최대 지원 금액입니다.</p>
+            </div>
+            <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">운영진 설정</span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,220px)_1fr] md:items-start">
+            <label className="block">
+              <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">1인당 지원 한도</span>
+              <input
+                className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                inputMode="numeric"
+                onChange={(e) =>
+                  setPricing((prev) => ({
+                    ...prev,
+                    foodOrderSupportCap: e.target.value.replace(/[^\d]/g, ""),
+                  }))
+                }
+                placeholder="10000"
+                type="text"
+                value={pricing.foodOrderSupportCap}
+              />
+              <span className="brand-text-subtle mt-1 block text-[11px]">{formatWon(pricing.foodOrderSupportCap)}</span>
+            </label>
+
+            <div className="brand-list-item rounded-2xl p-4">
+              <p className="text-sm font-bold text-[var(--brand-text)]">정산 반영 방식</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="brand-text-muted">식음료 총액</span>
+                  <span className="font-bold">참가자별 합산</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="brand-text-muted">지원 차감</span>
+                  <span className="font-bold">최대 {preview.foodSupportCap.toLocaleString("ko-KR")}원</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="brand-text-muted">초과 청구</span>
+                  <span className="font-bold">정산서에 자동 반영</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button
           className="brand-button-primary w-full rounded-2xl py-3 text-sm font-bold transition-all"
           disabled={saving}
           type="submit"
         >
-          {saving ? "저장 중..." : "비용 설정 저장"}
+          {saving ? "저장 중..." : "비용 정책 저장"}
         </button>
       </form>
 

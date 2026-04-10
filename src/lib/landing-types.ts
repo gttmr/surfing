@@ -33,6 +33,9 @@ export type SettlementSummary = {
       baseFee: number;
       lessonFee: number;
       rentalFee: number;
+      foodSubtotal: number;
+      foodSupportApplied: number;
+      foodCharge: number;
       totalFee: number;
       adjustments: { id: number; label: string; amount: number }[];
     }[];

@@ -45,3 +45,4 @@ prisma/migrations/
 
 # local uploads
 /public/uploads/
+.env*.local

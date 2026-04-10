@@ -103,7 +103,7 @@ export function AdminSettingsPageClient({
                   <span className="text-2xl">⚠️</span>
                 </div>
                 <p className="mb-2 text-center text-sm font-bold text-[var(--brand-text)]">참가가 취소되었습니다</p>
-                <div className="rounded-lg bg-[#fecaca]/60 p-3 text-sm text-[var(--brand-error)]">
+                <div className="brand-inline-danger rounded-lg p-3 text-sm">
                   {form.penaltyMessage || "(메시지 없음)"}
                 </div>
               </div>

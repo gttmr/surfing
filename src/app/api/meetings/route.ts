@@ -14,27 +14,24 @@ export async function GET(req: NextRequest) {
     where: upcoming ? { date: { gte: today } } : undefined,
     orderBy: { date: "asc" },
     include: {
-      participants: {
-        select: { status: true },
+      _count: {
+        select: { participants: { where: { status: "APPROVED" } } },
       },
     },
   });
 
-  const result = meetings.map((m) => {
-    const approvedCount = m.participants.filter((p) => p.status === "APPROVED").length;
-    return {
-      id: m.id,
-      date: m.date,
-      startTime: m.startTime,
-      endTime: m.endTime,
-      location: m.location,
-      description: m.description,
-      isOpen: m.isOpen,
-      meetingType: m.meetingType,
-      createdByKakaoId: m.createdByKakaoId,
-      approvedCount,
-    };
-  });
+  const result = meetings.map((m) => ({
+    id: m.id,
+    date: m.date,
+    startTime: m.startTime,
+    endTime: m.endTime,
+    location: m.location,
+    description: m.description,
+    isOpen: m.isOpen,
+    meetingType: m.meetingType,
+    createdByKakaoId: m.createdByKakaoId,
+    approvedCount: m._count.participants,
+  }));
 
   return NextResponse.json(result);
 }

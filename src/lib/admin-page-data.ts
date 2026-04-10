@@ -1,14 +1,16 @@
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { resolveProfileImage } from "@/lib/profile-image";
-import { getPricingConfig, getParticipantChargeBreakdown, groupParticipantsForSettlement } from "@/lib/pricing";
+import { getParticipantChargeBreakdown, getSettlementPricingBundle, groupParticipantsForSettlement } from "@/lib/pricing";
 import type { AdminSettlementStatusSummary } from "@/lib/landing-types";
 import {
+  DEFAULT_FOOD_ORDER_SUPPORT_CAP,
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   DEFAULT_PRICING_SETTINGS,
   DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
   DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
   DEFAULT_SETTLEMENT_BANK_NAME,
+  FOOD_ORDER_SUPPORT_CAP_KEY,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
   PRICING_SETTING_KEYS,
   SETTLEMENT_ACCOUNT_HOLDER_KEY,
@@ -71,7 +73,9 @@ export type AdminSettingsFormData = {
   settlementAccountHolder: string;
 };
 
-export type AdminPricingState = Record<PricingSettingKey, string>;
+export type AdminPricingState = Record<PricingSettingKey, string> & {
+  foodOrderSupportCap: string;
+};
 
 export type AdminMeetingParticipant = {
   id: number;
@@ -113,11 +117,22 @@ export type AdminSettlementParticipant = {
   hasBus: boolean;
   hasRental: boolean;
   adjustments: { id: number; label: string; amount: number }[];
+  foodOrders: {
+    id: number;
+    menuNameSnapshot: string;
+    unitPriceSnapshot: number;
+    quantity: number;
+    preparingQuantity: number;
+    servedQuantity: number;
+  }[];
   breakdown: {
     baseFee: number;
     lessonFee: number;
     rentalFee: number;
     adjustmentFee: number;
+    foodSubtotal: number;
+    foodSupportApplied: number;
+    foodCharge: number;
     totalFee: number;
   };
 };
@@ -201,8 +216,8 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
   const meetings = await prisma.meeting.findMany({
     orderBy: { date: "asc" },
     include: {
-      participants: {
-        select: { status: true },
+      _count: {
+        select: { participants: { where: { status: "APPROVED" } } },
       },
     },
   });
@@ -216,7 +231,7 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
     meetingType: meeting.meetingType,
     isOpen: meeting.isOpen,
     createdByKakaoId: meeting.createdByKakaoId,
-    approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
+    approvedCount: meeting._count.participants,
   }));
 }
 
@@ -291,7 +306,7 @@ function sortSettlementItems<T extends { id: number; kakaoId: string; companionI
 }
 
 async function loadSettlementContext(meetingId: number) {
-  const [meeting, pricing, confirmations] = await Promise.all([
+  const [meeting, { pricing, foodSupportCap }, confirmations] = await Promise.all([
     prisma.meeting.findUnique({
       where: { id: meetingId },
       include: {
@@ -318,11 +333,14 @@ async function loadSettlementContext(meetingId: number) {
             chargeAdjustments: {
               orderBy: { createdAt: "asc" },
             },
+            foodOrderItems: {
+              orderBy: { createdAt: "asc" },
+            },
           },
         },
       },
     }),
-    getPricingConfig(),
+    getSettlementPricingBundle(),
     prisma.settlementConfirmation.findMany({
       where: { meetingId },
     }),
@@ -348,7 +366,29 @@ async function loadSettlementContext(meetingId: number) {
     ])
   );
 
-  const recipients = groupParticipantsForSettlement(meeting.participants, pricing, adjustmentMap).map((recipient) => {
+  const foodOrderMap = new Map(
+    meeting.participants.map((participant) => [
+      participant.id,
+      participant.foodOrderItems.map((item) => ({
+        id: item.id,
+        participantId: item.participantId,
+        menuItemId: item.menuItemId,
+        menuNameSnapshot: item.menuNameSnapshot,
+        unitPriceSnapshot: item.unitPriceSnapshot,
+        quantity: item.quantity,
+        preparingQuantity: item.preparingQuantity,
+        servedQuantity: item.servedQuantity,
+      })),
+    ])
+  );
+
+  const recipients = groupParticipantsForSettlement(
+    meeting.participants,
+    pricing,
+    adjustmentMap,
+    foodOrderMap,
+    foodSupportCap
+  ).map((recipient) => {
     const completedAt = confirmationMap.get(recipient.recipientKakaoId) ?? null;
     return {
       ...recipient,
@@ -361,6 +401,8 @@ async function loadSettlementContext(meetingId: number) {
     meeting,
     pricing,
     adjustmentMap,
+    foodOrderMap,
+    foodSupportCap,
     recipients,
   };
 }
@@ -369,12 +411,19 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
   const context = await loadSettlementContext(meetingId);
   if (!context) return null;
 
-  const { meeting, pricing, adjustmentMap, recipients } = context;
+  const { meeting, pricing, adjustmentMap, foodOrderMap, foodSupportCap, recipients } = context;
 
   const participants = sortSettlementItems(meeting.participants).map((participant) => {
     const adjustments = adjustmentMap.get(participant.id) ?? [];
+    const foodOrders = foodOrderMap.get(participant.id) ?? [];
     const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    const breakdown = getParticipantChargeBreakdown(participant, pricing, adjustmentFee);
+    const breakdown = getParticipantChargeBreakdown(
+      participant,
+      pricing,
+      adjustmentFee,
+      foodOrders,
+      foodSupportCap
+    );
 
     return {
       id: participant.id,
@@ -385,6 +434,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       hasBus: participant.hasBus,
       hasRental: participant.hasRental,
       adjustments,
+      foodOrders,
       breakdown,
     };
   });
@@ -480,5 +530,7 @@ export async function getAdminPricingState(): Promise<AdminPricingState> {
     [PRICING_SETTING_KEYS.companionRentalFee]:
       settings[PRICING_SETTING_KEYS.companionRentalFee] ??
       DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionRentalFee],
+    foodOrderSupportCap:
+      settings[FOOD_ORDER_SUPPORT_CAP_KEY] ?? DEFAULT_FOOD_ORDER_SUPPORT_CAP,
   };
 }

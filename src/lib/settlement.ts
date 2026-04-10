@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { getFoodOrderSupportCap } from "@/lib/food-ordering-data";
+import { type FoodOrderItemSnapshot } from "@/lib/food-ordering";
 import { getPricingConfig, groupParticipantsForSettlement } from "@/lib/pricing";
 
 export type SettlementMeetingGroup = {
@@ -16,8 +18,10 @@ export type SettlementMeetingGroup = {
 };
 
 export async function getSettlementGroupsForKakaoId(kakaoId: string) {
-  const pricing = await getPricingConfig();
-  const participants = await prisma.participant.findMany({
+  const [pricing, foodSupportCap, participants] = await Promise.all([
+    getPricingConfig(),
+    getFoodOrderSupportCap(),
+    prisma.participant.findMany({
     where: {
       status: "APPROVED",
       meeting: { settlementOpen: true },
@@ -49,8 +53,12 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
       chargeAdjustments: {
         orderBy: { createdAt: "asc" },
       },
+      foodOrderItems: {
+        orderBy: { createdAt: "asc" },
+      },
     },
-  });
+    }),
+  ]);
 
   if (!participants.length) return [];
 
@@ -85,7 +93,29 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
         ])
       );
 
-      const recipients = groupParticipantsForSettlement(meetingParticipants, pricing, adjustmentMap);
+      const foodOrderMap = new Map<number, FoodOrderItemSnapshot[]>(
+        meetingParticipants.map((participant) => [
+          participant.id,
+          participant.foodOrderItems.map((item) => ({
+            id: item.id,
+            participantId: item.participantId,
+            menuItemId: item.menuItemId,
+            menuNameSnapshot: item.menuNameSnapshot,
+            unitPriceSnapshot: item.unitPriceSnapshot,
+            quantity: item.quantity,
+            preparingQuantity: item.preparingQuantity,
+            servedQuantity: item.servedQuantity,
+          })),
+        ])
+      );
+
+      const recipients = groupParticipantsForSettlement(
+        meetingParticipants,
+        pricing,
+        adjustmentMap,
+        foodOrderMap,
+        foodSupportCap
+      );
       const myGroup = recipients.find((recipient) => recipient.recipientKakaoId === kakaoId);
       if (!myGroup) return null;
 
@@ -105,4 +135,3 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
     })
     .filter(Boolean) as SettlementMeetingGroup[];
 }
-

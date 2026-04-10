@@ -56,7 +56,7 @@ export function ProfileSetupModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8">
+    <div className="brand-modal-scrim fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-8">
       <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6">
         <div className="mb-5 text-center">
           <div className="mb-2 text-4xl">🏄‍♂️</div>
@@ -213,7 +213,8 @@ export function ProfileSetupModal({
 
 type HeaderProps = {
   user: UserProfile | null;
-  isAdmin: boolean;
+  canAccessAdminPortal: boolean;
+  canAccessShopPortal: boolean;
   profileDisplayName: string;
   profileFallbackSeed: string;
   companionsCount: number;
@@ -225,7 +226,8 @@ type HeaderProps = {
 
 export function ProfileHeaderSection({
   user,
-  isAdmin,
+  canAccessAdminPortal,
+  canAccessShopPortal,
   profileDisplayName,
   profileFallbackSeed,
   companionsCount,
@@ -242,7 +244,15 @@ export function ProfileHeaderSection({
             <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
           </Link>
           <div className="flex items-center gap-2">
-            {isAdmin ? (
+            {canAccessShopPortal ? (
+              <Link
+                className="rounded-xl bg-[var(--brand-primary-soft)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-strong)]"
+                href="/shop"
+              >
+                샵포털
+              </Link>
+            ) : null}
+            {canAccessAdminPortal ? (
               <Link
                 className="rounded-xl bg-[var(--brand-primary-soft-strong)] px-3 py-2 text-xs font-bold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-primary-soft-accent)]"
                 href="/admin/login"

@@ -137,7 +137,11 @@ export default async function SchedulePageContent({
         : null,
       prisma.meeting.findMany({
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
-        include: { participants: { select: { status: true } } },
+        include: {
+          _count: {
+            select: { participants: { where: { status: "APPROVED" } } },
+          },
+        },
       }),
       prisma.notice.findMany({
         orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
@@ -189,7 +193,7 @@ export default async function SchedulePageContent({
       isOpen: meeting.isOpen,
       meetingType: meeting.meetingType,
       createdByKakaoId: meeting.createdByKakaoId,
-      approvedCount: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
+      approvedCount: meeting._count.participants,
     }));
 
     noticesForClient = notices.map((notice) => ({

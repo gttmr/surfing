@@ -59,6 +59,7 @@ function formatSettlementReasons(settlement: SettlementSummary) {
     if (item.baseFee > 0) reasons.add("참가비");
     if (item.lessonFee > 0) reasons.add("강습비");
     if (item.rentalFee > 0) reasons.add("장비 대여비");
+    if (item.foodSubtotal > 0) reasons.add("식음료");
     for (const adjustment of item.adjustments) {
       reasons.add(adjustment.label);
     }

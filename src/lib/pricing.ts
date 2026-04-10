@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { DEFAULT_PRICING_SETTINGS, PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
+import { getFoodOrderSummary, parseAmount, type FoodOrderItemSnapshot } from "@/lib/food-ordering";
+import { DEFAULT_FOOD_ORDER_SUPPORT_CAP, DEFAULT_PRICING_SETTINGS, FOOD_ORDER_SUPPORT_CAP_KEY, PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
 
 export type PricingConfig = Record<PricingSettingKey, number>;
 
@@ -32,6 +33,9 @@ export interface ParticipantChargeBreakdown {
   lessonFee: number;
   rentalFee: number;
   adjustmentFee: number;
+  foodSubtotal: number;
+  foodSupportApplied: number;
+  foodCharge: number;
   totalFee: number;
 }
 
@@ -42,6 +46,7 @@ export interface SettlementLineItem extends ParticipantChargeBreakdown {
   memberType: "REGULAR" | "COMPANION";
   companionId: number | null;
   adjustments: { id: number; label: string; amount: number }[];
+  foodOrders: FoodOrderItemSnapshot[];
 }
 
 export interface SettlementRecipientGroup {
@@ -52,9 +57,15 @@ export interface SettlementRecipientGroup {
   totalFee: number;
 }
 
-function toAmount(value: string | undefined) {
-  const digits = (value ?? "").replace(/[^\d]/g, "");
-  return digits ? Number(digits) : 0;
+function buildPricingConfig(map: Map<string, string>): PricingConfig {
+  return {
+    [PRICING_SETTING_KEYS.regularBaseFee]: parseAmount(map.get(PRICING_SETTING_KEYS.regularBaseFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularBaseFee]),
+    [PRICING_SETTING_KEYS.companionBaseFee]: parseAmount(map.get(PRICING_SETTING_KEYS.companionBaseFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionBaseFee]),
+    [PRICING_SETTING_KEYS.regularLessonFee]: parseAmount(map.get(PRICING_SETTING_KEYS.regularLessonFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularLessonFee]),
+    [PRICING_SETTING_KEYS.companionLessonFee]: parseAmount(map.get(PRICING_SETTING_KEYS.companionLessonFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionLessonFee]),
+    [PRICING_SETTING_KEYS.regularRentalFee]: parseAmount(map.get(PRICING_SETTING_KEYS.regularRentalFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularRentalFee]),
+    [PRICING_SETTING_KEYS.companionRentalFee]: parseAmount(map.get(PRICING_SETTING_KEYS.companionRentalFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionRentalFee]),
+  };
 }
 
 export async function getPricingConfig(): Promise<PricingConfig> {
@@ -63,49 +74,69 @@ export async function getPricingConfig(): Promise<PricingConfig> {
     where: { key: { in: keys } },
   });
 
+  return buildPricingConfig(new Map(rows.map((row) => [row.key, row.value])));
+}
+
+export async function getSettlementPricingBundle(): Promise<{ pricing: PricingConfig; foodSupportCap: number }> {
+  const allKeys = [...Object.values(PRICING_SETTING_KEYS), FOOD_ORDER_SUPPORT_CAP_KEY];
+  const rows = await prisma.setting.findMany({
+    where: { key: { in: allKeys } },
+  });
+
   const map = new Map(rows.map((row) => [row.key, row.value]));
 
   return {
-    [PRICING_SETTING_KEYS.regularBaseFee]: toAmount(map.get(PRICING_SETTING_KEYS.regularBaseFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularBaseFee]),
-    [PRICING_SETTING_KEYS.companionBaseFee]: toAmount(map.get(PRICING_SETTING_KEYS.companionBaseFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionBaseFee]),
-    [PRICING_SETTING_KEYS.regularLessonFee]: toAmount(map.get(PRICING_SETTING_KEYS.regularLessonFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularLessonFee]),
-    [PRICING_SETTING_KEYS.companionLessonFee]: toAmount(map.get(PRICING_SETTING_KEYS.companionLessonFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionLessonFee]),
-    [PRICING_SETTING_KEYS.regularRentalFee]: toAmount(map.get(PRICING_SETTING_KEYS.regularRentalFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularRentalFee]),
-    [PRICING_SETTING_KEYS.companionRentalFee]: toAmount(map.get(PRICING_SETTING_KEYS.companionRentalFee) ?? DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionRentalFee]),
+    pricing: buildPricingConfig(map),
+    foodSupportCap: parseAmount(map.get(FOOD_ORDER_SUPPORT_CAP_KEY) ?? DEFAULT_FOOD_ORDER_SUPPORT_CAP),
   };
 }
 
 export function getParticipantChargeBreakdown(
   participant: Pick<SettlementParticipantInput, "companionId" | "hasLesson" | "hasRental">,
   pricing: PricingConfig,
-  adjustmentFee = 0
+  adjustmentFee = 0,
+  foodOrders: FoodOrderItemSnapshot[] = [],
+  foodSupportCap = 0
 ): ParticipantChargeBreakdown {
   const isCompanion = participant.companionId !== null;
   const baseFee = isCompanion ? pricing[PRICING_SETTING_KEYS.companionBaseFee] : pricing[PRICING_SETTING_KEYS.regularBaseFee];
   const lessonFee = participant.hasLesson ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionLessonFee] : pricing[PRICING_SETTING_KEYS.regularLessonFee]) : 0;
   const rentalFee = participant.hasRental ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionRentalFee] : pricing[PRICING_SETTING_KEYS.regularRentalFee]) : 0;
+  const foodSummary = getFoodOrderSummary(foodOrders, foodSupportCap);
 
   return {
     baseFee,
     lessonFee,
     rentalFee,
     adjustmentFee,
-    totalFee: baseFee + lessonFee + rentalFee + adjustmentFee,
+    foodSubtotal: foodSummary.subtotal,
+    foodSupportApplied: foodSummary.supportApplied,
+    foodCharge: foodSummary.billableAmount,
+    totalFee: baseFee + lessonFee + rentalFee + adjustmentFee + foodSummary.billableAmount,
   };
 }
 
 export function groupParticipantsForSettlement(
   participants: SettlementParticipantInput[],
   pricing: PricingConfig,
-  adjustmentMap: Map<number, { id: number; label: string; amount: number }[]> = new Map()
+  adjustmentMap: Map<number, { id: number; label: string; amount: number }[]> = new Map(),
+  foodOrderMap: Map<number, FoodOrderItemSnapshot[]> = new Map(),
+  foodSupportCap = 0
 ): SettlementRecipientGroup[] {
   const groups = new Map<string, SettlementRecipientGroup>();
 
   for (const participant of participants) {
     const isCompanion = participant.companionId !== null;
     const adjustments = adjustmentMap.get(participant.id) ?? [];
+    const foodOrders = foodOrderMap.get(participant.id) ?? [];
     const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    const breakdown = getParticipantChargeBreakdown(participant, pricing, adjustmentFee);
+    const breakdown = getParticipantChargeBreakdown(
+      participant,
+      pricing,
+      adjustmentFee,
+      foodOrders,
+      foodSupportCap
+    );
 
     let recipientKakaoId = participant.kakaoId;
     let recipientName = participant.user?.name || participant.name;
@@ -130,6 +161,7 @@ export function groupParticipantsForSettlement(
       memberType: isCompanion ? "COMPANION" : "REGULAR",
       companionId: participant.companionId,
       adjustments,
+      foodOrders,
       ...breakdown,
     };
 

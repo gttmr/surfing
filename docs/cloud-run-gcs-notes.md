@@ -1,8 +1,25 @@
 # Cloud Run / Firebase / GCS 운영 메모
 
-이 문서는 현재 운영 배포 구조와, 나중에 다른 플랫폼으로 옮길 때 다시 바꿔야 하는 항목을 정리한 메모다.
+이 문서는 Google Cloud 기반 운영 구조를 썼던 시기의 메모와, 나중에 GCP로 돌아갈 때 같은 비용 문제가 다시 생기지 않게 하기 위한 배포 원칙을 함께 정리한 메모다.
 
-## 현재 운영 구조
+## 2026-04-08 정리 완료 상태
+- `project=sds-surfing`에 남아 있던 Cloud Run 서비스 `sds-surfing`는 삭제했다.
+- Firebase Hosting 사이트 `sds-surfing`는 비활성화했다.
+- Artifact Registry 저장소 `cloud-run-source-deploy`는 삭제했다.
+- Cloud Run source deploy가 쓰던 버킷 `run-sources-sds-surfing-asia-northeast3`는 삭제했다.
+- 프로필 이미지용 GCS bucket `sds-surfing-profile-images-672913164413`도 삭제했다.
+- 현재 GCP 쪽에서 남아 있는 것은 Cloud Logging 기본 버킷(`_Default`, `_Required`) 정도다.
+
+## 먼저 바로잡을 점
+- 예전에 말한 "GCS에 배포"는 정확한 표현이 아니었다.
+- 실제 운영은 `Firebase Hosting -> Cloud Run` 구조였고, GCS는 사용자 프로필 이미지 저장과 Cloud Run source deploy의 소스 zip 저장에 쓰였다.
+- 비용의 큰 원인은 사용자 이미지보다 `Cloud Run source deploy`가 배포할 때마다 만든 컨테이너 이미지가 Artifact Registry에 계속 쌓인 것이었다.
+- 실제 확인값:
+  - Artifact Registry `cloud-run-source-deploy`: 약 `5915 MB`
+  - source zip bucket `run-sources-sds-surfing-asia-northeast3`: 약 `6.4 MB`
+- 즉 다음에 GCP로 돌아가더라도 "GCS를 썼기 때문에 비쌌다"가 아니라 "Cloud Run source deploy를 무방비로 썼기 때문에 배포 산출물이 누적됐다"로 이해해야 한다.
+
+## 이전 운영 구조
 - GitHub `main` 브랜치가 배포 기준이다.
 - 앱 런타임은 Google Cloud Run 서비스 `sds-surfing`를 사용한다.
 - Firebase Hosting 사이트 `https://sds-surfing.web.app`가 모든 요청을 Cloud Run으로 rewrite한다.
@@ -119,6 +136,62 @@
 - CPU를 `2`로 증가
 - 메모리를 `2Gi`로 증가
 - env에 `GCS_PROFILE_IMAGE_BUCKET=sds-surfing-profile-images-672913164413` 연결
+- 당시 `min instances=1`도 켜져 있어서 유휴 시간에도 비용이 발생하는 구성이었다.
+
+## 다음에 GCP로 돌아갈 때의 배포 전략
+
+### 핵심 원칙
+- 앱 런타임과 파일 저장소를 분리해서 생각한다.
+- Cloud Run 실행 비용과 Artifact Registry 저장 비용은 별개다.
+- 사용자 파일 bucket과 배포 산출물 저장소를 같은 문제로 취급하지 않는다.
+
+### 금지할 방식
+- 콘솔에서 `Cloud Run source deploy`를 반복해서 쓰는 방식을 기본 선택지로 쓰지 않는다.
+- cleanup policy 없는 Artifact Registry 저장소를 계속 재사용하지 않는다.
+- 성능 근거 없이 `min instances=1`, `CPU=2`, `메모리=2Gi`부터 시작하지 않는다.
+
+### 권장 방식
+- 가능하면 Cloud Run 배포는 "source upload"가 아니라 "명시적인 image deploy"로 한다.
+- 전용 Artifact Registry 저장소를 따로 만들고, cleanup policy로 최신 몇 개만 남긴다.
+- 배포 파이프라인은 아래 둘 중 하나만 쓴다.
+  1. CI에서 이미지 빌드 -> Artifact Registry push -> Cloud Run deploy
+  2. source deploy를 꼭 써야 하면, source bucket lifecycle과 Artifact Registry cleanup policy를 먼저 만든 뒤 배포
+
+### 반드시 걸어둘 정책
+- Artifact Registry cleanup policy:
+  - `latest`와 최근 `3~5`개 digest만 유지
+  - 나머지 이미지는 자동 삭제
+- source bucket lifecycle:
+  - `run-sources-*` 계열 bucket은 1일 또는 7일 후 자동 삭제
+- Billing budget alert:
+  - 예산 50%, 90%, 100% 알림을 기본으로 건다
+- Cloud Logging:
+  - `_Default`는 필요 이상 장기 보관하지 않는다
+  - 불필요한 request log가 많으면 exclusion을 검토한다
+
+### Cloud Run 기본 사양 출발점
+- `min instances=0`
+- `max instances=1~3`
+- `CPU=1`
+- `memory=512Mi` 또는 `1Gi`
+- request-based billing 유지
+- 실제 병목이 확인되기 전까지는 상향하지 않는다
+
+### 파일 저장 전략
+- 사용자 업로드 파일은 전용 bucket 하나로만 관리한다.
+- 배포 산출물 저장소와 사용자 파일 bucket을 분리한다.
+- 프로필 이미지처럼 장기 보관이 필요한 파일만 bucket에 둔다.
+- 임시 파일, 배포 zip, 빌드 산출물은 lifecycle 없이는 저장하지 않는다.
+
+### 운영 체크포인트
+- GCP로 다시 갈 때는 배포 직후 아래 네 가지를 같이 확인한다.
+  1. Cloud Run 서비스 사양이 과하지 않은가
+  2. Artifact Registry cleanup policy가 걸려 있는가
+  3. source bucket lifecycle이 걸려 있는가
+  4. Billing budget alert가 켜져 있는가
+
+### 한 줄 전략
+- 다음에 GCP로 돌아갈 때는 `Cloud Run source deploy를 기본으로 쓰지 말고`, 꼭 써야 하면 `Artifact Registry cleanup policy + source bucket lifecycle + min instances 0`를 먼저 만든 뒤 배포한다.
 
 ## 나중에 Vercel 등으로 옮길 때 다시 바꿔야 하는 것
 
@@ -173,3 +246,10 @@
 - 업로드 후 즉시 이미지가 보이는가
 - 다른 기기/새 세션에서도 이미지가 보이는가
 - `web.app`와 직통 `run.app` 둘 다 같은 동작을 보이는가
+
+## GCP 복귀 전 체크리스트
+- 지금처럼 비용 문제가 싫다면, 배포 전에 아래가 없으면 진행하지 않는다.
+- Artifact Registry cleanup policy
+- source bucket lifecycle
+- Billing budget alert
+- Cloud Run 최소 사양 설정

@@ -17,12 +17,14 @@ interface UserDetail extends Omit<AdminMemberListItem, "_count"> {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "관리자",
+  SHOP_OWNER: "샵사장",
   MEMBER: "일반 회원",
   BANNED: "차단됨",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "brand-chip-dark",
+  SHOP_OWNER: "brand-chip-accent",
   MEMBER: "brand-chip-soft",
   BANNED: "brand-chip-danger",
 };
@@ -135,6 +137,7 @@ export function AdminMembersPageClient({
   }, [search, users]);
 
   const adminCount = users.filter((user) => user.role === "ADMIN").length;
+  const shopOwnerCount = users.filter((user) => user.role === "SHOP_OWNER").length;
   const bannedCount = users.filter((user) => user.role === "BANNED").length;
   const penaltyCount = users.filter((user) => user.penaltyCount > 0).length;
 
@@ -153,6 +156,9 @@ export function AdminMembersPageClient({
           <span className="brand-chip-accent rounded-full px-2.5 py-1">전체 {users.length}</span>
           {adminCount > 0 && (
             <span className="brand-chip-dark rounded-full px-2.5 py-1">관리자 {adminCount}</span>
+          )}
+          {shopOwnerCount > 0 && (
+            <span className="brand-chip-accent rounded-full px-2.5 py-1">샵사장 {shopOwnerCount}</span>
           )}
           {penaltyCount > 0 && (
             <span className="brand-chip-danger rounded-full px-2.5 py-1">패널티 {penaltyCount}</span>
@@ -292,8 +298,8 @@ export function AdminMembersPageClient({
 
                   <div className="mb-6">
                     <label className="brand-text-muted mb-2 block text-xs font-bold">회원 등급</label>
-                    <div className="flex flex-wrap gap-2">
-                      {(["MEMBER", "ADMIN", "BANNED"] as const).map((role) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["MEMBER", "SHOP_OWNER", "ADMIN", "BANNED"] as const).map((role) => (
                         <button
                           key={role}
                           onClick={() => handleRoleChange(selectedUser.id, role)}
@@ -303,6 +309,8 @@ export function AdminMembersPageClient({
                                 ? "brand-button-danger-solid shadow-sm"
                                 : role === "ADMIN"
                                   ? "brand-chip-dark"
+                                  : role === "SHOP_OWNER"
+                                    ? "brand-chip-accent"
                                   : "brand-chip-soft"
                               : "brand-button-secondary"
                           }`}

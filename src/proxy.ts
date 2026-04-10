@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionPayloadFromRequest } from "@/lib/session";
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const session = getSessionPayloadFromRequest(request);
 
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-    if (!getSessionPayloadFromRequest(request)?.adminAuthenticated) {
+    if (!session?.adminAuthenticated) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+  }
+
+  if (pathname.startsWith("/shop")) {
+    if (!session?.kakaoId) {
+      const returnTo = `${pathname}${search}`;
+      return NextResponse.redirect(
+        new URL(`/api/auth/kakao?returnTo=${encodeURIComponent(returnTo)}`, request.url)
+      );
     }
   }
 
@@ -14,5 +24,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/shop/:path*"],
 };

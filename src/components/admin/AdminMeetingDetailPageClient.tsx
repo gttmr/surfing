@@ -145,6 +145,12 @@ export function AdminMeetingDetailPageClient({
         </div>
         <div className="flex gap-2">
           <Link
+            href={`/admin/meetings/${meetingId}/orders`}
+            className="brand-button-secondary shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+          >
+            주문 관리
+          </Link>
+          <Link
             href={`/admin/meetings/${meetingId}/settlement`}
             className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
           >
