@@ -5,7 +5,11 @@ import {
   isFoodOrderLocked,
   isMeetingOrderOpen,
   parseAmount,
+  sortFoodMenuCategories,
   sortFoodMenus,
+  UNCATEGORIZED_MENU_NAME,
+  UNCATEGORIZED_MENU_ORDER,
+  type FoodMenuCategoryCatalogItem,
   type FoodMenuCatalogItem,
   type FoodOrderItemSnapshot,
 } from "@/lib/food-ordering";
@@ -16,6 +20,9 @@ import {
 
 type MenuSelectShape = {
   id: number;
+  categoryId: number | null;
+  categoryName: string;
+  categoryDisplayOrder: number;
   name: string;
   price: number;
   isActive: boolean;
@@ -25,6 +32,9 @@ type MenuSelectShape = {
 function mapMenu(menu: MenuSelectShape): FoodMenuCatalogItem {
   return {
     id: menu.id,
+    categoryId: menu.categoryId,
+    categoryName: menu.categoryName,
+    categoryDisplayOrder: menu.categoryDisplayOrder,
     name: menu.name,
     price: menu.price,
     isActive: menu.isActive,
@@ -65,17 +75,42 @@ export async function getFoodOrderSupportCap() {
 export async function getFoodMenus() {
   const rows = await prisma.foodMenuItem.findMany({
     where: { isActive: true },
-    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+    orderBy: [
+      { category: { displayOrder: "asc" } },
+      { category: { name: "asc" } },
+      { displayOrder: "asc" },
+      { name: "asc" },
+    ],
     select: {
       id: true,
+      categoryId: true,
       name: true,
       price: true,
       isActive: true,
       displayOrder: true,
+      category: {
+        select: {
+          name: true,
+          displayOrder: true,
+        },
+      },
     },
   });
 
-  return sortFoodMenus(rows.map(mapMenu));
+  return sortFoodMenus(
+    rows.map((row) =>
+      mapMenu({
+        id: row.id,
+        categoryId: row.categoryId,
+        categoryName: row.category.name,
+        categoryDisplayOrder: row.category.displayOrder,
+        name: row.name,
+        price: row.price,
+        isActive: row.isActive,
+        displayOrder: row.displayOrder,
+      })
+    )
+  );
 }
 
 export type ParticipantMeetingFoodOrdersData = {
@@ -307,6 +342,9 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
       if (!menuIdSet.has(item.menuItemId) && !extraMenus.has(item.menuItemId)) {
         extraMenus.set(item.menuItemId, {
           id: item.menuItemId,
+          categoryId: null,
+          categoryName: UNCATEGORIZED_MENU_NAME,
+          categoryDisplayOrder: UNCATEGORIZED_MENU_ORDER,
           name: item.menuNameSnapshot,
           price: item.unitPriceSnapshot,
           isActive: false,
@@ -391,23 +429,56 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
 }
 
 export type AdminFoodMenuSettingsData = {
-  menus: FoodMenuCatalogItem[];
+  categories: Array<
+    FoodMenuCategoryCatalogItem & {
+      menus: FoodMenuCatalogItem[];
+    }
+  >;
 };
 
 export async function getAdminFoodMenuSettingsData(): Promise<AdminFoodMenuSettingsData> {
-  const menus = await prisma.foodMenuItem.findMany({
+  const categories = await prisma.foodMenuCategory.findMany({
     orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     select: {
       id: true,
       name: true,
-      price: true,
-      isActive: true,
       displayOrder: true,
+      menuItems: {
+        orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          categoryId: true,
+          name: true,
+          price: true,
+          isActive: true,
+          displayOrder: true,
+        },
+      },
     },
   });
 
   return {
-    menus: menus.map(mapMenu),
+    categories: sortFoodMenuCategories(
+      categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        displayOrder: category.displayOrder,
+        menus: sortFoodMenus(
+          category.menuItems.map((menu) =>
+            mapMenu({
+              id: menu.id,
+              categoryId: category.id,
+              categoryName: category.name,
+              categoryDisplayOrder: category.displayOrder,
+              name: menu.name,
+              price: menu.price,
+              isActive: menu.isActive,
+              displayOrder: menu.displayOrder,
+            })
+          )
+        ),
+      }))
+    ),
   };
 }
 
@@ -419,32 +490,67 @@ export type FoodMenuSaveItem = {
   displayOrder: number;
 };
 
-export async function saveFoodMenuCatalog(menus: FoodMenuSaveItem[]) {
-  const existingMenus = await prisma.foodMenuItem.findMany({
-    select: { id: true },
-  });
+export type FoodMenuCategorySaveItem = {
+  id: number | null;
+  name: string;
+  displayOrder: number;
+  menus: FoodMenuSaveItem[];
+};
 
-  const duplicateIds = menus
-    .map((menu) => menu.id)
+export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]) {
+  const [existingCategories, existingMenus] = await Promise.all([
+    prisma.foodMenuCategory.findMany({
+      select: { id: true },
+    }),
+    prisma.foodMenuItem.findMany({
+      select: { id: true },
+    }),
+  ]);
+
+  const duplicateCategoryIds = categories
+    .map((category) => category.id)
     .filter((id): id is number => id !== null)
     .filter((id, index, array) => array.indexOf(id) !== index);
 
-  if (duplicateIds.length > 0) {
+  if (duplicateCategoryIds.length > 0) {
+    throw new Error("중복된 카테고리 ID가 포함되어 있습니다.");
+  }
+
+  const duplicateMenuIds = categories
+    .flatMap((category) => category.menus.map((menu) => menu.id))
+    .filter((id): id is number => id !== null)
+    .filter((id, index, array) => array.indexOf(id) !== index);
+
+  if (duplicateMenuIds.length > 0) {
     throw new Error("중복된 메뉴 ID가 포함되어 있습니다.");
   }
 
-  const existingIds = new Set(existingMenus.map((menu) => menu.id));
-  const incomingIds = new Set(menus.flatMap((menu) => (menu.id === null ? [] : [menu.id])));
+  const existingCategoryIds = new Set(existingCategories.map((category) => category.id));
+  const incomingCategoryIds = new Set(
+    categories.flatMap((category) => (category.id === null ? [] : [category.id]))
+  );
 
-  if (Array.from(incomingIds).some((id) => !existingIds.has(id))) {
+  if (Array.from(incomingCategoryIds).some((id) => !existingCategoryIds.has(id))) {
+    throw new Error("이미 삭제된 카테고리가 포함되어 있습니다. 새로고침 후 다시 시도해 주세요.");
+  }
+
+  const existingMenuIds = new Set(existingMenus.map((menu) => menu.id));
+  const incomingMenuIds = new Set(
+    categories.flatMap((category) =>
+      category.menus.flatMap((menu) => (menu.id === null ? [] : [menu.id]))
+    )
+  );
+
+  if (Array.from(incomingMenuIds).some((id) => !existingMenuIds.has(id))) {
     throw new Error("이미 삭제된 메뉴가 포함되어 있습니다. 새로고침 후 다시 시도해 주세요.");
   }
 
-  const removedIds = Array.from(existingIds).filter((id) => !incomingIds.has(id));
+  const removedCategoryIds = Array.from(existingCategoryIds).filter((id) => !incomingCategoryIds.has(id));
+  const removedMenuIds = Array.from(existingMenuIds).filter((id) => !incomingMenuIds.has(id));
 
-  if (removedIds.length > 0) {
+  if (removedMenuIds.length > 0) {
     const orderCount = await prisma.participantFoodOrderItem.count({
-      where: { menuItemId: { in: removedIds } },
+      where: { menuItemId: { in: removedMenuIds } },
     });
 
     if (orderCount > 0) {
@@ -453,33 +559,63 @@ export async function saveFoodMenuCatalog(menus: FoodMenuSaveItem[]) {
   }
 
   await prisma.$transaction(async (tx) => {
-    if (removedIds.length > 0) {
+    if (removedMenuIds.length > 0) {
       await tx.foodMenuItem.deleteMany({
-        where: { id: { in: removedIds } },
+        where: { id: { in: removedMenuIds } },
       });
     }
 
-    for (const menu of menus) {
-      if (menu.id === null) {
-        await tx.foodMenuItem.create({
+    for (const category of categories) {
+      let categoryId = category.id;
+
+      if (categoryId === null) {
+        const createdCategory = await tx.foodMenuCategory.create({
           data: {
+            name: category.name,
+            displayOrder: category.displayOrder,
+          },
+        });
+        categoryId = createdCategory.id;
+      } else {
+        await tx.foodMenuCategory.update({
+          where: { id: categoryId },
+          data: {
+            name: category.name,
+            displayOrder: category.displayOrder,
+          },
+        });
+      }
+
+      for (const menu of category.menus) {
+        if (menu.id === null) {
+          await tx.foodMenuItem.create({
+            data: {
+              categoryId,
+              name: menu.name,
+              price: menu.price,
+              isActive: menu.isActive,
+              displayOrder: menu.displayOrder,
+            },
+          });
+          continue;
+        }
+
+        await tx.foodMenuItem.update({
+          where: { id: menu.id },
+          data: {
+            categoryId,
             name: menu.name,
             price: menu.price,
             isActive: menu.isActive,
             displayOrder: menu.displayOrder,
           },
         });
-        continue;
       }
+    }
 
-      await tx.foodMenuItem.update({
-        where: { id: menu.id },
-        data: {
-          name: menu.name,
-          price: menu.price,
-          isActive: menu.isActive,
-          displayOrder: menu.displayOrder,
-        },
+    if (removedCategoryIds.length > 0) {
+      await tx.foodMenuCategory.deleteMany({
+        where: { id: { in: removedCategoryIds } },
       });
     }
   });

@@ -16,11 +16,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json();
   const data: {
+    categoryId?: number;
     name?: string;
     price?: number;
     isActive?: boolean;
     displayOrder?: number;
   } = {};
+
+  if (body?.categoryId !== undefined) {
+    const categoryId = Number(body.categoryId);
+    if (!Number.isInteger(categoryId)) {
+      return NextResponse.json({ error: "카테고리를 선택해 주세요." }, { status: 400 });
+    }
+    data.categoryId = categoryId;
+  }
 
   if (body?.name !== undefined) {
     const name = typeof body.name === "string" ? body.name.trim() : "";

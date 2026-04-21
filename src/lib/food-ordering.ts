@@ -1,8 +1,20 @@
 import type { ParticipantFoodOrderItem } from "@prisma/client";
 import { getTodayInSeoul } from "@/lib/date";
 
+export const UNCATEGORIZED_MENU_NAME = "미분류";
+export const UNCATEGORIZED_MENU_ORDER = Number.MAX_SAFE_INTEGER;
+
+export type FoodMenuCategoryCatalogItem = {
+  id: number;
+  name: string;
+  displayOrder: number;
+};
+
 export type FoodMenuCatalogItem = {
   id: number;
+  categoryId: number | null;
+  categoryName: string;
+  categoryDisplayOrder: number;
   name: string;
   price: number;
   isActive: boolean;
@@ -38,6 +50,38 @@ export function parseAmount(value: string | undefined) {
 
 export function sortFoodMenus<T extends { displayOrder: number; name: string }>(menus: T[]) {
   return [...menus].sort((a, b) => {
+    const aCategoryOrder =
+      "categoryDisplayOrder" in a && typeof a.categoryDisplayOrder === "number"
+        ? a.categoryDisplayOrder
+        : UNCATEGORIZED_MENU_ORDER;
+    const bCategoryOrder =
+      "categoryDisplayOrder" in b && typeof b.categoryDisplayOrder === "number"
+        ? b.categoryDisplayOrder
+        : UNCATEGORIZED_MENU_ORDER;
+
+    if (aCategoryOrder !== bCategoryOrder) {
+      return aCategoryOrder - bCategoryOrder;
+    }
+
+    const aCategoryName =
+      "categoryName" in a && typeof a.categoryName === "string" ? a.categoryName : UNCATEGORIZED_MENU_NAME;
+    const bCategoryName =
+      "categoryName" in b && typeof b.categoryName === "string" ? b.categoryName : UNCATEGORIZED_MENU_NAME;
+
+    const categoryCompare = aCategoryName.localeCompare(bCategoryName, "ko-KR");
+    if (categoryCompare !== 0) {
+      return categoryCompare;
+    }
+
+    if (a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+    return a.name.localeCompare(b.name, "ko-KR");
+  });
+}
+
+export function sortFoodMenuCategories<T extends { displayOrder: number; name: string }>(categories: T[]) {
+  return [...categories].sort((a, b) => {
     if (a.displayOrder !== b.displayOrder) {
       return a.displayOrder - b.displayOrder;
     }
