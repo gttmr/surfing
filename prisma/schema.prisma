@@ -19,7 +19,6 @@ model Meeting {
   meetingType       String        @default("정기") // 정기 | 비정기
   createdByKakaoId  String?       // null = admin, otherwise member's kakaoId
   participants      Participant[]
-  menuItems         MeetingFoodMenuItem[]
   foodOrderItems    ParticipantFoodOrderItem[]
   foodOrders        ParticipantFoodOrder[]
   chargeAdjustments ParticipantChargeAdjustment[]
@@ -66,28 +65,25 @@ model ParticipantChargeAdjustment {
 }
 
 model FoodMenuItem {
-  id                Int                        @id @default(autoincrement())
-  name              String
-  price             Int
-  isActive          Boolean                    @default(true)
-  displayOrder      Int                        @default(0)
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  meetingMenuItems  MeetingFoodMenuItem[]
-  orderItems        ParticipantFoodOrderItem[]
+  id           Int                        @id @default(autoincrement())
+  categoryId   Int
+  category     FoodMenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name         String
+  price        Int
+  isActive     Boolean                    @default(true)
+  displayOrder Int                        @default(0)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  orderItems   ParticipantFoodOrderItem[]
 }
 
-model MeetingFoodMenuItem {
-  id         Int          @id @default(autoincrement())
-  meetingId   Int
-  menuItemId  Int
-  isAvailable Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  meeting     Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  menuItem    FoodMenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-
-  @@unique([meetingId, menuItemId])
+model FoodMenuCategory {
+  id           Int            @id @default(autoincrement())
+  name         String
+  displayOrder Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  menuItems    FoodMenuItem[]
 }
 
 model ParticipantFoodOrder {

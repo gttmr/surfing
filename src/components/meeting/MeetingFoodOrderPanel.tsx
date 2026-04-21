@@ -6,6 +6,11 @@ import type { ParticipantMeetingFoodOrdersData } from "@/lib/food-ordering-data"
 
 type DraftMap = Record<number, Record<number, number>>;
 
+type MenuGroup = {
+  categoryName: string;
+  menus: ParticipantMeetingFoodOrdersData["menus"];
+};
+
 function buildFreshDraftMap(data: ParticipantMeetingFoodOrdersData): DraftMap {
   return Object.fromEntries(
     data.participants.map((participant) => [
@@ -13,6 +18,25 @@ function buildFreshDraftMap(data: ParticipantMeetingFoodOrdersData): DraftMap {
       Object.fromEntries(data.menus.map((menu) => [menu.id, 0])),
     ])
   );
+}
+
+function groupMenusByCategory(menus: ParticipantMeetingFoodOrdersData["menus"]): MenuGroup[] {
+  const groups = new Map<string, MenuGroup>();
+
+  for (const menu of menus) {
+    const existing = groups.get(menu.categoryName);
+    if (existing) {
+      existing.menus.push(menu);
+      continue;
+    }
+
+    groups.set(menu.categoryName, {
+      categoryName: menu.categoryName,
+      menus: [menu],
+    });
+  }
+
+  return Array.from(groups.values());
 }
 
 export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
@@ -50,6 +74,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   }, [meetingId]);
 
   const visibleParticipants = useMemo(() => data?.participants ?? [], [data]);
+  const menuGroups = useMemo(() => groupMenusByCategory(data?.menus ?? []), [data]);
 
   // 모든 주문 이력을 메뉴별로 합산해서 요약 문자열 생성
   const savedSummary = useMemo(() => {
@@ -210,35 +235,51 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
                     </p>
                   ) : null}
 
-                  <div className="space-y-2">
-                    {data.menus.map((menu) => {
-                      const value = drafts[participant.participantId]?.[menu.id] ?? 0;
-                      return (
-                        <div key={menu.id} className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
-                            <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(participant.participantId, menu.id, value - 1)}
-                              className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                            >
-                              -
-                            </button>
-                            <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(participant.participantId, menu.id, value + 1)}
-                              className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                            >
-                              +
-                            </button>
-                          </div>
+                  <div className="space-y-3">
+                    {menuGroups.map((group) => (
+                      <section key={`${participant.participantId}-${group.categoryName}`} className="brand-panel-white rounded-2xl p-3">
+                        <div className="mb-2 flex items-center gap-2 px-1">
+                          <span className="h-4 w-1 rounded-full bg-[var(--brand-primary)]" />
+                          <p className="text-xs font-extrabold tracking-[0.08em] text-[var(--brand-text)]">
+                            {group.categoryName}
+                          </p>
                         </div>
-                      );
-                    })}
+
+                        <div className="space-y-2">
+                          {group.menus.map((menu) => {
+                            const value = drafts[participant.participantId]?.[menu.id] ?? 0;
+                            return (
+                              <div
+                                key={menu.id}
+                                className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
+                                  <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(participant.participantId, menu.id, value - 1)}
+                                    className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(participant.participantId, menu.id, value + 1)}
+                                    className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    ))}
                   </div>
 
                   <button
