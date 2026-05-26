@@ -31,6 +31,18 @@ type CategoryDraft = {
 const DEFAULT_OPTION_GROUP_NAME = "옵션";
 const HOT_ICE_OPTION_LABELS = ["ICE", "HOT"];
 
+function parsePrice(value: string) {
+  return Number(value.replace(/[^\d]/g, "") || "0");
+}
+
+function getMenuPriceForSave(menu: MenuDraft) {
+  if (menu.options.length === 0) {
+    return parsePrice(menu.price);
+  }
+
+  return parsePrice(menu.options[0]?.price ?? menu.price);
+}
+
 function toMenuDraft(menu: AdminFoodMenuSettingsData["categories"][number]["menus"][number]): MenuDraft {
   return {
     id: menu.id,
@@ -273,10 +285,12 @@ export function FoodMenuEditorPanel({
           return;
         }
 
-        const price = Number(menu.price.replace(/[^\d]/g, "") || "0");
-        if (!Number.isInteger(price) || price < 0) {
-          addToast("가격은 0 이상의 정수여야 합니다.", "error");
-          return;
+        if (menu.options.length === 0) {
+          const price = parsePrice(menu.price);
+          if (!Number.isInteger(price) || price < 0) {
+            addToast("가격은 0 이상의 정수여야 합니다.", "error");
+            return;
+          }
         }
 
         if (menu.optionGroupName.trim() && menu.options.length === 0) {
@@ -290,7 +304,7 @@ export function FoodMenuEditorPanel({
         }
 
         for (const option of menu.options) {
-          const optionPrice = Number(option.price.replace(/[^\d]/g, "") || "0");
+          const optionPrice = parsePrice(option.price);
           if (!Number.isInteger(optionPrice) || optionPrice < 0) {
             addToast("옵션 가격은 0 이상의 정수여야 합니다.", "error");
             return;
@@ -311,7 +325,7 @@ export function FoodMenuEditorPanel({
             menus: category.menus.map((menu) => ({
               id: menu.id,
               name: menu.name.trim(),
-              price: Number(menu.price.replace(/[^\d]/g, "") || "0"),
+              price: getMenuPriceForSave(menu),
               optionGroupName:
                 menu.options.length > 0
                   ? menu.optionGroupName.trim() || DEFAULT_OPTION_GROUP_NAME
@@ -319,7 +333,7 @@ export function FoodMenuEditorPanel({
               options: menu.options.map((option) => ({
                 id: option.id,
                 label: option.label.trim(),
-                price: Number(option.price.replace(/[^\d]/g, "") || "0"),
+                price: parsePrice(option.price),
               })),
               isActive: menu.isActive,
             })),
@@ -411,19 +425,23 @@ export function FoodMenuEditorPanel({
                         />
                       </div>
 
-                      <div className="min-w-0">
-                        <input
-                          value={menu.price}
-                          onChange={(event) =>
-                            updateMenu(category.key, menu.key, {
-                              price: event.target.value.replace(/[^\d]/g, ""),
-                            })
-                          }
-                          inputMode="numeric"
-                          placeholder="가격"
-                          className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                        />
-                      </div>
+                      {menu.options.length === 0 ? (
+                        <div className="min-w-0">
+                          <input
+                            value={menu.price}
+                            onChange={(event) =>
+                              updateMenu(category.key, menu.key, {
+                                price: event.target.value.replace(/[^\d]/g, ""),
+                              })
+                            }
+                            inputMode="numeric"
+                            placeholder="가격"
+                            className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <div className="brand-text-subtle px-2 text-center text-xs font-bold">옵션별</div>
+                      )}
 
                       <button
                         type="button"
