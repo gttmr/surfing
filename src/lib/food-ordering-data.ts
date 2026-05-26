@@ -127,7 +127,7 @@ export type ParticipantMeetingFoodOrdersData = {
       orderId: number;
       createdAt: string;
       items: Array<{
-        menuItemId: number;
+        menuItemId: number | null;
         menuOptionChoiceId: number | null;
         menuName: string;
         optionChoiceLabel: string | null;
@@ -233,7 +233,7 @@ export type AdminMeetingFoodOrdersData = {
   };
   menuRows: Array<{
     rowId: string;
-    menuItemId: number;
+    menuItemId: number | null;
     orderItemIds: number[];
     menuName: string;
     unitPrice: number;
@@ -243,7 +243,7 @@ export type AdminMeetingFoodOrdersData = {
     remainingQuantity: number;
     participantOrders: Array<{
       participantId: number;
-      menuItemId: number;
+      menuItemId: number | null;
       orderItemIds: number[];
       participantName: string;
       companionId: number | null;
@@ -261,7 +261,7 @@ export type AdminMeetingFoodOrdersData = {
     subtotal: number;
     items: Array<{
       rowId: string;
-      menuItemId: number;
+      menuItemId: number | null;
       menuName: string;
       orderItemIds: number[];
       quantity: number;
@@ -356,7 +356,7 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     // (participantId, menuItemId, option) 단위로 집계
     const menuAgg = new Map<string, {
       rowId: string;
-      menuItemId: number;
+      menuItemId: number | null;
       menuName: string;
       unitPrice: number;
       orderItemIds: number[];
@@ -367,11 +367,12 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     }>();
 
     for (const item of rawItems) {
+      const menuRowKey = item.menuItemId ?? `deleted:${item.menuNameSnapshot}`;
       const rowId = item.menuOptionChoiceId
-        ? `${item.menuItemId}:${item.menuOptionChoiceId}`
+        ? `${menuRowKey}:${item.menuOptionChoiceId}`
         : item.optionChoiceLabelSnapshot
-          ? `${item.menuItemId}:label:${item.optionChoiceLabelSnapshot}`
-          : `${item.menuItemId}:none`;
+          ? `${menuRowKey}:label:${item.optionChoiceLabelSnapshot}`
+          : `${menuRowKey}:none`;
       const menuName = getFoodOrderItemDisplayName(item);
       const existing = menuAgg.get(rowId);
       if (existing) {
@@ -659,16 +660,6 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
   const removedCategoryIds = Array.from(existingCategoryIds).filter((id) => !incomingCategoryIds.has(id));
   const removedMenuIds = Array.from(existingMenuIds).filter((id) => !incomingMenuIds.has(id));
   const removedOptionIds = Array.from(existingOptionIds).filter((id) => !incomingOptionIds.has(id));
-
-  if (removedMenuIds.length > 0) {
-    const orderCount = await prisma.participantFoodOrderItem.count({
-      where: { menuItemId: { in: removedMenuIds } },
-    });
-
-    if (orderCount > 0) {
-      throw new Error("이미 주문 기록이 있는 메뉴는 제거할 수 없습니다.");
-    }
-  }
 
   await prisma.$transaction(async (tx) => {
     if (removedMenuIds.length > 0) {

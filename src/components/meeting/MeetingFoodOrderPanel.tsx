@@ -106,11 +106,12 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
         const totals = new Map<string, number>();
         for (const order of (p.orders ?? [])) {
           for (const item of order.items) {
+            const menuRowKey = item.menuItemId ?? `deleted:${item.menuName}`;
             const key = item.menuOptionChoiceId
-              ? `${item.menuItemId}:${item.menuOptionChoiceId}`
+              ? `${menuRowKey}:${item.menuOptionChoiceId}`
               : item.optionChoiceLabel
-                ? `${item.menuItemId}:label:${item.optionChoiceLabel}`
-                : `${item.menuItemId}:none`;
+                ? `${menuRowKey}:label:${item.optionChoiceLabel}`
+                : `${menuRowKey}:none`;
             totals.set(key, (totals.get(key) ?? 0) + item.quantity);
           }
         }
@@ -119,11 +120,12 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
           .map(([key, qty]) => {
             for (const order of (p.orders ?? [])) {
               const item = order.items.find((candidate) => {
+                const candidateMenuRowKey = candidate.menuItemId ?? `deleted:${candidate.menuName}`;
                 const candidateKey = candidate.menuOptionChoiceId
-                  ? `${candidate.menuItemId}:${candidate.menuOptionChoiceId}`
+                  ? `${candidateMenuRowKey}:${candidate.menuOptionChoiceId}`
                   : candidate.optionChoiceLabel
-                    ? `${candidate.menuItemId}:label:${candidate.optionChoiceLabel}`
-                    : `${candidate.menuItemId}:none`;
+                    ? `${candidateMenuRowKey}:label:${candidate.optionChoiceLabel}`
+                    : `${candidateMenuRowKey}:none`;
                 return candidateKey === key;
               });
               if (item) {

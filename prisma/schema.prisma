@@ -119,7 +119,7 @@ model ParticipantFoodOrderItem {
   meetingId         Int
   participantId     Int
   foodOrderId       Int
-  menuItemId        Int
+  menuItemId        Int?
   menuOptionChoiceId Int?
   menuNameSnapshot  String
   optionGroupNameSnapshot String?
@@ -132,7 +132,7 @@ model ParticipantFoodOrderItem {
   updatedAt         DateTime             @updatedAt
   meeting           Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant       Participant          @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  menuItem          FoodMenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  menuItem          FoodMenuItem?        @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
   menuOptionChoice  FoodMenuOptionChoice? @relation(fields: [menuOptionChoiceId], references: [id], onDelete: SetNull)
   foodOrder         ParticipantFoodOrder @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
 
