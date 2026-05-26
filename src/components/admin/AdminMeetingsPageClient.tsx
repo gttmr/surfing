@@ -99,7 +99,7 @@ export function AdminMeetingsPageClient({
     return (
       <Link
         href={`/admin/meetings/${meeting.id}`}
-        className="brand-card-soft brand-list-item-hover block rounded-2xl p-4 transition-colors"
+        className="brand-list-item brand-list-item-hover block rounded-2xl p-4 transition-colors"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -129,128 +129,158 @@ export function AdminMeetingsPageClient({
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-            모임 관리
-          </h1>
-          <p className="brand-text-muted mt-1 text-sm">
-            일정을 만들고 신청 상태를 관리합니다.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreate((prev) => !prev)}
-          className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
-            showCreate ? "brand-button-secondary" : "brand-button-primary"
-          }`}
-        >
-          {showCreate ? "닫기" : "+ 새 모임"}
-        </button>
-      </div>
-
-      {showCreate ? (
-        <form onSubmit={handleCreate} className="brand-card-soft mb-6 space-y-4 rounded-3xl p-5">
-          <h3 className="text-sm font-extrabold text-[var(--brand-text)]">새 모임 만들기</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="brand-text-muted mb-1 block text-xs font-semibold">날짜</label>
-              <input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                required
-                className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
-              />
-            </div>
-            <div>
-              <label className="brand-text-muted mb-1 block text-xs font-semibold">모임 유형</label>
-              <select
-                value={newMeetingType}
-                onChange={(e) => setNewMeetingType(e.target.value)}
-                className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
-              >
-                <option value="정기">정기</option>
-                <option value="비정기">비정기</option>
-              </select>
-            </div>
-            <div>
-              <label className="brand-text-muted mb-1 block text-xs font-semibold">시작 시간</label>
-              <input
-                type="time"
-                value={newStartTime}
-                onChange={(e) => setNewStartTime(e.target.value)}
-                required
-                className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
-              />
-            </div>
-            <div>
-              <label className="brand-text-muted mb-1 block text-xs font-semibold">종료 시간</label>
-              <input
-                type="time"
-                value={newEndTime}
-                onChange={(e) => setNewEndTime(e.target.value)}
-                required
-                className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="brand-text-muted mb-1 block text-xs font-semibold">장소</label>
-            <input
-              type="text"
-              value={newLocation}
-              onChange={(e) => setNewLocation(e.target.value)}
-              required
-              placeholder="모임 장소"
-              className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
-            />
-          </div>
-          <div>
-            <label className="brand-text-muted mb-1 block text-xs font-semibold">설명 (선택)</label>
-            <textarea
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="모임 설명"
-              className="brand-input w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
-              rows={2}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={creating}
-            className="brand-button-primary w-full rounded-2xl py-2.5 text-sm font-bold transition-colors"
-          >
-            {creating ? "생성 중..." : "모임 생성"}
-          </button>
-        </form>
-      ) : null}
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-extrabold text-[var(--brand-text)]">
-          예정된 모임 ({upcomingMeetings.length})
-        </h2>
+      <div className="space-y-4">
         <div className="space-y-3">
-          {upcomingMeetings.map((meeting) => (
-            <MeetingRow key={meeting.id} meeting={meeting} />
-          ))}
-          {upcomingMeetings.length === 0 ? (
-            <p className="brand-text-subtle py-6 text-center text-sm">예정된 모임이 없습니다</p>
-          ) : null}
-        </div>
-      </section>
-
-      {pastMeetings.length > 0 ? (
-        <section>
-          <h2 className="mb-3 text-sm font-extrabold text-[var(--brand-text)]">
-            지난 모임 ({pastMeetings.length})
-          </h2>
-          <div className="space-y-3 opacity-70">
-            {pastMeetings.map((meeting) => (
-              <MeetingRow key={meeting.id} meeting={meeting} />
-            ))}
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
+                Admin Workspace
+              </p>
+              <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+                모임 관리
+              </h1>
+              <p className="brand-text-muted mt-1 text-sm">
+                일정 생성과 참가 상태 확인을 같은 흐름 안에서 처리합니다.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreate((prev) => !prev)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition-colors ${
+                showCreate ? "brand-button-secondary" : "brand-button-primary"
+              }`}
+            >
+              {showCreate ? "닫기" : "+ 새 모임"}
+            </button>
           </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">전체 {meetings.length}</span>
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">예정 {upcomingMeetings.length}</span>
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">지난 모임 {pastMeetings.length}</span>
+          </div>
+        </div>
+
+        {showCreate ? (
+          <section className="brand-admin-section overflow-hidden">
+            <div className="brand-admin-section-header px-5 py-4">
+              <h2 className="text-base font-bold text-[var(--brand-text)]">새 모임 만들기</h2>
+              <p className="brand-text-subtle mt-1 text-xs">
+                일정, 시간, 장소를 입력하면 바로 목록에 반영됩니다.
+              </p>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-4 px-5 py-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="brand-text-muted mb-1 block text-xs font-semibold">날짜</label>
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    required
+                    className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="brand-text-muted mb-1 block text-xs font-semibold">모임 유형</label>
+                  <select
+                    value={newMeetingType}
+                    onChange={(e) => setNewMeetingType(e.target.value)}
+                    className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  >
+                    <option value="정기">정기</option>
+                    <option value="비정기">비정기</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="brand-text-muted mb-1 block text-xs font-semibold">시작 시간</label>
+                  <input
+                    type="time"
+                    value={newStartTime}
+                    onChange={(e) => setNewStartTime(e.target.value)}
+                    required
+                    className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="brand-text-muted mb-1 block text-xs font-semibold">종료 시간</label>
+                  <input
+                    type="time"
+                    value={newEndTime}
+                    onChange={(e) => setNewEndTime(e.target.value)}
+                    required
+                    className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="brand-text-muted mb-1 block text-xs font-semibold">장소</label>
+                <input
+                  type="text"
+                  value={newLocation}
+                  onChange={(e) => setNewLocation(e.target.value)}
+                  required
+                  placeholder="모임 장소"
+                  className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none"
+                />
+              </div>
+              <div>
+                <label className="brand-text-muted mb-1 block text-xs font-semibold">설명 (선택)</label>
+                <textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="모임 설명"
+                  className="brand-input w-full resize-none rounded-xl px-3 py-2 text-sm outline-none"
+                  rows={2}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={creating}
+                className="brand-button-primary w-full rounded-2xl py-2.5 text-sm font-bold transition-colors"
+              >
+                {creating ? "생성 중..." : "모임 생성"}
+              </button>
+            </form>
+          </section>
+        ) : null}
+
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header flex items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <h2 className="text-base font-bold text-[var(--brand-text)]">예정된 모임</h2>
+              <p className="brand-text-subtle mt-1 text-xs">
+                가장 가까운 일정부터 확인하고 세부 관리 화면으로 이동합니다.
+              </p>
+            </div>
+            <span className="brand-text-subtle text-xs">{upcomingMeetings.length}개</span>
+          </div>
+          {upcomingMeetings.length === 0 ? (
+            <div className="brand-admin-empty px-4 py-10 text-sm">예정된 모임이 없습니다.</div>
+          ) : (
+            <div className="space-y-3 px-5 py-5">
+              {upcomingMeetings.map((meeting) => (
+                <MeetingRow key={meeting.id} meeting={meeting} />
+              ))}
+            </div>
+          )}
         </section>
-      ) : null}
+
+        {pastMeetings.length > 0 ? (
+          <section className="brand-admin-section overflow-hidden">
+            <div className="brand-admin-section-header flex items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <h2 className="text-base font-bold text-[var(--brand-text)]">지난 모임</h2>
+                <p className="brand-text-subtle mt-1 text-xs">지난 일정도 같은 구조에서 기록을 확인합니다.</p>
+              </div>
+              <span className="brand-text-subtle text-xs">{pastMeetings.length}개</span>
+            </div>
+            <div className="space-y-3 px-5 py-5 opacity-70">
+              {pastMeetings.map((meeting) => (
+                <MeetingRow key={meeting.id} meeting={meeting} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
 
       {toasts.map((toast) => (
         <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />

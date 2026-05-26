@@ -80,6 +80,55 @@ body {
   color: var(--brand-text);
 }
 
+.brand-mobile-shell {
+  position: relative;
+}
+
+.brand-mobile-fixed-bar {
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, 430px);
+}
+
+.brand-admin-shell {
+  min-height: 100%;
+  background-color: var(--brand-page);
+  color: var(--brand-text);
+}
+
+.brand-admin-section {
+  background-color: var(--brand-surface-elevated);
+  border: 1px solid var(--brand-divider);
+  border-radius: 1.5rem;
+}
+
+.brand-admin-section-header {
+  border-bottom: 1px solid var(--brand-divider);
+}
+
+.brand-admin-stat {
+  background-color: var(--brand-surface-elevated);
+  border: 1px solid var(--brand-divider);
+  color: var(--brand-text);
+}
+
+.brand-admin-inline-panel {
+  background-color: var(--brand-surface-elevated);
+  border-top: 1px solid var(--brand-divider);
+}
+
+.brand-admin-list-shell {
+  background-color: var(--brand-surface-elevated);
+  border: 1px solid var(--brand-divider);
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.brand-admin-empty {
+  color: var(--brand-text-subtle);
+  text-align: center;
+}
+
 .brand-header-surface {
   background-color: var(--brand-surface-elevated);
   box-shadow: var(--brand-header-shadow);

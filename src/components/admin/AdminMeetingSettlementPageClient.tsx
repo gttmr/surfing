@@ -21,6 +21,11 @@ export function AdminMeetingSettlementPageClient({
   const [selectedRecipientKey, setSelectedRecipientKey] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
+  const showSettlementAmounts = data.meeting.settlementOpen;
+
+  function displayAmount(amount: number) {
+    return showSettlementAmounts ? amount : 0;
+  }
 
   async function reloadSettlement() {
     setReloading(true);
@@ -132,22 +137,29 @@ export function AdminMeetingSettlementPageClient({
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex items-start gap-3">
-        <Link href={`/admin/meetings/${meetingId}`} className="brand-link mt-0.5 text-xl">&larr;</Link>
-        <div className="flex-1">
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">정산 관리</h1>
-          <p className="brand-text-muted mt-0.5 text-sm">
-            {data.meeting.date} {data.meeting.startTime}–{data.meeting.endTime} · {data.meeting.location}
-          </p>
+      <div className="mb-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <Link href={`/admin/meetings/${meetingId}`} className="brand-link mt-0.5 text-xl">&larr;</Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-headline break-keep text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+              정산 관리
+            </h1>
+            <p className="brand-text-muted mt-0.5 break-keep text-sm">
+              {data.meeting.date} {data.meeting.startTime}–{data.meeting.endTime} · {data.meeting.location}
+            </p>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleToggleSettlement}
-          disabled={togglingSettlement}
-          className={data.meeting.settlementOpen ? "brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold" : "brand-button-primary rounded-full px-3 py-1.5 text-xs font-bold"}
-        >
-          {togglingSettlement ? "변경 중..." : data.meeting.settlementOpen ? "정산 닫기" : "정산 열기"}
-        </button>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleToggleSettlement}
+            disabled={togglingSettlement}
+            className={`${data.meeting.settlementOpen ? "brand-button-secondary" : "brand-button-primary"} whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold`}
+          >
+            {togglingSettlement ? "변경 중..." : data.meeting.settlementOpen ? "정산 닫기" : "정산 열기"}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -193,11 +205,13 @@ export function AdminMeetingSettlementPageClient({
                         </div>
                         <p className="brand-text-subtle mt-1 text-xs">
                           {recipient.items.length === 1
-                            ? formatWon(recipient.items[0].totalFee)
+                            ? formatWon(displayAmount(recipient.items[0].totalFee))
                             : `${recipient.items.length}건 합산`}
                         </p>
                       </div>
-                      <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
+                      <span className="text-sm font-extrabold text-[var(--brand-text)]">
+                        {formatWon(displayAmount(recipient.totalFee))}
+                      </span>
                     </div>
                   </button>
 
@@ -215,14 +229,14 @@ export function AdminMeetingSettlementPageClient({
                                     {participant.companionId ? " (동반)" : ""}
                                   </p>
                                   <p className="brand-text-subtle mt-1 text-xs">
-                                    참가 {formatWon(participant.breakdown.baseFee)} · 강습 {formatWon(participant.breakdown.lessonFee)} · 대여 {formatWon(participant.breakdown.rentalFee)}
+                                    참가 {formatWon(displayAmount(participant.breakdown.baseFee))} · 강습 {formatWon(displayAmount(participant.breakdown.lessonFee))} · 대여 {formatWon(displayAmount(participant.breakdown.rentalFee))}
                                     {participant.breakdown.foodSubtotal > 0
-                                      ? ` · 식음료 ${formatWon(participant.breakdown.foodSubtotal)} · 지원 -${formatWon(participant.breakdown.foodSupportApplied)}`
+                                      ? ` · 식음료 ${formatWon(displayAmount(participant.breakdown.foodSubtotal))} · 지원 -${formatWon(displayAmount(participant.breakdown.foodSupportApplied))}`
                                       : ""}
                                   </p>
                                 </div>
                                 <span className="rounded-full bg-[var(--brand-primary-soft-accent)] px-2.5 py-1 text-xs font-bold text-[var(--brand-primary-text)]">
-                                  {formatWon(participant.breakdown.totalFee)}
+                                  {formatWon(displayAmount(participant.breakdown.totalFee))}
                                 </span>
                               </div>
 
@@ -233,11 +247,11 @@ export function AdminMeetingSettlementPageClient({
                                       <div>
                                         <p className="text-sm font-semibold text-[var(--brand-text)]">{item.menuNameSnapshot}</p>
                                         <p className="brand-text-subtle mt-1 text-xs">
-                                          {formatWon(item.unitPriceSnapshot)} · 수량 {item.quantity}
+                                          {formatWon(displayAmount(item.unitPriceSnapshot))} · 수량 {item.quantity}
                                         </p>
                                       </div>
                                       <span className="text-sm font-bold text-[var(--brand-text)]">
-                                        {formatWon(item.unitPriceSnapshot * item.quantity)}
+                                        {formatWon(displayAmount(item.unitPriceSnapshot * item.quantity))}
                                       </span>
                                     </div>
                                   ))}
@@ -251,7 +265,7 @@ export function AdminMeetingSettlementPageClient({
                                       <div>
                                         <p className="text-sm font-semibold text-[var(--brand-text)]">{adjustment.label}</p>
                                         <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-[var(--brand-companion)]" : "text-[var(--brand-primary-text)]"}`}>
-                                          {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
+                                          {displayAmount(adjustment.amount) >= 0 ? "+" : ""}{formatWon(displayAmount(adjustment.amount))}
                                         </p>
                                       </div>
                                       <button

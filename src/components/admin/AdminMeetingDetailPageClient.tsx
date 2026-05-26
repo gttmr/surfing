@@ -135,30 +135,35 @@ export function AdminMeetingDetailPageClient({
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex items-start gap-3">
-        <Link href="/admin/meetings" className="brand-link mt-0.5 text-xl">&larr;</Link>
-        <div className="flex-1">
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">{displayDate}</h1>
-          <p className="brand-text-muted mt-0.5 text-sm">
-            {meeting.startTime}–{meeting.endTime} · {meeting.location}
-          </p>
+      <div className="mb-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <Link href="/admin/meetings" className="brand-link mt-0.5 text-xl">&larr;</Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-headline break-keep text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+              {displayDate}
+            </h1>
+            <p className="brand-text-muted mt-0.5 break-keep text-sm">
+              {meeting.startTime}–{meeting.endTime} · {meeting.location}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           <Link
             href={`/admin/meetings/${meetingId}/orders`}
-            className="brand-button-secondary shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            className="brand-button-secondary shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             주문 관리
           </Link>
           <Link
             href={`/admin/meetings/${meetingId}/settlement`}
-            className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            className="brand-button-primary shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             정산 관리
           </Link>
           <button
             onClick={handleToggleOpen}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               meeting.isOpen
                 ? "brand-button-secondary"
                 : "brand-chip-success"
@@ -168,7 +173,7 @@ export function AdminMeetingDetailPageClient({
           </button>
           <button
             onClick={handleDelete}
-            className="brand-button-danger shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            className="brand-button-danger shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             삭제
           </button>

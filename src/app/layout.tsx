@@ -55,8 +55,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-background font-sans text-on-surface">
-        {children}
+      <body className="min-h-screen bg-[var(--brand-page)] font-sans text-[var(--brand-text)]">
+        <div className="brand-mobile-shell mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[var(--brand-page)]">
+          {children}
+        </div>
         {kakaoJsKey ? (
           <>
             <Script

@@ -36,6 +36,7 @@ export function AdminMessagesPageClient({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
+  const pinnedCount = notices.filter((notice) => notice.isPinned).length;
 
   function resetForm() {
     setEditingId(null);
@@ -170,29 +171,34 @@ export function AdminMessagesPageClient({
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex items-end justify-between gap-3">
-        <div>
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-            메시지 관리
-          </h1>
-          <p className="brand-text-muted mt-1 text-sm">
-            공지는 알림센터 히스토리로 쌓이고, 고정된 공지는 다른 공지보다 먼저 노출됩니다.
-          </p>
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
+              Admin Workspace
+            </p>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+              메시지 관리
+            </h1>
+            <p className="brand-text-muted mt-1 text-sm">
+              공지는 알림센터 히스토리로 쌓이고, 고정된 공지는 다른 공지보다 먼저 노출됩니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">전체 공지 {notices.length}</span>
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">상단 고정 {pinnedCount}</span>
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">일반 공지 {notices.length - pinnedCount}</span>
+          </div>
         </div>
-        <div className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">
-          공지 {notices.length}개
-        </div>
-      </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-        <section className="brand-card-soft rounded-3xl p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header flex items-start justify-between gap-3 px-5 py-4">
             <div>
               <h2 className="text-base font-bold text-[var(--brand-text)]">
                 {editingId ? "공지 수정" : "새 공지 작성"}
               </h2>
               <p className="brand-text-subtle mt-1 text-xs">
-                등록한 공지는 알림센터에 남고, 고정된 공지는 다른 공지보다 먼저 노출됩니다.
+                공지 작성과 수정은 같은 작업 영역에서 처리합니다.
               </p>
             </div>
             {editingId ? (
@@ -206,7 +212,7 @@ export function AdminMessagesPageClient({
             ) : null}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
                 공지 제목
@@ -269,111 +275,115 @@ export function AdminMessagesPageClient({
           </form>
         </section>
 
-        <section className="space-y-4">
-          <div className="brand-card-soft rounded-3xl p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold text-[var(--brand-text)]">운영 메시지 연결</h2>
-            </div>
-            <div className="space-y-3">
-              <Link href="/admin/settings" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-[var(--brand-text)]">취소 패널티 안내</p>
-                    <p className="brand-text-subtle mt-1 line-clamp-2 text-xs">
-                      {settings.cancellation_penalty_message || "설정 페이지에서 취소 안내 문구를 입력하세요."}
-                    </p>
-                  </div>
-                  <span className="brand-link shrink-0 text-xs font-bold">수정</span>
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header px-5 py-4">
+            <h2 className="text-base font-bold text-[var(--brand-text)]">운영 메시지 연결</h2>
+            <p className="brand-text-subtle mt-1 text-xs">
+              공지와 연결되는 운영 문구는 같은 흐름 안에서 바로 이동해 수정합니다.
+            </p>
+          </div>
+          <div className="space-y-3 px-5 py-5">
+            <Link href="/admin/settings" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--brand-text)]">취소 패널티 안내</p>
+                  <p className="brand-text-subtle mt-1 line-clamp-2 text-xs">
+                    {settings.cancellation_penalty_message || "설정 페이지에서 취소 안내 문구를 입력하세요."}
+                  </p>
                 </div>
-              </Link>
+                <span className="brand-link shrink-0 text-xs font-bold">수정</span>
+              </div>
+            </Link>
 
-              <Link href="/admin/settings" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-[var(--brand-text)]">참가 옵션 가격 안내</p>
-                    <p className="brand-text-subtle mt-1 line-clamp-2 text-xs">
-                      {settings[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] || "설정 페이지에서 참가 옵션 안내 문구를 입력하세요."}
-                    </p>
-                  </div>
-                  <span className="brand-link shrink-0 text-xs font-bold">수정</span>
+            <Link href="/admin/settings" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--brand-text)]">참가 옵션 가격 안내</p>
+                  <p className="brand-text-subtle mt-1 line-clamp-2 text-xs">
+                    {settings[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] || "설정 페이지에서 참가 옵션 안내 문구를 입력하세요."}
+                  </p>
                 </div>
-              </Link>
+                <span className="brand-link shrink-0 text-xs font-bold">수정</span>
+              </div>
+            </Link>
 
-              <Link href="/admin/pricing" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-bold text-[var(--brand-text)]">비용 책정</p>
-                    <p className="brand-text-subtle mt-1 text-xs">
-                      정회원/동반인 참가비, 강습비, 장비 대여비를 따로 관리합니다.
-                    </p>
-                  </div>
-                  <span className="brand-link shrink-0 text-xs font-bold">열기</span>
+            <Link href="/admin/pricing" className="brand-list-item brand-list-item-hover block rounded-2xl p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-[var(--brand-text)]">비용 책정</p>
+                  <p className="brand-text-subtle mt-1 text-xs">
+                    정회원/동반인 참가비, 강습비, 장비 대여비를 따로 관리합니다.
+                  </p>
                 </div>
-              </Link>
-            </div>
+                <span className="brand-link shrink-0 text-xs font-bold">열기</span>
+              </div>
+            </Link>
           </div>
         </section>
-      </div>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-[var(--brand-text)]">공지 목록</h2>
-          <span className="brand-text-subtle text-xs">고정 공지 우선, 이후 최근 수정 순입니다.</span>
-        </div>
-
-        {notices.length === 0 ? (
-          <div className="brand-card-soft rounded-3xl px-4 py-10 text-center text-sm brand-text-subtle">
-            등록된 공지가 없습니다.
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header flex items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <h2 className="text-base font-bold text-[var(--brand-text)]">공지 목록</h2>
+              <p className="brand-text-subtle mt-1 text-xs">
+                고정 공지 우선, 이후 최근 수정 순입니다.
+              </p>
+            </div>
+            <span className="brand-text-subtle text-xs">{notices.length}개</span>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {notices.map((notice) => (
-              <div key={notice.id} className="brand-card-soft rounded-3xl p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      {notice.isPinned ? (
-                        <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">최상단 고정</span>
-                      ) : (
-                        <span className="brand-chip-accent rounded-full px-2 py-1 text-xs font-bold">일반 공지</span>
-                      )}
-                      <span className="brand-text-subtle text-xs">
-                        수정 {formatTimestamp(notice.updatedAt)}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold text-[var(--brand-text)]">{notice.title}</p>
-                    <p className="brand-text-muted mt-2 whitespace-pre-line text-sm">{notice.body}</p>
-                  </div>
 
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handlePinToggle(notice)}
-                      className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold"
-                    >
-                      {notice.isPinned ? "고정 해제" : "최상단 고정"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(notice)}
-                      className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold"
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(notice.id)}
-                      className="brand-button-danger rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
-                    >
-                      삭제
-                    </button>
+          {notices.length === 0 ? (
+            <div className="brand-admin-empty px-4 py-10 text-sm">등록된 공지가 없습니다.</div>
+          ) : (
+            <div className="divide-y divide-[var(--brand-divider)]">
+              {notices.map((notice) => (
+                <div key={notice.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        {notice.isPinned ? (
+                          <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">최상단 고정</span>
+                        ) : (
+                          <span className="brand-chip-accent rounded-full px-2 py-1 text-xs font-bold">일반 공지</span>
+                        )}
+                        <span className="brand-text-subtle text-xs">
+                          수정 {formatTimestamp(notice.updatedAt)}
+                        </span>
+                      </div>
+                      <p className="text-base font-bold text-[var(--brand-text)]">{notice.title}</p>
+                      <p className="brand-text-muted mt-2 whitespace-pre-line text-sm">{notice.body}</p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePinToggle(notice)}
+                        className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold"
+                      >
+                        {notice.isPinned ? "고정 해제" : "최상단 고정"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(notice)}
+                        className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold"
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(notice.id)}
+                        className="brand-button-danger rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+                      >
+                        삭제
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       {toasts.map((toast) => (
         <Toast

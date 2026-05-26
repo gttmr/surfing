@@ -625,7 +625,7 @@ export function MobileProfileSaveDock({
   if (!visible) return null;
 
   return (
-    <div className="brand-bottom-dock fixed inset-x-0 bottom-0 z-40 backdrop-blur sm:hidden">
+    <div className="brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-40 backdrop-blur sm:hidden">
       <div className="mx-auto w-full max-w-[390px] px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
         <button
           className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${

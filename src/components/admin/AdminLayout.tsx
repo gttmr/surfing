@@ -31,9 +31,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
-      <header className="brand-header-surface sticky top-0 z-20">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
+    <div className="brand-admin-shell">
+      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)]">
+        <div className="mx-auto flex w-full items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Link href="/" className="brand-link text-sm font-semibold transition-colors">&larr; 사이트</Link>
             <span className="brand-text-subtle">|</span>
@@ -48,7 +48,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:flex-row">
+      <div className="mx-auto flex w-full flex-1 flex-col md:flex-row">
         <aside className="hidden w-56 shrink-0 p-4 md:block md:p-6">
           <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
             {NAV_ITEMS.map((item) => (
@@ -68,13 +68,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </nav>
         </aside>
 
-        <main className="flex-1 px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">
+        <main className="flex-1 px-4 pb-32 pt-5 md:px-6 md:pb-8 md:pt-6">
           {children}
         </main>
       </div>
 
-      <nav className="brand-bottom-dock fixed bottom-0 left-0 right-0 z-20 md:hidden">
-        <div className="flex">
+      <nav className="brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-40 md:hidden">
+        <div className="flex w-full pb-[calc(env(safe-area-inset-bottom)+0.2rem)]">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import type { AdminMemberListItem } from "@/lib/admin-page-data";
 
@@ -45,19 +45,36 @@ export function AdminMembersPageClient({
   initialUsers: AdminMemberListItem[];
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const [activeUserId, setActiveUserId] = useState<number | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const detailRequestSeqRef = useRef(0);
 
   async function loadDetail(userId: number) {
+    if (activeUserId === userId) {
+      detailRequestSeqRef.current += 1;
+      setActiveUserId(null);
+      setSelectedUser(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    const requestSeq = ++detailRequestSeqRef.current;
+    setActiveUserId(userId);
+    setSelectedUser((prev) => (prev?.id === userId ? prev : null));
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/admin/members/${userId}`);
       if (!res.ok) throw new Error("load_failed");
       const data = (await res.json()) as UserDetail;
-      setSelectedUser(data);
+      if (detailRequestSeqRef.current === requestSeq) {
+        setSelectedUser(data);
+      }
     } finally {
-      setDetailLoading(false);
+      if (detailRequestSeqRef.current === requestSeq) {
+        setDetailLoading(false);
+      }
     }
   }
 
@@ -120,6 +137,7 @@ export function AdminMembersPageClient({
     if (!res.ok) return;
 
     setUsers((prev) => prev.filter((user) => user.id !== userId));
+    setActiveUserId((prev) => (prev === userId ? null : prev));
     setSelectedUser((prev) => (prev?.id === userId ? null : prev));
   }
 
@@ -143,237 +161,277 @@ export function AdminMembersPageClient({
 
   return (
     <AdminLayout>
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-            회원 관리
-          </h1>
-          <p className="brand-text-muted mt-1 text-sm">
-            회원 유형, 권한, 활동 이력을 한 화면에서 관리합니다.
-          </p>
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
+              Admin Workspace
+            </p>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+              회원 관리
+            </h1>
+            <p className="brand-text-muted mt-1 text-sm">
+              회원 유형, 권한, 활동 이력을 같은 리스트 안에서 관리합니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="brand-admin-stat rounded-full px-3 py-1.5">전체 {users.length}</span>
+            {adminCount > 0 ? (
+              <span className="brand-admin-stat rounded-full px-3 py-1.5">관리자 {adminCount}</span>
+            ) : null}
+            {shopOwnerCount > 0 ? (
+              <span className="brand-admin-stat rounded-full px-3 py-1.5">샵사장 {shopOwnerCount}</span>
+            ) : null}
+            {penaltyCount > 0 ? (
+              <span className="brand-admin-stat rounded-full px-3 py-1.5">패널티 {penaltyCount}</span>
+            ) : null}
+            {bannedCount > 0 ? (
+              <span className="brand-admin-stat rounded-full px-3 py-1.5">차단 {bannedCount}</span>
+            ) : null}
+          </div>
         </div>
-        <div className="flex gap-2 text-xs font-semibold">
-          <span className="brand-chip-accent rounded-full px-2.5 py-1">전체 {users.length}</span>
-          {adminCount > 0 && (
-            <span className="brand-chip-dark rounded-full px-2.5 py-1">관리자 {adminCount}</span>
-          )}
-          {shopOwnerCount > 0 && (
-            <span className="brand-chip-accent rounded-full px-2.5 py-1">샵사장 {shopOwnerCount}</span>
-          )}
-          {penaltyCount > 0 && (
-            <span className="brand-chip-danger rounded-full px-2.5 py-1">패널티 {penaltyCount}</span>
-          )}
-          {bannedCount > 0 && (
-            <span className="brand-chip-danger rounded-full px-2.5 py-1">차단 {bannedCount}</span>
-          )}
-        </div>
-      </div>
 
-      <div className="mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="이름, 카카오ID, 연락처로 검색..."
-          className="brand-input w-full rounded-2xl px-4 py-2.5 text-sm outline-none transition-colors"
-        />
-      </div>
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header px-5 py-4">
+            <h2 className="text-base font-bold text-[var(--brand-text)]">회원 검색</h2>
+            <p className="brand-text-subtle mt-1 text-xs">
+              이름, 카카오 ID, 연락처로 찾고 바로 아래에서 편집합니다.
+            </p>
+          </div>
+          <div className="px-5 py-5">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="이름, 카카오ID, 연락처로 검색..."
+              className="brand-input w-full rounded-2xl px-4 py-3 text-sm outline-none transition-colors"
+            />
+          </div>
+        </section>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="flex-1">
-          {filteredUsers.length === 0 ? (
-            <div className="brand-card-soft rounded-3xl p-8 text-center">
-              <div className="mb-3 text-4xl">👤</div>
-              <p className="brand-text-muted font-medium">등록된 회원이 없습니다</p>
-              <p className="brand-text-subtle mt-1 text-sm">
-                카카오 로그인을 한 사용자가 자동으로 등록됩니다
-              </p>
+        {filteredUsers.length === 0 ? (
+          <section className="brand-admin-section">
+            <div className="brand-admin-empty px-4 py-10 text-sm">
+              등록된 회원이 없습니다. 카카오 로그인을 한 사용자가 자동으로 등록됩니다.
             </div>
-          ) : (
-            <div className="brand-card-soft overflow-hidden rounded-3xl">
-              {filteredUsers.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => loadDetail(user.id)}
-                  className={`brand-list-row flex w-full items-center gap-3 p-4 text-left transition-colors last:border-b-0 ${
-                    selectedUser?.id === user.id
-                      ? "brand-list-item-active"
-                      : "hover:bg-[var(--brand-primary-soft)]/40"
-                  }`}
-                >
-                  <div className="brand-avatar-shell flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full">
-                    {user.profileImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-lg">🏄</span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-bold text-[var(--brand-text)]">
-                        {user.name || "이름 없음"}
-                      </span>
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${ROLE_COLORS[user.role] || "brand-chip-accent"}`}>
-                        {ROLE_LABELS[user.role] || user.role}
-                      </span>
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "brand-chip-accent"}`}>
-                        {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
-                      </span>
-                      {user.penaltyCount > 0 && (
-                        <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">
-                          패널티 {user.penaltyCount}
-                        </span>
-                      )}
-                    </div>
-                    <p className="brand-text-subtle flex items-center gap-1.5 text-xs">
-                      모임 {user._count.participants}회
-                    </p>
-                  </div>
-                  <span className="brand-text-subtle text-sm">›</span>
-                </button>
-              ))}
+          </section>
+        ) : (
+          <section className="brand-admin-section overflow-hidden">
+            <div className="brand-admin-section-header flex items-center justify-between gap-3 px-5 py-4">
+              <div>
+                <h2 className="text-base font-bold text-[var(--brand-text)]">회원 목록</h2>
+                <p className="brand-text-subtle mt-1 text-xs">
+                  같은 회원 행을 다시 누르면 편집 영역이 닫힙니다.
+                </p>
+              </div>
+              <span className="brand-text-subtle text-xs">{filteredUsers.length}명</span>
             </div>
-          )}
-        </div>
 
-        {selectedUser ? (
-          <div className="shrink-0 lg:w-96">
-            <div className="brand-card-soft sticky top-24 rounded-3xl p-6">
-              {detailLoading ? (
-                <div className="brand-text-subtle py-8 text-center text-sm">불러오는 중...</div>
-              ) : (
-                <>
-                  <div className="mb-6 flex items-center gap-4">
-                    <div className="brand-avatar-shell flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full">
-                      {selectedUser.profileImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={selectedUser.profileImage} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-3xl">🏄</span>
-                      )}
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-extrabold text-[var(--brand-text)]">
-                        {selectedUser.name || "이름 없음"}
-                      </h2>
-                      <p className="brand-text-subtle mt-0.5 text-xs">카카오 ID: {selectedUser.kakaoId}</p>
-                      <p className="brand-text-subtle text-xs">
-                        가입일: {new Date(selectedUser.createdAt).toLocaleDateString("ko-KR")}
-                      </p>
-                      {selectedUser.penaltyCount > 0 && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="brand-chip-danger rounded-full px-2 py-0.5 text-xs font-bold">
-                            패널티 {selectedUser.penaltyCount}회
-                          </span>
-                          <button
-                            onClick={() => handleResetPenalty(selectedUser.id)}
-                            className="brand-link text-xs underline"
-                          >
-                            초기화
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            <div>
+              {filteredUsers.map((user) => {
+                const isActive = activeUserId === user.id;
+                const activeDetail = selectedUser?.id === user.id ? selectedUser : null;
 
-                  <div className="mb-4">
-                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 유형</label>
-                    <div className="flex gap-2">
-                      {(["REGULAR", "COMPANION"] as const).map((memberType) => (
-                        <button
-                          key={memberType}
-                          onClick={() => handleMemberTypeChange(selectedUser.id, memberType)}
-                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
-                            selectedUser.memberType === memberType
-                              ? "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)] shadow-sm"
-                              : "brand-button-secondary"
-                          }`}
-                        >
-                          {MEMBER_TYPE_LABELS[memberType]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 등급</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["MEMBER", "SHOP_OWNER", "ADMIN", "BANNED"] as const).map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => handleRoleChange(selectedUser.id, role)}
-                          className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
-                            selectedUser.role === role
-                              ? role === "BANNED"
-                                ? "brand-button-danger-solid shadow-sm"
-                                : role === "ADMIN"
-                                  ? "brand-chip-dark"
-                                  : role === "SHOP_OWNER"
-                                    ? "brand-chip-accent"
-                                  : "brand-chip-soft"
-                              : "brand-button-secondary"
-                          }`}
-                        >
-                          {ROLE_LABELS[role]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <label className="brand-text-muted mb-2 block text-xs font-bold">회원 삭제</label>
+                return (
+                  <div
+                    key={user.id}
+                    className={`brand-list-row last:border-b-0 ${isActive ? "brand-list-item-active" : ""}`}
+                  >
                     <button
-                      onClick={() => handleDeleteUser(selectedUser.id)}
-                      className="brand-button-danger w-full rounded-xl px-4 py-2.5 text-sm font-bold transition-colors"
+                      onClick={() => loadDetail(user.id)}
+                      className={`flex w-full items-center gap-3 px-5 py-4 text-left transition-colors ${
+                        isActive ? "" : "hover:bg-[var(--brand-primary-soft)]/35"
+                      }`}
                       type="button"
                     >
-                      회원 삭제하기
-                    </button>
-                  </div>
+                      <div className="brand-avatar-shell flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                        {user.profileImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-lg">🏄</span>
+                        )}
+                      </div>
 
-                  <div>
-                    <h3 className="brand-text-muted mb-3 text-xs font-bold">활동 이력</h3>
-                    <div className="max-h-72 space-y-2 overflow-y-auto">
-                      {selectedUser.participants.length === 0 ? (
-                        <p className="brand-text-subtle py-4 text-center text-xs">활동 내역이 없습니다</p>
-                      ) : (
-                        selectedUser.participants.map((participant) => (
-                          <div key={participant.id} className="brand-list-item rounded-xl p-3 text-xs">
-                            <div className="mb-1 flex items-center gap-2">
-                              <span className="brand-link font-bold">모임</span>
-                              <span className={`rounded px-1.5 py-0.5 font-bold ${
-                                participant.status === "APPROVED"
-                                  ? "brand-chip-success"
-                                  : participant.status === "WAITLISTED"
-                                    ? "brand-chip-soft"
-                                    : "bg-[var(--brand-dimmed-surface)] text-[var(--brand-dimmed-text)]"
-                              }`}>
-                                {participant.status === "APPROVED"
-                                  ? "참석"
-                                  : participant.status === "WAITLISTED"
-                                    ? "대기"
-                                    : "취소"}
-                              </span>
-                              {participant.isPenalized ? (
-                                <span className="brand-chip-danger rounded px-1.5 py-0.5 font-bold">
-                                  패널티
-                                </span>
-                              ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-bold text-[var(--brand-text)]">
+                            {user.name || "이름 없음"}
+                          </span>
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${ROLE_COLORS[user.role] || "brand-chip-accent"}`}
+                          >
+                            {ROLE_LABELS[user.role] || user.role}
+                          </span>
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${MEMBER_TYPE_COLORS[user.memberType] || "brand-chip-accent"}`}
+                          >
+                            {MEMBER_TYPE_LABELS[user.memberType] || user.memberType}
+                          </span>
+                          {user.penaltyCount > 0 ? (
+                            <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">
+                              패널티 {user.penaltyCount}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="brand-text-subtle flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                          <span>카카오 ID {user.kakaoId}</span>
+                          <span>모임 {user._count.participants}회</span>
+                        </div>
+                      </div>
+
+                      <span className="brand-text-subtle shrink-0 text-sm">{isActive ? "⌄" : "›"}</span>
+                    </button>
+
+                    {isActive ? (
+                      <div className="brand-admin-inline-panel px-5 py-5">
+                        {detailLoading && !activeDetail ? (
+                          <div className="brand-admin-empty py-8 text-sm">불러오는 중...</div>
+                        ) : activeDetail ? (
+                          <div className="space-y-5">
+                            <div className="flex items-center gap-4">
+                              <div className="brand-avatar-shell flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full">
+                                {activeDetail.profileImage ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={activeDetail.profileImage} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-3xl">🏄</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <h2 className="truncate text-lg font-extrabold text-[var(--brand-text)]">
+                                  {activeDetail.name || "이름 없음"}
+                                </h2>
+                                <p className="brand-text-subtle mt-0.5 text-xs">카카오 ID: {activeDetail.kakaoId}</p>
+                                <p className="brand-text-subtle text-xs">
+                                  가입일: {new Date(activeDetail.createdAt).toLocaleDateString("ko-KR")}
+                                </p>
+                                {activeDetail.penaltyCount > 0 ? (
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <span className="brand-chip-danger rounded-full px-2 py-0.5 text-xs font-bold">
+                                      패널티 {activeDetail.penaltyCount}회
+                                    </span>
+                                    <button
+                                      onClick={() => handleResetPenalty(activeDetail.id)}
+                                      className="brand-link text-xs underline"
+                                      type="button"
+                                    >
+                                      초기화
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
-                            <p className="brand-text-muted">
-                              {participant.meeting.date} · {participant.meeting.startTime} · {participant.meeting.location}
-                            </p>
+
+                            <div className="space-y-4">
+                              <div>
+                                <label className="brand-text-muted mb-2 block text-xs font-bold">회원 유형</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["REGULAR", "COMPANION"] as const).map((memberType) => (
+                                    <button
+                                      key={memberType}
+                                      onClick={() => handleMemberTypeChange(activeDetail.id, memberType)}
+                                      className={`rounded-xl py-2.5 text-xs font-bold transition-all ${
+                                        activeDetail.memberType === memberType
+                                          ? "bg-[var(--brand-primary-soft-strong)] text-[var(--brand-primary-text)] shadow-sm"
+                                          : "brand-button-secondary"
+                                      }`}
+                                      type="button"
+                                    >
+                                      {MEMBER_TYPE_LABELS[memberType]}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="brand-text-muted mb-2 block text-xs font-bold">회원 등급</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(["MEMBER", "SHOP_OWNER", "ADMIN", "BANNED"] as const).map((role) => (
+                                    <button
+                                      key={role}
+                                      onClick={() => handleRoleChange(activeDetail.id, role)}
+                                      className={`rounded-xl py-2.5 text-xs font-bold transition-all ${
+                                        activeDetail.role === role
+                                          ? role === "BANNED"
+                                            ? "brand-button-danger-solid shadow-sm"
+                                            : role === "ADMIN"
+                                              ? "brand-chip-dark"
+                                              : role === "SHOP_OWNER"
+                                                ? "brand-chip-accent"
+                                                : "brand-chip-soft"
+                                          : "brand-button-secondary"
+                                      }`}
+                                      type="button"
+                                    >
+                                      {ROLE_LABELS[role]}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="brand-text-muted mb-2 block text-xs font-bold">회원 삭제</label>
+                                <button
+                                  onClick={() => handleDeleteUser(activeDetail.id)}
+                                  className="brand-button-danger w-full rounded-xl px-4 py-2.5 text-sm font-bold transition-colors"
+                                  type="button"
+                                >
+                                  회원 삭제하기
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h3 className="brand-text-muted mb-3 text-xs font-bold">활동 이력</h3>
+                              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                                {activeDetail.participants.length === 0 ? (
+                                  <p className="brand-admin-empty py-4 text-xs">활동 내역이 없습니다.</p>
+                                ) : (
+                                  activeDetail.participants.map((participant) => (
+                                    <div key={participant.id} className="brand-list-item rounded-xl p-3 text-xs">
+                                      <div className="mb-1 flex items-center gap-2">
+                                        <span className="brand-link font-bold">모임</span>
+                                        <span
+                                          className={`rounded px-1.5 py-0.5 font-bold ${
+                                            participant.status === "APPROVED"
+                                              ? "brand-chip-success"
+                                              : participant.status === "WAITLISTED"
+                                                ? "brand-chip-soft"
+                                                : "bg-[var(--brand-dimmed-surface)] text-[var(--brand-dimmed-text)]"
+                                          }`}
+                                        >
+                                          {participant.status === "APPROVED"
+                                            ? "참석"
+                                            : participant.status === "WAITLISTED"
+                                              ? "대기"
+                                              : "취소"}
+                                        </span>
+                                        {participant.isPenalized ? (
+                                          <span className="brand-chip-danger rounded px-1.5 py-0.5 font-bold">
+                                            패널티
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <p className="brand-text-muted">
+                                        {participant.meeting.date} · {participant.meeting.startTime} ·{" "}
+                                        {participant.meeting.location}
+                                      </p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        ))
-                      )}
-                    </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                </>
-              )}
+                );
+              })}
             </div>
-          </div>
-        ) : null}
+          </section>
+        )}
       </div>
     </AdminLayout>
   );

@@ -66,8 +66,8 @@ export function ShopLayout({ children }: ShopLayoutProps) {
         <main className="flex-1 px-4 pb-28 pt-4 md:px-6 md:pb-8 md:pt-6">{children}</main>
       </div>
 
-      <nav className="brand-bottom-dock fixed bottom-0 left-0 right-0 z-20 md:hidden">
-        <div className="mx-auto flex max-w-[430px] pb-[calc(env(safe-area-inset-bottom)+0.2rem)]">
+      <nav className="brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-20 md:hidden">
+        <div className="flex w-full pb-[calc(env(safe-area-inset-bottom)+0.2rem)]">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}

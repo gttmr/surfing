@@ -185,15 +185,15 @@ export function FoodMenuEditorPanel({
     <>
       <div className="space-y-4">
         {categories.length === 0 ? (
-          <section className="brand-card-soft rounded-3xl p-5">
+          <section className="brand-admin-section px-5 py-5">
             <p className="text-sm font-semibold text-[var(--brand-text)]">등록된 카테고리가 없습니다.</p>
             <p className="brand-text-subtle mt-1 text-xs">아래 버튼으로 첫 카테고리를 추가해 주세요.</p>
           </section>
         ) : null}
 
         {categories.map((category) => (
-          <section key={category.key} className="brand-card-soft rounded-3xl p-5">
-            <div className="mb-4 flex items-center gap-3">
+          <section key={category.key} className="brand-admin-section overflow-hidden">
+            <div className="brand-admin-section-header flex items-center gap-3 px-5 py-4">
               <input
                 value={category.name}
                 onChange={(event) => updateCategory(category.key, { name: event.target.value })}
@@ -204,88 +204,90 @@ export function FoodMenuEditorPanel({
                 type="button"
                 onClick={() => handleRemoveCategory(category.key)}
                 aria-label="카테고리 삭제"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold text-[var(--brand-danger)] transition-opacity hover:opacity-70"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-bold leading-none text-[var(--brand-danger)] transition-opacity hover:opacity-70"
               >
-                x
+                ×
               </button>
             </div>
 
-            <div className="brand-panel-white overflow-hidden rounded-3xl">
-              <div className="grid grid-cols-[24px_minmax(0,2fr)_88px_20px] items-center gap-2 border-b border-[var(--brand-divider)] px-3 py-3 text-[11px] font-bold text-[var(--brand-text-subtle)]">
-                <span className="text-center">판매중</span>
-                <span>이름</span>
-                <span>가격</span>
-                <span className="text-center">삭제</span>
+            <div className="overflow-hidden px-5 py-5">
+              <div className="brand-panel-white overflow-hidden rounded-3xl">
+                <div className="grid grid-cols-[32px_minmax(0,2fr)_92px_28px] items-center gap-2 border-b border-[var(--brand-divider)] px-3 py-3 text-[11px] font-bold text-[var(--brand-text-subtle)]">
+                  <span className="text-center">판매</span>
+                  <span>이름</span>
+                  <span>가격</span>
+                  <span className="text-center">삭제</span>
+                </div>
+
+                {category.menus.length === 0 ? (
+                  <div className="px-4 py-5">
+                    <p className="text-sm font-semibold text-[var(--brand-text)]">이 카테고리에 등록된 메뉴가 없습니다.</p>
+                    <p className="brand-text-subtle mt-1 text-xs">아래 + 메뉴 버튼으로 항목을 추가해 주세요.</p>
+                  </div>
+                ) : null}
+
+                {category.menus.map((menu) => (
+                  <div
+                    key={menu.key}
+                    className="grid grid-cols-[32px_minmax(0,2fr)_92px_28px] items-center gap-2 border-b border-[var(--brand-divider)] px-3 py-3 last:border-b-0"
+                  >
+                    <label className="flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(menu.isActive)}
+                        onChange={(event) =>
+                          updateMenu(category.key, menu.key, { isActive: event.target.checked })
+                        }
+                        aria-label="판매중"
+                        className="h-4 w-4 accent-[var(--brand-primary)]"
+                      />
+                    </label>
+
+                    <div className="min-w-0">
+                      <input
+                        value={menu.name}
+                        onChange={(event) =>
+                          updateMenu(category.key, menu.key, { name: event.target.value })
+                        }
+                        placeholder="메뉴명"
+                        className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <input
+                        value={menu.price}
+                        onChange={(event) =>
+                          updateMenu(category.key, menu.key, {
+                            price: event.target.value.replace(/[^\d]/g, ""),
+                          })
+                        }
+                        inputMode="numeric"
+                        placeholder="가격"
+                        className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMenu(category.key, menu.key)}
+                      aria-label="메뉴 삭제"
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold leading-none text-[var(--brand-danger)] transition-opacity hover:opacity-70"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              {category.menus.length === 0 ? (
-                <div className="px-4 py-5">
-                  <p className="text-sm font-semibold text-[var(--brand-text)]">이 카테고리에 등록된 메뉴가 없습니다.</p>
-                  <p className="brand-text-subtle mt-1 text-xs">아래 + 메뉴 버튼으로 항목을 추가해 주세요.</p>
-                </div>
-              ) : null}
-
-              {category.menus.map((menu) => (
-                <div
-                  key={menu.key}
-                  className="grid grid-cols-[24px_minmax(0,2fr)_88px_20px] items-center gap-2 border-b border-[var(--brand-divider)] px-3 py-3 last:border-b-0"
-                >
-                  <label className="flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(menu.isActive)}
-                      onChange={(event) =>
-                        updateMenu(category.key, menu.key, { isActive: event.target.checked })
-                      }
-                      aria-label="판매중"
-                      className="h-4 w-4 accent-[var(--brand-primary)]"
-                    />
-                  </label>
-
-                  <div className="min-w-0">
-                    <input
-                      value={menu.name}
-                      onChange={(event) =>
-                        updateMenu(category.key, menu.key, { name: event.target.value })
-                      }
-                      placeholder="메뉴명"
-                      className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <input
-                      value={menu.price}
-                      onChange={(event) =>
-                        updateMenu(category.key, menu.key, {
-                          price: event.target.value.replace(/[^\d]/g, ""),
-                        })
-                      }
-                      inputMode="numeric"
-                      placeholder="가격"
-                      className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMenu(category.key, menu.key)}
-                    aria-label="메뉴 삭제"
-                    className="flex h-7 w-7 items-center justify-center rounded-full text-base font-bold text-[var(--brand-danger)] transition-opacity hover:opacity-70"
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
+              <button
+                type="button"
+                onClick={() => handleAddMenu(category.key)}
+                className="brand-button-secondary mt-4 flex w-full items-center justify-center rounded-2xl py-3 text-sm font-bold"
+              >
+                + 메뉴 추가
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => handleAddMenu(category.key)}
-              className="brand-button-secondary mt-4 flex w-full items-center justify-center rounded-2xl py-3 text-sm font-bold"
-            >
-              + 메뉴 추가
-            </button>
           </section>
         ))}
 
