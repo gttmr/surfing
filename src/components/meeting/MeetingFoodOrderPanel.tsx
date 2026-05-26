@@ -29,7 +29,7 @@ function buildMenuDraftRows(menu: ParticipantMeetingFoodOrdersData["menus"][numb
     menuId: menu.id,
     optionChoiceId: option.id,
     label: option.label,
-    price: menu.price,
+    price: option.price,
   }));
 }
 

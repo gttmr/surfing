@@ -18,6 +18,7 @@ type MenuOptionDraft = {
   id: number | null;
   key: string;
   label: string;
+  price: string;
 };
 
 type CategoryDraft = {
@@ -27,17 +28,21 @@ type CategoryDraft = {
   menus: MenuDraft[];
 };
 
+const DEFAULT_OPTION_GROUP_NAME = "옵션";
+const HOT_ICE_OPTION_LABELS = ["ICE", "HOT"];
+
 function toMenuDraft(menu: AdminFoodMenuSettingsData["categories"][number]["menus"][number]): MenuDraft {
   return {
     id: menu.id,
     key: `menu-${menu.id}`,
     name: menu.name,
     price: String(menu.price),
-    optionGroupName: menu.optionGroupName ?? "",
+    optionGroupName: menu.optionGroupName ?? (menu.options.length > 0 ? DEFAULT_OPTION_GROUP_NAME : ""),
     options: menu.options.map((option) => ({
       id: option.id,
       key: `option-${option.id}`,
       label: option.label,
+      price: String(option.price),
     })),
     isActive: menu.isActive ?? true,
   };
@@ -105,7 +110,12 @@ export function FoodMenuEditorPanel({
     );
   }
 
-  function updateMenuOption(categoryKey: string, menuKey: string, optionKey: string, label: string) {
+  function updateMenuOption(
+    categoryKey: string,
+    menuKey: string,
+    optionKey: string,
+    patch: Partial<MenuOptionDraft>
+  ) {
     setCategories((prev) =>
       prev.map((category) =>
         category.key === categoryKey
@@ -116,7 +126,7 @@ export function FoodMenuEditorPanel({
                   ? {
                       ...menu,
                       options: menu.options.map((option) =>
-                        option.key === optionKey ? { ...option, label } : option
+                        option.key === optionKey ? { ...option, ...patch } : option
                       ),
                     }
                   : menu
@@ -171,18 +181,53 @@ export function FoodMenuEditorPanel({
                 menu.key === menuKey
                   ? {
                       ...menu,
-                      optionGroupName: menu.optionGroupName || "옵션",
+                      optionGroupName: menu.optionGroupName || DEFAULT_OPTION_GROUP_NAME,
                       options: [
                         ...menu.options,
                         {
                           id: null,
                           key: `new-option-${Date.now()}-${menu.options.length}`,
                           label: "",
+                          price: menu.price,
                         },
                       ],
                     }
                   : menu
               ),
+            }
+          : category
+      )
+    );
+  }
+
+  function handleAddHotIceOptions(categoryKey: string, menuKey: string) {
+    setCategories((prev) =>
+      prev.map((category) =>
+        category.key === categoryKey
+          ? {
+              ...category,
+              menus: category.menus.map((menu) => {
+                if (menu.key !== menuKey) {
+                  return menu;
+                }
+
+                const existingLabels = new Set(menu.options.map((option) => option.label.trim().toUpperCase()));
+                const optionsToAdd = HOT_ICE_OPTION_LABELS.filter((label) => !existingLabels.has(label));
+
+                return {
+                  ...menu,
+                  optionGroupName: menu.optionGroupName || DEFAULT_OPTION_GROUP_NAME,
+                  options: [
+                    ...menu.options,
+                    ...optionsToAdd.map((label, index) => ({
+                      id: null,
+                      key: `new-option-${Date.now()}-${menu.options.length + index}`,
+                      label,
+                      price: menu.price,
+                    })),
+                  ],
+                };
+              }),
             }
           : category
       )
@@ -234,11 +279,6 @@ export function FoodMenuEditorPanel({
           return;
         }
 
-        if (menu.options.length > 0 && !menu.optionGroupName.trim()) {
-          addToast("옵션 선택지가 있는 메뉴는 옵션명을 입력해 주세요.", "error");
-          return;
-        }
-
         if (menu.optionGroupName.trim() && menu.options.length === 0) {
           addToast("옵션명이 있는 메뉴는 선택지를 한 개 이상 입력해 주세요.", "error");
           return;
@@ -247,6 +287,14 @@ export function FoodMenuEditorPanel({
         if (menu.options.some((option) => !option.label.trim())) {
           addToast("비어 있는 옵션 선택지가 있습니다.", "error");
           return;
+        }
+
+        for (const option of menu.options) {
+          const optionPrice = Number(option.price.replace(/[^\d]/g, "") || "0");
+          if (!Number.isInteger(optionPrice) || optionPrice < 0) {
+            addToast("옵션 가격은 0 이상의 정수여야 합니다.", "error");
+            return;
+          }
         }
       }
     }
@@ -264,10 +312,14 @@ export function FoodMenuEditorPanel({
               id: menu.id,
               name: menu.name.trim(),
               price: Number(menu.price.replace(/[^\d]/g, "") || "0"),
-              optionGroupName: menu.optionGroupName.trim() || null,
+              optionGroupName:
+                menu.options.length > 0
+                  ? menu.optionGroupName.trim() || DEFAULT_OPTION_GROUP_NAME
+                  : null,
               options: menu.options.map((option) => ({
                 id: option.id,
                 label: option.label.trim(),
+                price: Number(option.price.replace(/[^\d]/g, "") || "0"),
               })),
               isActive: menu.isActive,
             })),
@@ -384,26 +436,26 @@ export function FoodMenuEditorPanel({
                     </div>
 
                     <div className="ml-10 mt-3 space-y-2">
-                      {menu.options.length > 0 ? (
-                        <input
-                          value={menu.optionGroupName}
-                          onChange={(event) =>
-                            updateMenu(category.key, menu.key, { optionGroupName: event.target.value })
-                          }
-                          placeholder="옵션명 예: 온도"
-                          className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                        />
-                      ) : null}
-
                       {menu.options.map((option) => (
                         <div key={option.key} className="flex items-center gap-2">
                           <input
                             value={option.label}
                             onChange={(event) =>
-                              updateMenuOption(category.key, menu.key, option.key, event.target.value)
+                              updateMenuOption(category.key, menu.key, option.key, { label: event.target.value })
                             }
                             placeholder="선택지 예: 아이스"
                             className="brand-input h-10 min-w-0 flex-1 rounded-2xl px-3 py-2 text-sm outline-none"
+                          />
+                          <input
+                            value={option.price}
+                            onChange={(event) =>
+                              updateMenuOption(category.key, menu.key, option.key, {
+                                price: event.target.value.replace(/[^\d]/g, ""),
+                              })
+                            }
+                            inputMode="numeric"
+                            placeholder="가격"
+                            className="brand-input h-10 w-24 rounded-2xl px-3 py-2 text-sm outline-none"
                           />
                           <button
                             type="button"
@@ -416,13 +468,22 @@ export function FoodMenuEditorPanel({
                         </div>
                       ))}
 
-                      <button
-                        type="button"
-                        onClick={() => handleAddOption(category.key, menu.key)}
-                        className="brand-button-secondary rounded-2xl px-3 py-2 text-xs font-bold"
-                      >
-                        + 옵션 추가
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAddOption(category.key, menu.key)}
+                          className="brand-button-secondary rounded-2xl px-3 py-2 text-xs font-bold"
+                        >
+                          + 옵션 추가
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddHotIceOptions(category.key, menu.key)}
+                          className="brand-button-secondary rounded-2xl px-3 py-2 text-xs font-bold"
+                        >
+                          Hot,Ice
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

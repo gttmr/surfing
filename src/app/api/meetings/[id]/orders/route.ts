@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             menuNameSnapshot: menu.name,
             optionGroupNameSnapshot: option ? menu.optionGroupName : null,
             optionChoiceLabelSnapshot: option?.label ?? null,
-            unitPriceSnapshot: menu.price,
+            unitPriceSnapshot: option?.price ?? menu.price,
             quantity: item.quantity,
           };
         }),

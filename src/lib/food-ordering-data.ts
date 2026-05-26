@@ -22,7 +22,7 @@ type MenuSelectShape = {
   name: string;
   price: number;
   optionGroupName: string | null;
-  options: Array<{ id: number; label: string; displayOrder: number }>;
+  options: Array<{ id: number; label: string; price: number | null; displayOrder: number }>;
   isActive: boolean;
   displayOrder: number;
 };
@@ -36,10 +36,15 @@ function mapMenu(menu: MenuSelectShape): FoodMenuCatalogItem {
     name: menu.name,
     price: menu.price,
     optionGroupName: menu.optionGroupName,
-    options: [...menu.options].sort((a, b) => {
-      if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
-      return a.label.localeCompare(b.label, "ko-KR");
-    }),
+    options: [...menu.options]
+      .map((option) => ({
+        ...option,
+        price: option.price ?? menu.price,
+      }))
+      .sort((a, b) => {
+        if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+        return a.label.localeCompare(b.label, "ko-KR");
+      }),
     isActive: menu.isActive,
     displayOrder: menu.displayOrder,
   };
@@ -75,6 +80,7 @@ export async function getFoodMenus() {
         select: {
           id: true,
           label: true,
+          price: true,
           displayOrder: true,
         },
       },
@@ -336,7 +342,7 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
       rowId: `${menu.id}:${option.id}`,
       menuItemId: menu.id,
       menuName: `${menu.name} · ${option.label}`,
-      unitPrice: menu.price,
+      unitPrice: option.price,
     }));
   });
   const menuLineRowIds = new Set(menuLineRows.map((menu) => menu.rowId));
@@ -507,6 +513,7 @@ export async function getAdminFoodMenuSettingsData(): Promise<AdminFoodMenuSetti
             select: {
               id: true,
               label: true,
+              price: true,
               displayOrder: true,
             },
           },
@@ -550,6 +557,7 @@ export type FoodMenuSaveItem = {
   options: Array<{
     id: number | null;
     label: string;
+    price: number;
     displayOrder: number;
   }>;
   isActive: boolean;
@@ -712,6 +720,7 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
               optionChoices: {
                 create: menu.options.map((option) => ({
                   label: option.label,
+                  price: option.price,
                   displayOrder: option.displayOrder,
                 })),
               },
@@ -738,6 +747,7 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
               data: {
                 menuItemId: menu.id,
                 label: option.label,
+                price: option.price,
                 displayOrder: option.displayOrder,
               },
             });
@@ -748,6 +758,7 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
             where: { id: option.id },
             data: {
               label: option.label,
+              price: option.price,
               displayOrder: option.displayOrder,
             },
           });

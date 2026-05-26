@@ -3,6 +3,7 @@ import type { FoodMenuCategorySaveItem } from "@/lib/food-ordering-data";
 type BulkMenuOptionPayloadItem = {
   id?: number | null;
   label?: string;
+  price?: number;
 };
 
 type BulkMenuPayloadItem = {
@@ -67,6 +68,7 @@ export function normalizeCatalogPayload(body: unknown): FoodMenuCategorySaveItem
         const normalizedOptions = options.map((option, optionIndex) => {
           const optionId = option?.id === null || option?.id === undefined ? null : Number(option.id);
           const label = typeof option?.label === "string" ? option.label.trim() : "";
+          const optionPrice = option?.price === undefined ? price : Number(option.price);
 
           if (optionId !== null && !Number.isInteger(optionId)) {
             throw new Error("잘못된 메뉴 옵션이 포함되어 있습니다.");
@@ -74,10 +76,14 @@ export function normalizeCatalogPayload(body: unknown): FoodMenuCategorySaveItem
           if (!label) {
             throw new Error("메뉴 옵션 선택지를 입력해 주세요.");
           }
+          if (!Number.isInteger(optionPrice) || optionPrice < 0) {
+            throw new Error("메뉴 옵션 가격은 0 이상의 정수여야 합니다.");
+          }
 
           return {
             id: optionId,
             label,
+            price: optionPrice,
             displayOrder: optionIndex,
           };
         });

@@ -26,6 +26,7 @@ export type FoodMenuCatalogItem = {
 export type FoodMenuOptionChoiceCatalogItem = {
   id: number;
   label: string;
+  price: number;
   displayOrder: number;
 };
 

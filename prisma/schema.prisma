@@ -93,6 +93,7 @@ model FoodMenuOptionChoice {
   menuItemId   Int
   menuItem     FoodMenuItem               @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   label        String
+  price        Int?
   displayOrder Int                        @default(0)
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
