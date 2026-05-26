@@ -120,6 +120,7 @@ export type AdminSettlementParticipant = {
   foodOrders: {
     id: number;
     menuNameSnapshot: string;
+    optionChoiceLabelSnapshot: string | null;
     unitPriceSnapshot: number;
     quantity: number;
     preparingQuantity: number;
@@ -373,7 +374,10 @@ async function loadSettlementContext(meetingId: number) {
         id: item.id,
         participantId: item.participantId,
         menuItemId: item.menuItemId,
+        menuOptionChoiceId: item.menuOptionChoiceId,
         menuNameSnapshot: item.menuNameSnapshot,
+        optionGroupNameSnapshot: item.optionGroupNameSnapshot,
+        optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
         unitPriceSnapshot: item.unitPriceSnapshot,
         quantity: item.quantity,
         preparingQuantity: item.preparingQuantity,

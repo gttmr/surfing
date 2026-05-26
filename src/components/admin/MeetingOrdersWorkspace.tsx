@@ -6,7 +6,7 @@ import type { AdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 
 type OrderAction = "prepare" | "serve" | "undo_prepare" | "undo_serve";
-type ActionHandler = (participantId: number, menuItemId: number, action: OrderAction) => Promise<void>;
+type ActionHandler = (participantId: number, orderItemIds: number[], action: OrderAction) => Promise<void>;
 
 function ShopSummaryBar({ data }: { data: AdminMeetingFoodOrdersData }) {
   const preparingQuantity = data.menuRows.reduce((sum, menu) => sum + menu.preparingQuantity, 0);
@@ -67,7 +67,7 @@ function ShopMenuBoard({
   return (
     <div className="space-y-8">
       {activeMenuRows.map((menu) => (
-        <section key={menu.menuItemId} className="space-y-3">
+        <section key={menu.rowId} className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <span className="h-4 w-1 rounded-full bg-[var(--brand-primary)]" />
             <p className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-[var(--brand-text)]">
@@ -77,7 +77,7 @@ function ShopMenuBoard({
 
           <div className="brand-panel-white overflow-hidden rounded-[1.7rem]">
             {menu.participantOrders.map((order, index) => {
-              const key = `${order.participantId}:${menu.menuItemId}`;
+              const key = `${order.participantId}:${menu.rowId}`;
               const relativeTime = order.orderedAt ? formatRelativeTimeKo(order.orderedAt) : "";
               const isPreparing = order.preparingQuantity > 0;
               const prepareAction: OrderAction = isPreparing ? "undo_prepare" : "prepare";
@@ -108,7 +108,7 @@ function ShopMenuBoard({
                       {/* 준비 시작 ↔ 준비 중 토글 */}
                       <button
                         type="button"
-                        onClick={() => void onAction(order.participantId, menu.menuItemId, prepareAction)}
+                        onClick={() => void onAction(order.participantId, order.orderItemIds, prepareAction)}
                         disabled={
                           submittingKey === `${key}:prepare` ||
                           submittingKey === `${key}:undo_prepare`
@@ -122,7 +122,7 @@ function ShopMenuBoard({
                       {/* 완료 */}
                       <button
                         type="button"
-                        onClick={() => void onAction(order.participantId, menu.menuItemId, "serve")}
+                        onClick={() => void onAction(order.participantId, order.orderItemIds, "serve")}
                         disabled={
                           submittingKey === `${key}:serve` ||
                           order.remainingQuantity <= 0
@@ -149,7 +149,7 @@ function ShopMenuBoard({
 
           <div className="brand-panel-white overflow-hidden rounded-[1.7rem]">
             {completedOrders.map((order, index) => {
-              const key = `${order.participantId}:${order.menuItemId}`;
+              const key = `${order.participantId}:${order.orderItemIds.join("-")}`;
               const meta = [order.menuName, order.quantity > 1 ? `${order.quantity}개` : null, order.orderedAt ? formatRelativeTimeKo(order.orderedAt) : null]
                 .filter(Boolean)
                 .join(" · ");
@@ -168,7 +168,7 @@ function ShopMenuBoard({
                     </div>
                     <button
                       type="button"
-                      onClick={() => void onAction(order.participantId, order.menuItemId, "undo_serve")}
+                      onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_serve")}
                       disabled={submittingKey === `${key}:undo_serve`}
                       className="brand-button-secondary min-w-[100px] rounded-2xl px-4 py-3.5 text-[13px] font-bold"
                     >
@@ -195,11 +195,11 @@ function AdminOrdersWorkspace({
   onAction,
 }: {
   data: AdminMeetingFoodOrdersData;
-  expandedMenuIds: Set<number>;
+  expandedMenuIds: Set<string>;
   participantQuery: string;
   submittingKey: string | null;
   onParticipantQueryChange: (value: string) => void;
-  onToggleMenu: (menuItemId: number) => void;
+  onToggleMenu: (rowId: string) => void;
   onAction: ActionHandler;
 }) {
   const filteredParticipantRows = useMemo(() => {
@@ -241,13 +241,13 @@ function AdminOrdersWorkspace({
         </div>
         <div className="space-y-3">
           {data.menuRows.map((menu) => {
-            const expanded = expandedMenuIds.has(menu.menuItemId);
+            const expanded = expandedMenuIds.has(menu.rowId);
             return (
-              <div key={menu.menuItemId} className="brand-panel-white rounded-3xl p-4">
+              <div key={menu.rowId} className="brand-panel-white rounded-3xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => onToggleMenu(menu.menuItemId)}
+                    onClick={() => onToggleMenu(menu.rowId)}
                     className="min-w-0 flex-1 text-left"
                   >
                     <div className="flex items-center gap-2">
@@ -276,7 +276,7 @@ function AdminOrdersWorkspace({
                       </div>
                     ) : (
                       menu.participantOrders.map((order) => {
-                        const key = `${order.participantId}:${menu.menuItemId}`;
+                        const key = `${order.participantId}:${menu.rowId}`;
                         const companionLabel = order.companionId ? "동반" : "정회원";
                         return (
                           <div key={key} className="brand-list-item rounded-2xl p-4">
@@ -290,7 +290,7 @@ function AdminOrdersWorkspace({
                               <div className="grid grid-cols-2 gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, menu.menuItemId, "prepare")}
+                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "prepare")}
                                   disabled={
                                     submittingKey === `${key}:prepare` ||
                                     order.remainingQuantity <= order.preparingQuantity
@@ -301,7 +301,7 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, menu.menuItemId, "serve")}
+                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "serve")}
                                   disabled={
                                     submittingKey === `${key}:serve` ||
                                     order.preparingQuantity <= 0
@@ -312,7 +312,7 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, menu.menuItemId, "undo_prepare")}
+                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_prepare")}
                                   disabled={
                                     submittingKey === `${key}:undo_prepare` ||
                                     order.preparingQuantity <= 0
@@ -323,7 +323,7 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, menu.menuItemId, "undo_serve")}
+                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_serve")}
                                   disabled={
                                     submittingKey === `${key}:undo_serve` ||
                                     order.servedQuantity <= 0
@@ -369,7 +369,7 @@ function AdminOrdersWorkspace({
               </div>
               <div className="mt-3 space-y-2">
                 {participant.items.map((item) => (
-                  <div key={item.menuItemId} className="brand-panel-white rounded-2xl px-3 py-3">
+                  <div key={item.rowId} className="brand-panel-white rounded-2xl px-3 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-[var(--brand-text)]">{item.menuName}</p>
                       <span className="brand-text-subtle text-xs">
@@ -400,19 +400,19 @@ export function MeetingOrdersWorkspace({
   variant?: "admin" | "shop";
 }) {
   const [data, setData] = useState(initialData);
-  const [expandedMenuIds, setExpandedMenuIds] = useState<Set<number>>(new Set());
+  const [expandedMenuIds, setExpandedMenuIds] = useState<Set<string>>(new Set());
   const [participantQuery, setParticipantQuery] = useState("");
   const [submittingKey, setSubmittingKey] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
 
-  async function handleAction(participantId: number, menuItemId: number, action: OrderAction) {
-    const key = `${participantId}:${menuItemId}:${action}`;
+  async function handleAction(participantId: number, orderItemIds: number[], action: OrderAction) {
+    const key = `${participantId}:${orderItemIds.join("-")}:${action}`;
     setSubmittingKey(key);
     try {
       const res = await fetch(ordersEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId, menuItemId, action }),
+        body: JSON.stringify({ participantId, orderItemIds, action }),
       });
       const next = await res.json();
       if (!res.ok) throw new Error(next.error || "주문 상태를 바꾸지 못했습니다.");
@@ -438,11 +438,11 @@ export function MeetingOrdersWorkspace({
           participantQuery={participantQuery}
           submittingKey={submittingKey}
           onParticipantQueryChange={setParticipantQuery}
-          onToggleMenu={(menuItemId) =>
+          onToggleMenu={(rowId) =>
             setExpandedMenuIds((prev) => {
               const next = new Set(prev);
-              if (next.has(menuItemId)) next.delete(menuItemId);
-              else next.add(menuItemId);
+              if (next.has(rowId)) next.delete(rowId);
+              else next.add(rowId);
               return next;
             })
           }

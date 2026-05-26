@@ -1,17 +1,13 @@
 import { prisma } from "@/lib/db";
 import { getTodayInSeoul } from "@/lib/date";
 import {
-  getFoodOrderSummary,
-  isFoodOrderLocked,
+  getFoodOrderItemDisplayName,
   isMeetingOrderOpen,
   parseAmount,
   sortFoodMenuCategories,
   sortFoodMenus,
-  UNCATEGORIZED_MENU_NAME,
-  UNCATEGORIZED_MENU_ORDER,
   type FoodMenuCategoryCatalogItem,
   type FoodMenuCatalogItem,
-  type FoodOrderItemSnapshot,
 } from "@/lib/food-ordering";
 import {
   DEFAULT_FOOD_ORDER_SUPPORT_CAP,
@@ -25,6 +21,8 @@ type MenuSelectShape = {
   categoryDisplayOrder: number;
   name: string;
   price: number;
+  optionGroupName: string | null;
+  options: Array<{ id: number; label: string; displayOrder: number }>;
   isActive: boolean;
   displayOrder: number;
 };
@@ -37,30 +35,13 @@ function mapMenu(menu: MenuSelectShape): FoodMenuCatalogItem {
     categoryDisplayOrder: menu.categoryDisplayOrder,
     name: menu.name,
     price: menu.price,
+    optionGroupName: menu.optionGroupName,
+    options: [...menu.options].sort((a, b) => {
+      if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+      return a.label.localeCompare(b.label, "ko-KR");
+    }),
     isActive: menu.isActive,
     displayOrder: menu.displayOrder,
-  };
-}
-
-function mapFoodOrderItem(item: {
-  id: number;
-  participantId: number;
-  menuItemId: number;
-  menuNameSnapshot: string;
-  unitPriceSnapshot: number;
-  quantity: number;
-  preparingQuantity: number;
-  servedQuantity: number;
-}): FoodOrderItemSnapshot {
-  return {
-    id: item.id,
-    participantId: item.participantId,
-    menuItemId: item.menuItemId,
-    menuNameSnapshot: item.menuNameSnapshot,
-    unitPriceSnapshot: item.unitPriceSnapshot,
-    quantity: item.quantity,
-    preparingQuantity: item.preparingQuantity,
-    servedQuantity: item.servedQuantity,
   };
 }
 
@@ -86,8 +67,17 @@ export async function getFoodMenus() {
       categoryId: true,
       name: true,
       price: true,
+      optionGroupName: true,
       isActive: true,
       displayOrder: true,
+      optionChoices: {
+        orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+        select: {
+          id: true,
+          label: true,
+          displayOrder: true,
+        },
+      },
       category: {
         select: {
           name: true,
@@ -106,6 +96,8 @@ export async function getFoodMenus() {
         categoryDisplayOrder: row.category.displayOrder,
         name: row.name,
         price: row.price,
+        optionGroupName: row.optionGroupName,
+        options: row.optionChoices,
         isActive: row.isActive,
         displayOrder: row.displayOrder,
       })
@@ -128,7 +120,14 @@ export type ParticipantMeetingFoodOrdersData = {
     orders: Array<{
       orderId: number;
       createdAt: string;
-      items: Array<{ menuItemId: number; quantity: number }>;
+      items: Array<{
+        menuItemId: number;
+        menuOptionChoiceId: number | null;
+        menuName: string;
+        optionChoiceLabel: string | null;
+        unitPrice: number;
+        quantity: number;
+      }>;
     }>;
   }>;
 };
@@ -161,6 +160,10 @@ export async function getParticipantMeetingFoodOrdersData(
                 items: {
                   select: {
                     menuItemId: true,
+                    menuOptionChoiceId: true,
+                    menuNameSnapshot: true,
+                    optionChoiceLabelSnapshot: true,
+                    unitPriceSnapshot: true,
                     quantity: true,
                   },
                 },
@@ -195,6 +198,10 @@ export async function getParticipantMeetingFoodOrdersData(
         createdAt: order.createdAt.toISOString(),
         items: order.items.map((item) => ({
           menuItemId: item.menuItemId,
+          menuOptionChoiceId: item.menuOptionChoiceId,
+          menuName: item.menuNameSnapshot,
+          optionChoiceLabel: item.optionChoiceLabelSnapshot,
+          unitPrice: item.unitPriceSnapshot,
           quantity: item.quantity,
         })),
       })),
@@ -219,7 +226,9 @@ export type AdminMeetingFoodOrdersData = {
     remainingQuantity: number;
   };
   menuRows: Array<{
+    rowId: string;
     menuItemId: number;
+    orderItemIds: number[];
     menuName: string;
     unitPrice: number;
     orderedQuantity: number;
@@ -229,6 +238,7 @@ export type AdminMeetingFoodOrdersData = {
     participantOrders: Array<{
       participantId: number;
       menuItemId: number;
+      orderItemIds: number[];
       participantName: string;
       companionId: number | null;
       orderedAt: string | null;
@@ -244,8 +254,10 @@ export type AdminMeetingFoodOrdersData = {
     companionId: number | null;
     subtotal: number;
     items: Array<{
+      rowId: string;
       menuItemId: number;
       menuName: string;
+      orderItemIds: number[];
       quantity: number;
       preparingQuantity: number;
       servedQuantity: number;
@@ -279,7 +291,10 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
                 id: true,
                 participantId: true,
                 menuItemId: true,
+                menuOptionChoiceId: true,
                 menuNameSnapshot: true,
+                optionGroupNameSnapshot: true,
+                optionChoiceLabelSnapshot: true,
                 unitPriceSnapshot: true,
                 quantity: true,
                 preparingQuantity: true,
@@ -298,11 +313,33 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     return null;
   }
 
-  const itemsByMenu = new Map<number, AdminMeetingFoodOrdersData["menuRows"][number]["participantOrders"]>();
+  const itemsByLine = new Map<string, AdminMeetingFoodOrdersData["menuRows"][number]["participantOrders"]>();
   const participantRows: AdminMeetingFoodOrdersData["participantRows"] = [];
-  const extraMenus = new Map<number, FoodMenuCatalogItem>();
+  const extraLines = new Map<
+    string,
+    Pick<AdminMeetingFoodOrdersData["menuRows"][number], "rowId" | "menuItemId" | "menuName" | "unitPrice">
+  >();
 
-  const menuIdSet = new Set(menus.map((menu) => menu.id));
+  const menuLineRows = sortFoodMenus(menus).flatMap((menu) => {
+    if (menu.options.length === 0) {
+      return [
+        {
+          rowId: `${menu.id}:none`,
+          menuItemId: menu.id,
+          menuName: menu.name,
+          unitPrice: menu.price,
+        },
+      ];
+    }
+
+    return menu.options.map((option) => ({
+      rowId: `${menu.id}:${option.id}`,
+      menuItemId: menu.id,
+      menuName: `${menu.name} · ${option.label}`,
+      unitPrice: menu.price,
+    }));
+  });
+  const menuLineRowIds = new Set(menuLineRows.map((menu) => menu.rowId));
   let orderAmount = 0;
   let totalOrderedQuantity = 0;
   let remainingQuantity = 0;
@@ -310,11 +347,13 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
   for (const participant of meeting.participants) {
     const rawItems = participant.foodOrderItems;
 
-    // (participantId, menuItemId) 단위로 집계
-    const menuAgg = new Map<number, {
+    // (participantId, menuItemId, option) 단위로 집계
+    const menuAgg = new Map<string, {
+      rowId: string;
       menuItemId: number;
       menuName: string;
       unitPrice: number;
+      orderItemIds: number[];
       orderedAt: string | null;
       quantity: number;
       preparingQuantity: number;
@@ -322,16 +361,25 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     }>();
 
     for (const item of rawItems) {
-      const existing = menuAgg.get(item.menuItemId);
+      const rowId = item.menuOptionChoiceId
+        ? `${item.menuItemId}:${item.menuOptionChoiceId}`
+        : item.optionChoiceLabelSnapshot
+          ? `${item.menuItemId}:label:${item.optionChoiceLabelSnapshot}`
+          : `${item.menuItemId}:none`;
+      const menuName = getFoodOrderItemDisplayName(item);
+      const existing = menuAgg.get(rowId);
       if (existing) {
+        existing.orderItemIds.push(item.id);
         existing.quantity += item.quantity;
         existing.preparingQuantity += item.preparingQuantity;
         existing.servedQuantity += item.servedQuantity;
       } else {
-        menuAgg.set(item.menuItemId, {
+        menuAgg.set(rowId, {
+          rowId,
           menuItemId: item.menuItemId,
-          menuName: item.menuNameSnapshot,
+          menuName,
           unitPrice: item.unitPriceSnapshot,
+          orderItemIds: [item.id],
           orderedAt: item.createdAt ? item.createdAt.toISOString() : null,
           quantity: item.quantity,
           preparingQuantity: item.preparingQuantity,
@@ -339,16 +387,12 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
         });
       }
 
-      if (!menuIdSet.has(item.menuItemId) && !extraMenus.has(item.menuItemId)) {
-        extraMenus.set(item.menuItemId, {
-          id: item.menuItemId,
-          categoryId: null,
-          categoryName: UNCATEGORIZED_MENU_NAME,
-          categoryDisplayOrder: UNCATEGORIZED_MENU_ORDER,
-          name: item.menuNameSnapshot,
-          price: item.unitPriceSnapshot,
-          isActive: false,
-          displayOrder: Number.MAX_SAFE_INTEGER,
+      if (!menuLineRowIds.has(rowId) && !extraLines.has(rowId)) {
+        extraLines.set(rowId, {
+          rowId,
+          menuItemId: item.menuItemId,
+          menuName,
+          unitPrice: item.unitPriceSnapshot,
         });
       }
     }
@@ -366,8 +410,10 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
         companionId: participant.companionId,
         subtotal,
         items: aggItems.map((item) => ({
+          rowId: item.rowId,
           menuItemId: item.menuItemId,
           menuName: item.menuName,
+          orderItemIds: item.orderItemIds,
           quantity: item.quantity,
           preparingQuantity: item.preparingQuantity,
           servedQuantity: item.servedQuantity,
@@ -377,10 +423,11 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     }
 
     for (const item of aggItems) {
-      const list = itemsByMenu.get(item.menuItemId) ?? [];
+      const list = itemsByLine.get(item.rowId) ?? [];
       list.push({
         participantId: participant.id,
         menuItemId: item.menuItemId,
+        orderItemIds: item.orderItemIds,
         participantName: participant.name,
         companionId: participant.companionId,
         orderedAt: item.orderedAt,
@@ -389,16 +436,18 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
         servedQuantity: item.servedQuantity,
         remainingQuantity: Math.max(item.quantity - item.servedQuantity, 0),
       });
-      itemsByMenu.set(item.menuItemId, list);
+      itemsByLine.set(item.rowId, list);
     }
   }
 
-  const menuRows = [...menus, ...sortFoodMenus(Array.from(extraMenus.values()))].map((menu) => {
-    const participantOrders = itemsByMenu.get(menu.id) ?? [];
+  const menuRows = [...menuLineRows, ...Array.from(extraLines.values())].map((menu) => {
+    const participantOrders = itemsByLine.get(menu.rowId) ?? [];
     return {
-      menuItemId: menu.id,
-      menuName: menu.name,
-      unitPrice: menu.price,
+      rowId: menu.rowId,
+      menuItemId: menu.menuItemId,
+      orderItemIds: participantOrders.flatMap((order) => order.orderItemIds),
+      menuName: menu.menuName,
+      unitPrice: menu.unitPrice,
       orderedQuantity: participantOrders.reduce((sum, item) => sum + item.quantity, 0),
       preparingQuantity: participantOrders.reduce((sum, item) => sum + item.preparingQuantity, 0),
       servedQuantity: participantOrders.reduce((sum, item) => sum + item.servedQuantity, 0),
@@ -450,8 +499,17 @@ export async function getAdminFoodMenuSettingsData(): Promise<AdminFoodMenuSetti
           categoryId: true,
           name: true,
           price: true,
+          optionGroupName: true,
           isActive: true,
           displayOrder: true,
+          optionChoices: {
+            orderBy: [{ displayOrder: "asc" }, { label: "asc" }],
+            select: {
+              id: true,
+              label: true,
+              displayOrder: true,
+            },
+          },
         },
       },
     },
@@ -472,6 +530,8 @@ export async function getAdminFoodMenuSettingsData(): Promise<AdminFoodMenuSetti
               categoryDisplayOrder: category.displayOrder,
               name: menu.name,
               price: menu.price,
+              optionGroupName: menu.optionGroupName,
+              options: menu.optionChoices,
               isActive: menu.isActive,
               displayOrder: menu.displayOrder,
             })
@@ -486,6 +546,12 @@ export type FoodMenuSaveItem = {
   id: number | null;
   name: string;
   price: number;
+  optionGroupName: string | null;
+  options: Array<{
+    id: number | null;
+    label: string;
+    displayOrder: number;
+  }>;
   isActive: boolean;
   displayOrder: number;
 };
@@ -498,12 +564,15 @@ export type FoodMenuCategorySaveItem = {
 };
 
 export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]) {
-  const [existingCategories, existingMenus] = await Promise.all([
+  const [existingCategories, existingMenus, existingOptions] = await Promise.all([
     prisma.foodMenuCategory.findMany({
       select: { id: true },
     }),
     prisma.foodMenuItem.findMany({
       select: { id: true },
+    }),
+    prisma.foodMenuOptionChoice.findMany({
+      select: { id: true, menuItemId: true },
     }),
   ]);
 
@@ -523,6 +592,15 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
 
   if (duplicateMenuIds.length > 0) {
     throw new Error("중복된 메뉴 ID가 포함되어 있습니다.");
+  }
+
+  const duplicateOptionIds = categories
+    .flatMap((category) => category.menus.flatMap((menu) => menu.options.map((option) => option.id)))
+    .filter((id): id is number => id !== null)
+    .filter((id, index, array) => array.indexOf(id) !== index);
+
+  if (duplicateOptionIds.length > 0) {
+    throw new Error("중복된 메뉴 옵션 ID가 포함되어 있습니다.");
   }
 
   const existingCategoryIds = new Set(existingCategories.map((category) => category.id));
@@ -545,8 +623,34 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
     throw new Error("이미 삭제된 메뉴가 포함되어 있습니다. 새로고침 후 다시 시도해 주세요.");
   }
 
+  const existingOptionIds = new Set(existingOptions.map((option) => option.id));
+  const incomingOptionIds = new Set(
+    categories.flatMap((category) =>
+      category.menus.flatMap((menu) =>
+        menu.options.flatMap((option) => (option.id === null ? [] : [option.id]))
+      )
+    )
+  );
+
+  if (Array.from(incomingOptionIds).some((id) => !existingOptionIds.has(id))) {
+    throw new Error("이미 삭제된 메뉴 옵션이 포함되어 있습니다. 새로고침 후 다시 시도해 주세요.");
+  }
+
+  for (const category of categories) {
+    for (const menu of category.menus) {
+      for (const option of menu.options) {
+        if (option.id === null || menu.id === null) continue;
+        const existingOption = existingOptions.find((candidate) => candidate.id === option.id);
+        if (existingOption && existingOption.menuItemId !== menu.id) {
+          throw new Error("메뉴 옵션이 다른 메뉴에 연결되어 있습니다. 새로고침 후 다시 시도해 주세요.");
+        }
+      }
+    }
+  }
+
   const removedCategoryIds = Array.from(existingCategoryIds).filter((id) => !incomingCategoryIds.has(id));
   const removedMenuIds = Array.from(existingMenuIds).filter((id) => !incomingMenuIds.has(id));
+  const removedOptionIds = Array.from(existingOptionIds).filter((id) => !incomingOptionIds.has(id));
 
   if (removedMenuIds.length > 0) {
     const orderCount = await prisma.participantFoodOrderItem.count({
@@ -562,6 +666,15 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
     if (removedMenuIds.length > 0) {
       await tx.foodMenuItem.deleteMany({
         where: { id: { in: removedMenuIds } },
+      });
+    }
+
+    if (removedOptionIds.length > 0) {
+      await tx.foodMenuOptionChoice.deleteMany({
+        where: {
+          id: { in: removedOptionIds },
+          menuItemId: { notIn: removedMenuIds },
+        },
       });
     }
 
@@ -593,8 +706,15 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
               categoryId,
               name: menu.name,
               price: menu.price,
+              optionGroupName: menu.optionGroupName,
               isActive: menu.isActive,
               displayOrder: menu.displayOrder,
+              optionChoices: {
+                create: menu.options.map((option) => ({
+                  label: option.label,
+                  displayOrder: option.displayOrder,
+                })),
+              },
             },
           });
           continue;
@@ -606,10 +726,32 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
             categoryId,
             name: menu.name,
             price: menu.price,
+            optionGroupName: menu.optionGroupName,
             isActive: menu.isActive,
             displayOrder: menu.displayOrder,
           },
         });
+
+        for (const option of menu.options) {
+          if (option.id === null) {
+            await tx.foodMenuOptionChoice.create({
+              data: {
+                menuItemId: menu.id,
+                label: option.label,
+                displayOrder: option.displayOrder,
+              },
+            });
+            continue;
+          }
+
+          await tx.foodMenuOptionChoice.update({
+            where: { id: option.id },
+            data: {
+              label: option.label,
+              displayOrder: option.displayOrder,
+            },
+          });
+        }
       }
     }
 
@@ -628,18 +770,21 @@ export type MeetingOrderAction = "prepare" | "serve" | "undo_prepare" | "undo_se
 export async function applyMeetingOrderAction(
   meetingId: number,
   participantId: number,
-  menuItemId: number,
+  orderItemIds: number[],
   action: MeetingOrderAction
 ) {
   if (!["prepare", "serve", "undo_prepare", "undo_serve"].includes(action)) {
     throw new Error("지원하지 않는 주문 액션입니다.");
   }
+  if (orderItemIds.length === 0 || orderItemIds.some((id) => !Number.isInteger(id))) {
+    throw new Error("처리할 주문 항목이 필요합니다.");
+  }
 
   const items = await prisma.participantFoodOrderItem.findMany({
-    where: { meetingId, participantId, menuItemId },
+    where: { meetingId, participantId, id: { in: orderItemIds } },
   });
 
-  if (items.length === 0) {
+  if (items.length !== orderItemIds.length) {
     throw new Error("주문 항목을 찾을 수 없습니다.");
   }
 
@@ -667,7 +812,7 @@ export async function applyMeetingOrderAction(
       throw new Error("되돌릴 준비중 수량이 없습니다.");
     }
     await prisma.participantFoodOrderItem.updateMany({
-      where: { meetingId, participantId, menuItemId },
+      where: { meetingId, participantId, id: { in: orderItemIds } },
       data: { preparingQuantity: 0 },
     });
   }
@@ -693,7 +838,7 @@ export async function applyMeetingOrderAction(
     }
     // 완료 취소 → 초기 상태로 복원
     await prisma.participantFoodOrderItem.updateMany({
-      where: { meetingId, participantId, menuItemId },
+      where: { meetingId, participantId, id: { in: orderItemIds } },
       data: { servedQuantity: 0, preparingQuantity: 0 },
     });
   }

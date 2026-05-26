@@ -245,7 +245,11 @@ export function AdminMeetingSettlementPageClient({
                                   {participant.foodOrders.map((item) => (
                                     <div key={item.id} className="brand-panel-white flex items-center justify-between rounded-2xl px-4 py-3">
                                       <div>
-                                        <p className="text-sm font-semibold text-[var(--brand-text)]">{item.menuNameSnapshot}</p>
+                                        <p className="text-sm font-semibold text-[var(--brand-text)]">
+                                          {item.optionChoiceLabelSnapshot
+                                            ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
+                                            : item.menuNameSnapshot}
+                                        </p>
                                         <p className="brand-text-subtle mt-1 text-xs">
                                           {formatWon(displayAmount(item.unitPriceSnapshot))} · 수량 {item.quantity}
                                         </p>

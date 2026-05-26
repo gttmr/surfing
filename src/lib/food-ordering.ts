@@ -17,7 +17,15 @@ export type FoodMenuCatalogItem = {
   categoryDisplayOrder: number;
   name: string;
   price: number;
+  optionGroupName: string | null;
+  options: FoodMenuOptionChoiceCatalogItem[];
   isActive: boolean;
+  displayOrder: number;
+};
+
+export type FoodMenuOptionChoiceCatalogItem = {
+  id: number;
+  label: string;
   displayOrder: number;
 };
 
@@ -26,7 +34,10 @@ export type FoodOrderItemSnapshot = Pick<
   | "id"
   | "participantId"
   | "menuItemId"
+  | "menuOptionChoiceId"
   | "menuNameSnapshot"
+  | "optionGroupNameSnapshot"
+  | "optionChoiceLabelSnapshot"
   | "unitPriceSnapshot"
   | "quantity"
   | "preparingQuantity"
@@ -115,28 +126,64 @@ export function getFoodOrderSummary(items: FoodOrderItemSnapshot[], supportCap: 
   };
 }
 
-export function normalizeFoodOrderPayload(
-  items: Array<{ menuItemId: number; quantity: number }>,
-  allowedMenuIds: Set<number>
+export function getFoodOrderItemDisplayName(
+  item: Pick<FoodOrderItemSnapshot, "menuNameSnapshot" | "optionChoiceLabelSnapshot">
 ) {
-  const deduped = new Map<number, number>();
+  return item.optionChoiceLabelSnapshot ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}` : item.menuNameSnapshot;
+}
+
+export function normalizeFoodOrderPayload(
+  items: Array<{ menuItemId: number; optionChoiceId?: number | null; quantity: number }>,
+  menus: FoodMenuCatalogItem[]
+) {
+  const menuMap = new Map(menus.map((menu) => [menu.id, menu]));
+  const deduped = new Map<string, { menuItemId: number; optionChoiceId: number | null; quantity: number }>();
 
   for (const item of items) {
     const menuItemId = Number(item.menuItemId);
     const quantity = Number(item.quantity);
+    const optionChoiceId =
+      item.optionChoiceId === null || item.optionChoiceId === undefined ? null : Number(item.optionChoiceId);
+    const menu = menuMap.get(menuItemId);
 
-    if (!Number.isInteger(menuItemId) || !allowedMenuIds.has(menuItemId)) {
+    if (!Number.isInteger(menuItemId) || !menu) {
       continue;
     }
     if (!Number.isInteger(quantity) || quantity < 0) {
       throw new Error("수량은 0 이상의 정수여야 합니다.");
     }
+    if (optionChoiceId !== null && !Number.isInteger(optionChoiceId)) {
+      throw new Error("잘못된 메뉴 옵션이 포함되어 있습니다.");
+    }
 
-    deduped.set(menuItemId, quantity);
+    const hasOptions = menu.options.length > 0;
+    if (hasOptions && optionChoiceId === null) {
+      if (quantity > 0) {
+        throw new Error("옵션이 있는 메뉴는 선택지를 골라 주세요.");
+      }
+      continue;
+    }
+
+    if (!hasOptions && optionChoiceId !== null) {
+      if (quantity > 0) {
+        throw new Error("옵션이 없는 메뉴에 잘못된 선택지가 포함되어 있습니다.");
+      }
+      continue;
+    }
+
+    if (optionChoiceId !== null && !menu.options.some((option) => option.id === optionChoiceId)) {
+      if (quantity > 0) {
+        throw new Error("판매 중인 메뉴 옵션만 주문할 수 있습니다.");
+      }
+      continue;
+    }
+
+    deduped.set(`${menuItemId}:${optionChoiceId ?? "none"}`, {
+      menuItemId,
+      optionChoiceId,
+      quantity,
+    });
   }
 
-  return Array.from(deduped.entries()).map(([menuItemId, quantity]) => ({
-    menuItemId,
-    quantity,
-  }));
+  return Array.from(deduped.values());
 }

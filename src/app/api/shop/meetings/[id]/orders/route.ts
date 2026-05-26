@@ -35,15 +35,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const meetingId = Number(id);
   const body = await req.json();
   const participantId = Number(body?.participantId);
-  const menuItemId = Number(body?.menuItemId);
+  const orderItemIds: number[] = Array.isArray(body?.orderItemIds) ? body.orderItemIds.map(Number) : [];
   const action = body?.action as MeetingOrderAction | undefined;
 
-  if (!Number.isInteger(meetingId) || !Number.isInteger(participantId) || !Number.isInteger(menuItemId) || !action) {
-    return NextResponse.json({ error: "participantId, menuItemId, action이 필요합니다." }, { status: 400 });
+  if (
+    !Number.isInteger(meetingId) ||
+    !Number.isInteger(participantId) ||
+    orderItemIds.length === 0 ||
+    orderItemIds.some((orderItemId) => !Number.isInteger(orderItemId)) ||
+    !action
+  ) {
+    return NextResponse.json({ error: "participantId, orderItemIds, action이 필요합니다." }, { status: 400 });
   }
 
   try {
-    const data = await applyMeetingOrderAction(meetingId, participantId, menuItemId, action);
+    const data = await applyMeetingOrderAction(meetingId, participantId, orderItemIds, action);
     if (!data) {
       return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
     }

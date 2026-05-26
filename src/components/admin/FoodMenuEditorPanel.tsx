@@ -9,7 +9,15 @@ type MenuDraft = {
   key: string;
   name: string;
   price: string;
+  optionGroupName: string;
+  options: MenuOptionDraft[];
   isActive: boolean;
+};
+
+type MenuOptionDraft = {
+  id: number | null;
+  key: string;
+  label: string;
 };
 
 type CategoryDraft = {
@@ -25,6 +33,12 @@ function toMenuDraft(menu: AdminFoodMenuSettingsData["categories"][number]["menu
     key: `menu-${menu.id}`,
     name: menu.name,
     price: String(menu.price),
+    optionGroupName: menu.optionGroupName ?? "",
+    options: menu.options.map((option) => ({
+      id: option.id,
+      key: `option-${option.id}`,
+      label: option.label,
+    })),
     isActive: menu.isActive ?? true,
   };
 }
@@ -44,6 +58,8 @@ function createTempMenu(categoryIndex: number, menuIndex: number): MenuDraft {
     key: `new-menu-${Date.now()}-${categoryIndex}-${menuIndex}`,
     name: "",
     price: "",
+    optionGroupName: "",
+    options: [],
     isActive: true,
   };
 }
@@ -89,6 +105,28 @@ export function FoodMenuEditorPanel({
     );
   }
 
+  function updateMenuOption(categoryKey: string, menuKey: string, optionKey: string, label: string) {
+    setCategories((prev) =>
+      prev.map((category) =>
+        category.key === categoryKey
+          ? {
+              ...category,
+              menus: category.menus.map((menu) =>
+                menu.key === menuKey
+                  ? {
+                      ...menu,
+                      options: menu.options.map((option) =>
+                        option.key === optionKey ? { ...option, label } : option
+                      ),
+                    }
+                  : menu
+              ),
+            }
+          : category
+      )
+    );
+  }
+
   function handleAddCategory() {
     setCategories((prev) => [...prev, createTempCategory(prev.length)]);
   }
@@ -123,6 +161,55 @@ export function FoodMenuEditorPanel({
     );
   }
 
+  function handleAddOption(categoryKey: string, menuKey: string) {
+    setCategories((prev) =>
+      prev.map((category) =>
+        category.key === categoryKey
+          ? {
+              ...category,
+              menus: category.menus.map((menu) =>
+                menu.key === menuKey
+                  ? {
+                      ...menu,
+                      optionGroupName: menu.optionGroupName || "옵션",
+                      options: [
+                        ...menu.options,
+                        {
+                          id: null,
+                          key: `new-option-${Date.now()}-${menu.options.length}`,
+                          label: "",
+                        },
+                      ],
+                    }
+                  : menu
+              ),
+            }
+          : category
+      )
+    );
+  }
+
+  function handleRemoveOption(categoryKey: string, menuKey: string, optionKey: string) {
+    setCategories((prev) =>
+      prev.map((category) =>
+        category.key === categoryKey
+          ? {
+              ...category,
+              menus: category.menus.map((menu) =>
+                menu.key === menuKey
+                  ? {
+                      ...menu,
+                      optionGroupName: menu.options.length <= 1 ? "" : menu.optionGroupName,
+                      options: menu.options.filter((option) => option.key !== optionKey),
+                    }
+                  : menu
+              ),
+            }
+          : category
+      )
+    );
+  }
+
   async function handleSaveAll() {
     if (categories.length === 0) {
       addToast("최소 한 개 이상의 카테고리를 남겨 주세요.", "error");
@@ -146,6 +233,21 @@ export function FoodMenuEditorPanel({
           addToast("가격은 0 이상의 정수여야 합니다.", "error");
           return;
         }
+
+        if (menu.options.length > 0 && !menu.optionGroupName.trim()) {
+          addToast("옵션 선택지가 있는 메뉴는 옵션명을 입력해 주세요.", "error");
+          return;
+        }
+
+        if (menu.optionGroupName.trim() && menu.options.length === 0) {
+          addToast("옵션명이 있는 메뉴는 선택지를 한 개 이상 입력해 주세요.", "error");
+          return;
+        }
+
+        if (menu.options.some((option) => !option.label.trim())) {
+          addToast("비어 있는 옵션 선택지가 있습니다.", "error");
+          return;
+        }
       }
     }
 
@@ -162,6 +264,11 @@ export function FoodMenuEditorPanel({
               id: menu.id,
               name: menu.name.trim(),
               price: Number(menu.price.replace(/[^\d]/g, "") || "0"),
+              optionGroupName: menu.optionGroupName.trim() || null,
+              options: menu.options.map((option) => ({
+                id: option.id,
+                label: option.label.trim(),
+              })),
               isActive: menu.isActive,
             })),
           })),
@@ -227,55 +334,96 @@ export function FoodMenuEditorPanel({
                 ) : null}
 
                 {category.menus.map((menu) => (
-                  <div
-                    key={menu.key}
-                    className="grid grid-cols-[32px_minmax(0,2fr)_92px_28px] items-center gap-2 border-b border-[var(--brand-divider)] px-3 py-3 last:border-b-0"
-                  >
-                    <label className="flex items-center justify-center">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(menu.isActive)}
-                        onChange={(event) =>
-                          updateMenu(category.key, menu.key, { isActive: event.target.checked })
-                        }
-                        aria-label="판매중"
-                        className="h-4 w-4 accent-[var(--brand-primary)]"
-                      />
-                    </label>
+                  <div key={menu.key} className="border-b border-[var(--brand-divider)] px-3 py-3 last:border-b-0">
+                    <div className="grid grid-cols-[32px_minmax(0,2fr)_92px_28px] items-center gap-2">
+                      <label className="flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(menu.isActive)}
+                          onChange={(event) =>
+                            updateMenu(category.key, menu.key, { isActive: event.target.checked })
+                          }
+                          aria-label="판매중"
+                          className="h-4 w-4 accent-[var(--brand-primary)]"
+                        />
+                      </label>
 
-                    <div className="min-w-0">
-                      <input
-                        value={menu.name}
-                        onChange={(event) =>
-                          updateMenu(category.key, menu.key, { name: event.target.value })
-                        }
-                        placeholder="메뉴명"
-                        className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      />
+                      <div className="min-w-0">
+                        <input
+                          value={menu.name}
+                          onChange={(event) =>
+                            updateMenu(category.key, menu.key, { name: event.target.value })
+                          }
+                          placeholder="메뉴명"
+                          className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                        />
+                      </div>
+
+                      <div className="min-w-0">
+                        <input
+                          value={menu.price}
+                          onChange={(event) =>
+                            updateMenu(category.key, menu.key, {
+                              price: event.target.value.replace(/[^\d]/g, ""),
+                            })
+                          }
+                          inputMode="numeric"
+                          placeholder="가격"
+                          className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMenu(category.key, menu.key)}
+                        aria-label="메뉴 삭제"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold leading-none text-[var(--brand-danger)] transition-opacity hover:opacity-70"
+                      >
+                        ×
+                      </button>
                     </div>
 
-                    <div className="min-w-0">
-                      <input
-                        value={menu.price}
-                        onChange={(event) =>
-                          updateMenu(category.key, menu.key, {
-                            price: event.target.value.replace(/[^\d]/g, ""),
-                          })
-                        }
-                        inputMode="numeric"
-                        placeholder="가격"
-                        className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
-                      />
-                    </div>
+                    <div className="ml-10 mt-3 space-y-2">
+                      {menu.options.length > 0 ? (
+                        <input
+                          value={menu.optionGroupName}
+                          onChange={(event) =>
+                            updateMenu(category.key, menu.key, { optionGroupName: event.target.value })
+                          }
+                          placeholder="옵션명 예: 온도"
+                          className="brand-input h-10 w-full rounded-2xl px-3 py-2 text-sm outline-none"
+                        />
+                      ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveMenu(category.key, menu.key)}
-                      aria-label="메뉴 삭제"
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold leading-none text-[var(--brand-danger)] transition-opacity hover:opacity-70"
-                    >
-                      ×
-                    </button>
+                      {menu.options.map((option) => (
+                        <div key={option.key} className="flex items-center gap-2">
+                          <input
+                            value={option.label}
+                            onChange={(event) =>
+                              updateMenuOption(category.key, menu.key, option.key, event.target.value)
+                            }
+                            placeholder="선택지 예: 아이스"
+                            className="brand-input h-10 min-w-0 flex-1 rounded-2xl px-3 py-2 text-sm outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOption(category.key, menu.key, option.key)}
+                            aria-label="옵션 삭제"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-bold leading-none text-[var(--brand-danger)] transition-opacity hover:opacity-70"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddOption(category.key, menu.key)}
+                        className="brand-button-secondary rounded-2xl px-3 py-2 text-xs font-bold"
+                      >
+                        + 옵션 추가
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

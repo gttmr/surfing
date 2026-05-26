@@ -70,11 +70,13 @@ model FoodMenuItem {
   category     FoodMenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   name         String
   price        Int
+  optionGroupName String?
   isActive     Boolean                    @default(true)
   displayOrder Int                        @default(0)
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
   orderItems   ParticipantFoodOrderItem[]
+  optionChoices FoodMenuOptionChoice[]
 }
 
 model FoodMenuCategory {
@@ -84,6 +86,19 @@ model FoodMenuCategory {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   menuItems    FoodMenuItem[]
+}
+
+model FoodMenuOptionChoice {
+  id           Int                        @id @default(autoincrement())
+  menuItemId   Int
+  menuItem     FoodMenuItem               @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  label        String
+  displayOrder Int                        @default(0)
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  orderItems   ParticipantFoodOrderItem[]
+
+  @@index([menuItemId])
 }
 
 model ParticipantFoodOrder {
@@ -104,7 +119,10 @@ model ParticipantFoodOrderItem {
   participantId     Int
   foodOrderId       Int
   menuItemId        Int
+  menuOptionChoiceId Int?
   menuNameSnapshot  String
+  optionGroupNameSnapshot String?
+  optionChoiceLabelSnapshot String?
   unitPriceSnapshot Int
   quantity          Int
   preparingQuantity Int                  @default(0)
@@ -114,10 +132,12 @@ model ParticipantFoodOrderItem {
   meeting           Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant       Participant          @relation(fields: [participantId], references: [id], onDelete: Cascade)
   menuItem          FoodMenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  menuOptionChoice  FoodMenuOptionChoice? @relation(fields: [menuOptionChoiceId], references: [id], onDelete: SetNull)
   foodOrder         ParticipantFoodOrder @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
 
   @@index([meetingId, participantId])
   @@index([foodOrderId])
+  @@index([menuOptionChoiceId])
 }
 
 model SettlementConfirmation {

@@ -4,18 +4,40 @@ import { useEffect, useMemo, useState } from "react";
 import { formatWon } from "@/lib/format";
 import type { ParticipantMeetingFoodOrdersData } from "@/lib/food-ordering-data";
 
-type DraftMap = Record<number, Record<number, number>>;
+type DraftMap = Record<number, Record<string, number>>;
 
 type MenuGroup = {
   categoryName: string;
   menus: ParticipantMeetingFoodOrdersData["menus"];
 };
 
+type MenuDraftRow = {
+  key: string;
+  menuId: number;
+  optionChoiceId: number | null;
+  label: string;
+  price: number;
+};
+
+function buildMenuDraftRows(menu: ParticipantMeetingFoodOrdersData["menus"][number]): MenuDraftRow[] {
+  if (menu.options.length === 0) {
+    return [{ key: `${menu.id}:none`, menuId: menu.id, optionChoiceId: null, label: menu.name, price: menu.price }];
+  }
+
+  return menu.options.map((option) => ({
+    key: `${menu.id}:${option.id}`,
+    menuId: menu.id,
+    optionChoiceId: option.id,
+    label: option.label,
+    price: menu.price,
+  }));
+}
+
 function buildFreshDraftMap(data: ParticipantMeetingFoodOrdersData): DraftMap {
   return Object.fromEntries(
     data.participants.map((participant) => [
       participant.participantId,
-      Object.fromEntries(data.menus.map((menu) => [menu.id, 0])),
+      Object.fromEntries(data.menus.flatMap((menu) => buildMenuDraftRows(menu).map((row) => [row.key, 0]))),
     ])
   );
 }
@@ -81,17 +103,34 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     if (!data || visibleParticipants.length === 0) return "";
     return visibleParticipants
       .map((p) => {
-        const totals = new Map<number, number>();
+        const totals = new Map<string, number>();
         for (const order of (p.orders ?? [])) {
           for (const item of order.items) {
-            totals.set(item.menuItemId, (totals.get(item.menuItemId) ?? 0) + item.quantity);
+            const key = item.menuOptionChoiceId
+              ? `${item.menuItemId}:${item.menuOptionChoiceId}`
+              : item.optionChoiceLabel
+                ? `${item.menuItemId}:label:${item.optionChoiceLabel}`
+                : `${item.menuItemId}:none`;
+            totals.set(key, (totals.get(key) ?? 0) + item.quantity);
           }
         }
         return Array.from(totals.entries())
           .filter(([, qty]) => qty > 0)
-          .map(([menuItemId, qty]) => {
-            const menu = data.menus.find((m) => m.id === menuItemId);
-            return menu ? `${menu.name} ${qty}` : null;
+          .map(([key, qty]) => {
+            for (const order of (p.orders ?? [])) {
+              const item = order.items.find((candidate) => {
+                const candidateKey = candidate.menuOptionChoiceId
+                  ? `${candidate.menuItemId}:${candidate.menuOptionChoiceId}`
+                  : candidate.optionChoiceLabel
+                    ? `${candidate.menuItemId}:label:${candidate.optionChoiceLabel}`
+                    : `${candidate.menuItemId}:none`;
+                return candidateKey === key;
+              });
+              if (item) {
+                return `${item.optionChoiceLabel ? `${item.menuName} · ${item.optionChoiceLabel}` : item.menuName} ${qty}`;
+              }
+            }
+            return null;
           })
           .filter(Boolean)
           .join(" · ");
@@ -106,8 +145,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     return visibleParticipants.reduce((total, p) => {
       for (const order of (p.orders ?? [])) {
         for (const item of order.items) {
-          const menu = data.menus.find((m) => m.id === item.menuItemId);
-          total += (menu?.price ?? 0) * item.quantity;
+          total += item.unitPrice * item.quantity;
         }
       }
       return total;
@@ -119,19 +157,21 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     if (!data) return 0;
     return visibleParticipants.reduce((total, p) => {
       return total + data.menus.reduce((pTotal, menu) => {
-        return pTotal + (drafts[p.participantId]?.[menu.id] ?? 0) * menu.price;
+        return pTotal + buildMenuDraftRows(menu).reduce((menuTotal, row) => {
+          return menuTotal + (drafts[p.participantId]?.[row.key] ?? 0) * row.price;
+        }, 0);
       }, 0);
     }, 0);
   }, [data, drafts, visibleParticipants]);
 
   const totalSupport = visibleParticipants.length * (data?.supportCap ?? 0);
 
-  function updateQuantity(participantId: number, menuItemId: number, nextValue: number) {
+  function updateQuantity(participantId: number, rowKey: string, nextValue: number) {
     setDrafts((prev) => ({
       ...prev,
       [participantId]: {
         ...(prev[participantId] ?? {}),
-        [menuItemId]: Math.max(nextValue, 0),
+        [rowKey]: Math.max(nextValue, 0),
       },
     }));
   }
@@ -143,10 +183,13 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     setError("");
 
     try {
-      const items = data.menus.map((menu) => ({
-        menuItemId: menu.id,
-        quantity: drafts[participantId]?.[menu.id] ?? 0,
-      }));
+      const items = data.menus.flatMap((menu) =>
+        buildMenuDraftRows(menu).map((row) => ({
+          menuItemId: row.menuId,
+          optionChoiceId: row.optionChoiceId,
+          quantity: drafts[participantId]?.[row.key] ?? 0,
+        }))
+      );
 
       const res = await fetch(`/api/meetings/${meetingId}/orders`, {
         method: "POST",
@@ -247,32 +290,80 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
 
                         <div className="space-y-2">
                           {group.menus.map((menu) => {
-                            const value = drafts[participant.participantId]?.[menu.id] ?? 0;
+                            const rows = buildMenuDraftRows(menu);
+                            if (menu.options.length === 0) {
+                              const row = rows[0];
+                              const value = drafts[participant.participantId]?.[row.key] ?? 0;
+                              return (
+                                <div
+                                  key={menu.id}
+                                  className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3"
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
+                                    <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateQuantity(participant.participantId, row.key, value - 1)}
+                                      className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateQuantity(participant.participantId, row.key, value + 1)}
+                                      className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={menu.id}
-                                className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3"
+                                className="brand-list-item rounded-2xl px-4 py-3"
                               >
-                                <div className="min-w-0">
+                                <div className="mb-2 min-w-0">
                                   <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
-                                  <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
+                                  <p className="brand-text-subtle mt-0.5 text-xs">
+                                    {menu.optionGroupName ?? formatWon(menu.price)}
+                                  </p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(participant.participantId, menu.id, value - 1)}
-                                    className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                                  >
-                                    -
-                                  </button>
-                                  <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(participant.participantId, menu.id, value + 1)}
-                                    className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                                  >
-                                    +
-                                  </button>
+                                <div className="space-y-2">
+                                  {rows.map((row) => {
+                                    const value = drafts[participant.participantId]?.[row.key] ?? 0;
+                                    return (
+                                      <div key={row.key} className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{row.label}</p>
+                                          <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(row.price)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => updateQuantity(participant.participantId, row.key, value - 1)}
+                                            className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                          >
+                                            -
+                                          </button>
+                                          <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => updateQuantity(participant.participantId, row.key, value + 1)}
+                                            className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );

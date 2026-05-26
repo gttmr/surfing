@@ -81,11 +81,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "주문은 모임 당일에만 받을 수 있습니다." }, { status: 400 });
   }
 
-  const allowedMenuIds = new Set(menus.map((menu) => menu.id));
-
   let normalizedItems;
   try {
-    normalizedItems = normalizeFoodOrderPayload(items, allowedMenuIds);
+    normalizedItems = normalizeFoodOrderPayload(items, menus);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "주문을 저장할 수 없습니다." },
@@ -100,6 +98,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const menuMap = new Map(menus.map((menu) => [menu.id, menu]));
+  const optionMap = new Map(
+    menus.flatMap((menu) => menu.options.map((option) => [option.id, { menu, option }] as const))
+  );
 
   await prisma.participantFoodOrder.create({
     data: {
@@ -109,11 +110,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         create: itemsToCreate.map((item) => {
           const menu = menuMap.get(item.menuItemId);
           if (!menu) throw new Error("판매 중인 메뉴만 주문할 수 있습니다.");
+          const option = item.optionChoiceId === null ? null : optionMap.get(item.optionChoiceId)?.option ?? null;
           return {
             meetingId,
             participantId,
             menuItemId: item.menuItemId,
+            menuOptionChoiceId: option?.id ?? null,
             menuNameSnapshot: menu.name,
+            optionGroupNameSnapshot: option ? menu.optionGroupName : null,
+            optionChoiceLabelSnapshot: option?.label ?? null,
             unitPriceSnapshot: menu.price,
             quantity: item.quantity,
           };
