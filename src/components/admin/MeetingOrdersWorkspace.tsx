@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
@@ -574,10 +574,12 @@ export function MeetingOrdersWorkspace({
   initialData,
   ordersEndpoint,
   variant = "admin",
+  onDataChange,
 }: {
   initialData: AdminMeetingFoodOrdersData;
   ordersEndpoint: string;
   variant?: "admin" | "shop";
+  onDataChange?: (nextData: AdminMeetingFoodOrdersData) => void;
 }) {
   const [data, setData] = useState(initialData);
   const [expandedMenuIds, setExpandedMenuIds] = useState<Set<string>>(new Set());
@@ -585,6 +587,14 @@ export function MeetingOrdersWorkspace({
   const [submittingKey, setSubmittingKey] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<CancelTarget>(null);
   const { toasts, addToast, removeToast } = useToast();
+
+  useEffect(() => {
+    setData(initialData);
+    setExpandedMenuIds(new Set());
+    setParticipantQuery("");
+    setSubmittingKey(null);
+    setCancelTarget(null);
+  }, [initialData]);
 
   async function handleAction(
     participantId: number,
@@ -602,7 +612,9 @@ export function MeetingOrdersWorkspace({
       });
       const next = await res.json();
       if (!res.ok) throw new Error(next.error || "주문 상태를 바꾸지 못했습니다.");
-      setData(next as AdminMeetingFoodOrdersData);
+      const nextData = next as AdminMeetingFoodOrdersData;
+      setData(nextData);
+      onDataChange?.(nextData);
       if (action === "cancel") {
         setCancelTarget(null);
         addToast("주문을 취소했습니다", "success");

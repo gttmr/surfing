@@ -82,6 +82,9 @@ export default async function SettlementPage() {
                         </p>
                         <div className="brand-text-subtle mt-1 space-y-1 text-xs">
                           <p>참가 {formatWon(item.baseFee)} · 강습 {formatWon(item.lessonFee)} · 대여 {formatWon(item.rentalFee)}</p>
+                          {item.surfUsageMemberFee > 0 ? (
+                            <p>샵 이용 {formatWon(item.surfUsageMemberFee)}</p>
+                          ) : null}
                           {item.adjustments.map((adjustment) => (
                             <p key={adjustment.id}>
                               {adjustment.label} {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}

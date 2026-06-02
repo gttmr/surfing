@@ -17,6 +17,7 @@ import {
   DEFAULT_FOOD_ORDER_SUPPORT_CAP,
   FOOD_ORDER_SUPPORT_CAP_KEY,
 } from "@/lib/settings";
+import { getShopMeetingSurfUsageData, type ShopMeetingSurfUsageData } from "@/lib/surf-usage-data";
 
 type MenuSelectShape = {
   id: number;
@@ -1034,6 +1035,7 @@ export type ShopDashboardData = {
   meetings: ShopMeetingOption[];
   selectedMeetingId: number | null;
   selectedMeetingData: AdminMeetingFoodOrdersData | null;
+  selectedUsageData: ShopMeetingSurfUsageData | null;
 };
 
 export async function getShopDashboardData(requestedMeetingId?: number): Promise<ShopDashboardData> {
@@ -1055,6 +1057,13 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
     meetings.at(-1) ??
     null;
 
+  const [selectedMeetingData, selectedUsageData] = selectedMeeting
+    ? await Promise.all([
+        getAdminMeetingFoodOrdersData(selectedMeeting.id),
+        getShopMeetingSurfUsageData(selectedMeeting.id),
+      ])
+    : [null, null];
+
   return {
     meetings: meetings.map((meeting) => ({
       id: meeting.id,
@@ -1062,8 +1071,7 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
       label: `${meeting.date} ${meeting.startTime} · ${meeting.location}`,
     })),
     selectedMeetingId: selectedMeeting?.id ?? null,
-    selectedMeetingData: selectedMeeting
-      ? await getAdminMeetingFoodOrdersData(selectedMeeting.id)
-      : null,
+    selectedMeetingData,
+    selectedUsageData,
   };
 }
