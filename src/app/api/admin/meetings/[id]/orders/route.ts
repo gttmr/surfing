@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
+import { getActiveSessionFromRequest } from "@/lib/active-session";
 import {
   applyMeetingOrderAction,
   getAdminMeetingFoodOrdersData,
@@ -37,6 +38,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const participantId = Number(body?.participantId);
   const orderItemIds: number[] = Array.isArray(body?.orderItemIds) ? body.orderItemIds.map(Number) : [];
   const action = body?.action as MeetingOrderAction | undefined;
+  const cancelReasonCode = typeof body?.cancelReasonCode === "string" ? body.cancelReasonCode : null;
+  const cancelReasonText = typeof body?.cancelReasonText === "string" ? body.cancelReasonText : null;
 
   if (
     !Number.isInteger(meetingId) ||
@@ -49,7 +52,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
-    const data = await applyMeetingOrderAction(meetingId, participantId, orderItemIds, action);
+    const session = await getActiveSessionFromRequest(req);
+    const data = await applyMeetingOrderAction(meetingId, participantId, orderItemIds, action, {
+      actorKakaoId: session?.kakaoId ?? null,
+      cancelReasonCode,
+      cancelReasonText,
+    });
     if (!data) {
       return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
     }

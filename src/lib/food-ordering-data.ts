@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import { getTodayInSeoul } from "@/lib/date";
 import {
+  canCancelFoodOrderItems,
+  getActiveFoodOrderItems,
+  getCancelledFoodOrderItems,
   getFoodOrderItemDisplayName,
+  getFoodOrderParticipantAccess,
   isMeetingOrderOpen,
   parseAmount,
   sortFoodMenuCategories,
@@ -133,8 +137,15 @@ export type ParticipantMeetingFoodOrdersData = {
         optionChoiceLabel: string | null;
         unitPrice: number;
         quantity: number;
+        cancelledAt: string | null;
+        cancelledReasonCode: string | null;
+        cancelledReasonText: string | null;
       }>;
     }>;
+    canOrder: boolean;
+    orderRole: "self" | "owner_proxy" | "linked_companion_locked";
+    roleLabel: string;
+    lockedReason: string | null;
   }>;
 };
 
@@ -151,13 +162,24 @@ export async function getParticipantMeetingFoodOrdersData(
         participants: {
           where: {
             status: "APPROVED",
-            OR: [{ kakaoId }, { companion: { linkedKakaoId: kakaoId } }],
+            OR: [
+              { kakaoId, companionId: null },
+              { companion: { ownerKakaoId: kakaoId } },
+              { companion: { linkedKakaoId: kakaoId } },
+            ],
           },
           orderBy: [{ companionId: "asc" }, { submittedAt: "asc" }],
           select: {
             id: true,
             name: true,
+            kakaoId: true,
             companionId: true,
+            companion: {
+              select: {
+                ownerKakaoId: true,
+                linkedKakaoId: true,
+              },
+            },
             foodOrders: {
               orderBy: { createdAt: "asc" },
               select: {
@@ -171,6 +193,9 @@ export async function getParticipantMeetingFoodOrdersData(
                     optionChoiceLabelSnapshot: true,
                     unitPriceSnapshot: true,
                     quantity: true,
+                    cancelledAt: true,
+                    cancelledReasonCode: true,
+                    cancelledReasonText: true,
                   },
                 },
               },
@@ -199,6 +224,13 @@ export async function getParticipantMeetingFoodOrdersData(
       participantId: participant.id,
       name: participant.name,
       companionId: participant.companionId,
+      ...getFoodOrderParticipantAccess({
+        sessionKakaoId: kakaoId,
+        participantKakaoId: participant.kakaoId,
+        companionId: participant.companionId,
+        companionOwnerKakaoId: participant.companion?.ownerKakaoId ?? null,
+        companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
+      }),
       orders: participant.foodOrders.map((order) => ({
         orderId: order.id,
         createdAt: order.createdAt.toISOString(),
@@ -209,6 +241,9 @@ export async function getParticipantMeetingFoodOrdersData(
           optionChoiceLabel: item.optionChoiceLabelSnapshot,
           unitPrice: item.unitPriceSnapshot,
           quantity: item.quantity,
+          cancelledAt: item.cancelledAt?.toISOString() ?? null,
+          cancelledReasonCode: item.cancelledReasonCode,
+          cancelledReasonText: item.cancelledReasonText,
         })),
       })),
     })),
@@ -230,6 +265,8 @@ export type AdminMeetingFoodOrdersData = {
     orderAmount: number;
     totalOrderedQuantity: number;
     remainingQuantity: number;
+    cancelledAmount: number;
+    cancelledQuantity: number;
   };
   menuRows: Array<{
     rowId: string;
@@ -241,6 +278,8 @@ export type AdminMeetingFoodOrdersData = {
     preparingQuantity: number;
     servedQuantity: number;
     remainingQuantity: number;
+    cancelledQuantity: number;
+    cancelledAmount: number;
     participantOrders: Array<{
       participantId: number;
       menuItemId: number | null;
@@ -252,6 +291,7 @@ export type AdminMeetingFoodOrdersData = {
       preparingQuantity: number;
       servedQuantity: number;
       remainingQuantity: number;
+      canCancel: boolean;
     }>;
   }>;
   participantRows: Array<{
@@ -305,6 +345,10 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
                 quantity: true,
                 preparingQuantity: true,
                 servedQuantity: true,
+                cancelledAt: true,
+                cancelledReasonCode: true,
+                cancelledReasonText: true,
+                cancelledByKakaoId: true,
                 createdAt: true,
               },
             },
@@ -346,12 +390,52 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
     }));
   });
   const menuLineRowIds = new Set(menuLineRows.map((menu) => menu.rowId));
+  const cancelledByLine = new Map<string, { quantity: number; amount: number }>();
   let orderAmount = 0;
   let totalOrderedQuantity = 0;
   let remainingQuantity = 0;
+  let cancelledAmount = 0;
+  let cancelledQuantity = 0;
+
+  function getOrderItemRow(item: {
+    menuItemId: number | null;
+    menuOptionChoiceId: number | null;
+    menuNameSnapshot: string;
+    optionChoiceLabelSnapshot: string | null;
+  }) {
+    const menuRowKey = item.menuItemId ?? `deleted:${item.menuNameSnapshot}`;
+    return item.menuOptionChoiceId
+      ? `${menuRowKey}:${item.menuOptionChoiceId}`
+      : item.optionChoiceLabelSnapshot
+        ? `${menuRowKey}:label:${item.optionChoiceLabelSnapshot}`
+        : `${menuRowKey}:none`;
+  }
 
   for (const participant of meeting.participants) {
     const rawItems = participant.foodOrderItems;
+    const activeItems = getActiveFoodOrderItems(rawItems);
+    const cancelledItems = getCancelledFoodOrderItems(rawItems);
+
+    for (const item of cancelledItems) {
+      const rowId = getOrderItemRow(item);
+      const menuName = getFoodOrderItemDisplayName(item);
+      const amount = item.unitPriceSnapshot * item.quantity;
+      const existing = cancelledByLine.get(rowId) ?? { quantity: 0, amount: 0 };
+      existing.quantity += item.quantity;
+      existing.amount += amount;
+      cancelledByLine.set(rowId, existing);
+      cancelledQuantity += item.quantity;
+      cancelledAmount += amount;
+
+      if (!menuLineRowIds.has(rowId) && !extraLines.has(rowId)) {
+        extraLines.set(rowId, {
+          rowId,
+          menuItemId: item.menuItemId,
+          menuName,
+          unitPrice: item.unitPriceSnapshot,
+        });
+      }
+    }
 
     // (participantId, menuItemId, option) 단위로 집계
     const menuAgg = new Map<string, {
@@ -366,13 +450,8 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
       servedQuantity: number;
     }>();
 
-    for (const item of rawItems) {
-      const menuRowKey = item.menuItemId ?? `deleted:${item.menuNameSnapshot}`;
-      const rowId = item.menuOptionChoiceId
-        ? `${menuRowKey}:${item.menuOptionChoiceId}`
-        : item.optionChoiceLabelSnapshot
-          ? `${menuRowKey}:label:${item.optionChoiceLabelSnapshot}`
-          : `${menuRowKey}:none`;
+    for (const item of activeItems) {
+      const rowId = getOrderItemRow(item);
       const menuName = getFoodOrderItemDisplayName(item);
       const existing = menuAgg.get(rowId);
       if (existing) {
@@ -442,6 +521,9 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
         preparingQuantity: item.preparingQuantity,
         servedQuantity: item.servedQuantity,
         remainingQuantity: Math.max(item.quantity - item.servedQuantity, 0),
+        canCancel: canCancelFoodOrderItems(
+          rawItems.filter((rawItem) => item.orderItemIds.includes(rawItem.id))
+        ),
       });
       itemsByLine.set(item.rowId, list);
     }
@@ -459,6 +541,8 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
       preparingQuantity: participantOrders.reduce((sum, item) => sum + item.preparingQuantity, 0),
       servedQuantity: participantOrders.reduce((sum, item) => sum + item.servedQuantity, 0),
       remainingQuantity: participantOrders.reduce((sum, item) => sum + item.remainingQuantity, 0),
+      cancelledQuantity: cancelledByLine.get(menu.rowId)?.quantity ?? 0,
+      cancelledAmount: cancelledByLine.get(menu.rowId)?.amount ?? 0,
       participantOrders,
     };
   });
@@ -478,6 +562,8 @@ export async function getAdminMeetingFoodOrdersData(meetingId: number): Promise<
       orderAmount,
       totalOrderedQuantity,
       remainingQuantity,
+      cancelledAmount,
+      cancelledQuantity,
     },
     menuRows,
     participantRows,
@@ -767,15 +853,27 @@ export async function saveFoodMenuCatalog(categories: FoodMenuCategorySaveItem[]
   return getAdminFoodMenuSettingsData();
 }
 
-export type MeetingOrderAction = "prepare" | "serve" | "undo_prepare" | "undo_serve";
+export type MeetingOrderAction = "prepare" | "serve" | "undo_prepare" | "undo_serve" | "cancel";
+
+export const ORDER_CANCEL_REASON_LABELS: Record<string, string> = {
+  sold_out: "품절",
+  duplicate: "중복 주문",
+  customer_request: "고객 요청",
+  other: "기타",
+};
 
 export async function applyMeetingOrderAction(
   meetingId: number,
   participantId: number,
   orderItemIds: number[],
-  action: MeetingOrderAction
+  action: MeetingOrderAction,
+  options: {
+    actorKakaoId?: string | null;
+    cancelReasonCode?: string | null;
+    cancelReasonText?: string | null;
+  } = {}
 ) {
-  if (!["prepare", "serve", "undo_prepare", "undo_serve"].includes(action)) {
+  if (!["prepare", "serve", "undo_prepare", "undo_serve", "cancel"].includes(action)) {
     throw new Error("지원하지 않는 주문 액션입니다.");
   }
   if (orderItemIds.length === 0 || orderItemIds.some((id) => !Number.isInteger(id))) {
@@ -788,6 +886,10 @@ export async function applyMeetingOrderAction(
 
   if (items.length !== orderItemIds.length) {
     throw new Error("주문 항목을 찾을 수 없습니다.");
+  }
+
+  if (action !== "cancel" && items.some((item) => item.cancelledAt)) {
+    throw new Error("취소된 주문은 상태를 바꿀 수 없습니다.");
   }
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -843,6 +945,80 @@ export async function applyMeetingOrderAction(
       where: { meetingId, participantId, id: { in: orderItemIds } },
       data: { servedQuantity: 0, preparingQuantity: 0 },
     });
+  }
+
+  if (action === "cancel") {
+    if (!canCancelFoodOrderItems(items)) {
+      throw new Error(totalServed > 0 ? "제공 완료된 주문은 취소할 수 없습니다." : "취소할 수 없는 주문입니다.");
+    }
+
+    const participant = await prisma.participant.findUnique({
+      where: { id: participantId },
+      select: {
+        id: true,
+        name: true,
+        kakaoId: true,
+        companionId: true,
+        companion: {
+          select: {
+            linkedKakaoId: true,
+          },
+        },
+        meeting: {
+          select: {
+            date: true,
+            startTime: true,
+            location: true,
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new Error("주문자를 찾을 수 없습니다.");
+    }
+
+    const cancelledAt = new Date();
+    const cancelReasonCode = options.cancelReasonCode && ORDER_CANCEL_REASON_LABELS[options.cancelReasonCode]
+      ? options.cancelReasonCode
+      : "other";
+    const cancelReasonText = (options.cancelReasonText ?? "").trim();
+    const reasonLabel = cancelReasonText || ORDER_CANCEL_REASON_LABELS[cancelReasonCode];
+    const recipientKakaoId =
+      participant.companionId && participant.companion?.linkedKakaoId
+        ? participant.companion.linkedKakaoId
+        : participant.kakaoId;
+    const cancelledMenuNames = Array.from(new Set(items.map((item) => getFoodOrderItemDisplayName(item))));
+    const title = `${participant.name} 주문이 취소되었습니다`;
+    const body = [
+      `${participant.meeting.date} ${participant.meeting.startTime} · ${participant.meeting.location}`,
+      cancelledMenuNames.join(", "),
+      reasonLabel ? `사유: ${reasonLabel}` : null,
+    ].filter(Boolean).join("\n");
+
+    await prisma.$transaction([
+      prisma.participantFoodOrderItem.updateMany({
+        where: { meetingId, participantId, id: { in: orderItemIds } },
+        data: {
+          preparingQuantity: 0,
+          cancelledAt,
+          cancelledReasonCode: cancelReasonCode,
+          cancelledReasonText: cancelReasonText || null,
+          cancelledByKakaoId: options.actorKakaoId ?? null,
+        },
+      }),
+      prisma.userNotification.create({
+        data: {
+          recipientKakaoId,
+          type: "ORDER_CANCELLED",
+          meetingId,
+          participantId,
+          foodOrderItemId: items[0]?.id ?? null,
+          title,
+          body,
+        },
+      }),
+    ]);
   }
 
   return getAdminMeetingFoodOrdersData(meetingId);

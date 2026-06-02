@@ -5,6 +5,7 @@ import {
   getParticipantMeetingFoodOrdersData,
 } from "@/lib/food-ordering-data";
 import {
+  getFoodOrderParticipantAccess,
   isMeetingOrderOpen,
   normalizeFoodOrderPayload,
 } from "@/lib/food-ordering";
@@ -62,9 +63,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         id: participantId,
         meetingId,
         status: "APPROVED",
-        OR: [{ kakaoId: session.kakaoId }, { companion: { linkedKakaoId: session.kakaoId } }],
       },
-      select: { id: true },
+      select: {
+        id: true,
+        kakaoId: true,
+        companionId: true,
+        companion: {
+          select: {
+            ownerKakaoId: true,
+            linkedKakaoId: true,
+          },
+        },
+      },
     }),
     getFoodMenus(),
   ]);
@@ -75,6 +85,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!participant) {
     return NextResponse.json({ error: "주문 권한이 없습니다." }, { status: 403 });
+  }
+
+  const access = getFoodOrderParticipantAccess({
+    sessionKakaoId: session.kakaoId,
+    participantKakaoId: participant.kakaoId,
+    companionId: participant.companionId,
+    companionOwnerKakaoId: participant.companion?.ownerKakaoId ?? null,
+    companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
+  });
+
+  if (!access.canOrder) {
+    return NextResponse.json({ error: access.lockedReason ?? "주문 권한이 없습니다." }, { status: 403 });
   }
 
   if (!isMeetingOrderOpen(meeting.date)) {

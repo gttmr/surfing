@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { MeetingWithCounts } from "@/lib/types";
 import {
@@ -14,6 +14,7 @@ import type {
   SettlementAccount,
   SettlementSummary,
   SignupInitialData,
+  UserNotificationItem,
 } from "@/lib/landing-types";
 import EmbeddedMeetingDetail from "./EmbeddedMeetingDetail";
 import {
@@ -46,6 +47,7 @@ export default function SurfClubLandingPage({
   initialSettlementStatusByMeetingId,
   initialPendingSettlements,
   initialSettlementAccount,
+  initialUserNotifications,
   dbUnavailable = false,
   initialSelectedDate = null,
 }: {
@@ -59,9 +61,11 @@ export default function SurfClubLandingPage({
   initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary>;
   initialPendingSettlements: SettlementSummary[];
   initialSettlementAccount: SettlementAccount | null;
+  initialUserNotifications: UserNotificationItem[];
   dbUnavailable?: boolean;
   initialSelectedDate?: string | null;
 }) {
+  const [userNotifications, setUserNotifications] = useState(initialUserNotifications);
   const {
     today,
     year,
@@ -118,7 +122,8 @@ export default function SurfClubLandingPage({
 
   const hasNotices = notices.length > 0;
   const hasPendingSettlement = pendingSettlements.length > 0;
-  const hasAlertCenter = hasNotices || hasPendingSettlement;
+  const hasUserNotifications = userNotifications.length > 0;
+  const hasAlertCenter = hasNotices || hasPendingSettlement || hasUserNotifications;
 
   async function markSettlementCompleted(meetingId: number, completed = true, keepalive = false) {
     try {
@@ -234,8 +239,20 @@ export default function SurfClubLandingPage({
       });
     }
 
+    for (const notification of userNotifications) {
+      const key = `notification:${notification.id}:${notification.createdAt}`;
+      items.push({
+        key,
+        type: "order_cancelled",
+        title: notification.title,
+        subtitle: "주문 취소",
+        unread: !notification.readAt,
+        notification,
+      });
+    }
+
     return items;
-  }, [notices, pendingSettlements, readAlertKeys, settlementProgressMeetingIds]);
+  }, [notices, pendingSettlements, readAlertKeys, settlementProgressMeetingIds, userNotifications]);
   const hasUnreadAlerts = alertItems.some((item) => item.unread);
 
   function moveMonth(direction: -1 | 1) {
@@ -255,6 +272,17 @@ export default function SurfClubLandingPage({
     setExpandedAlertKey((prev) => (prev === item.key ? null : item.key));
     if (item.type === "notice" && item.unread) {
       persistReadAlertKeys([...readAlertKeys, item.key]);
+    }
+    if (item.type === "order_cancelled" && item.unread) {
+      const readAt = new Date().toISOString();
+      setUserNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === item.notification.id ? { ...notification, readAt } : notification
+        )
+      );
+      fetch(`/api/notifications/${item.notification.id}/read`, {
+        method: "PATCH",
+      }).catch(() => {});
     }
   }
 
