@@ -176,6 +176,30 @@ export function AdminMeetingSettlementPageClient({
               {reloading ? <span className="brand-text-subtle text-xs">갱신 중...</span> : null}
             </div>
           </div>
+
+          {data.surfUsageSummary.shopChargeAmount > 0 ? (
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              <div className="brand-panel-white rounded-2xl px-3 py-3">
+                <p className="brand-text-subtle text-[11px] font-bold">샵 청구</p>
+                <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                  {formatWon(displayAmount(data.surfUsageSummary.shopChargeAmount))}
+                </p>
+              </div>
+              <div className="brand-panel-white rounded-2xl px-3 py-3">
+                <p className="brand-text-subtle text-[11px] font-bold">회원 청구</p>
+                <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                  {formatWon(displayAmount(data.surfUsageSummary.memberChargeAmount))}
+                </p>
+              </div>
+              <div className="brand-panel-white rounded-2xl px-3 py-3">
+                <p className="brand-text-subtle text-[11px] font-bold">운영 부담</p>
+                <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                  {formatWon(displayAmount(data.surfUsageSummary.operationsCoveredAmount))}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-3">
             {data.recipients.map((recipient) => {
               const recipientKey = `${recipient.recipientKakaoId}-${recipient.recipientType}`;
@@ -230,10 +254,18 @@ export function AdminMeetingSettlementPageClient({
                                   </p>
                                   <p className="brand-text-subtle mt-1 text-xs">
                                     참가 {formatWon(displayAmount(participant.breakdown.baseFee))} · 강습 {formatWon(displayAmount(participant.breakdown.lessonFee))} · 대여 {formatWon(displayAmount(participant.breakdown.rentalFee))}
+                                    {participant.breakdown.surfUsageShopFee > 0
+                                      ? ` · 샵이용 회원청구 ${formatWon(displayAmount(participant.breakdown.surfUsageMemberFee))}`
+                                      : ""}
                                     {participant.breakdown.foodSubtotal > 0
                                       ? ` · 식음료 ${formatWon(displayAmount(participant.breakdown.foodSubtotal))} · 지원 -${formatWon(displayAmount(participant.breakdown.foodSupportApplied))}`
                                       : ""}
                                   </p>
+                                  {participant.breakdown.surfUsageShopFee > 0 ? (
+                                    <p className="brand-text-subtle mt-1 text-xs">
+                                      샵 청구 {formatWon(displayAmount(participant.breakdown.surfUsageShopFee))} · 운영 부담 {formatWon(displayAmount(participant.breakdown.surfUsageCoveredFee))}
+                                    </p>
+                                  ) : null}
                                 </div>
                                 <span className="rounded-full bg-[var(--brand-primary-soft-accent)] px-2.5 py-1 text-xs font-bold text-[var(--brand-primary-text)]">
                                   {formatWon(displayAmount(participant.breakdown.totalFee))}

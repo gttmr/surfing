@@ -355,8 +355,8 @@ export default function EmbeddedMeetingDetail({
                         <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
                         {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
                         {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
-                        {participant.hasLesson ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
-                        {participant.hasRental ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
+                        {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
+                        {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
                       </div>
                       {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
                     </div>

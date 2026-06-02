@@ -19,6 +19,7 @@ import {
   ShuttleBusChoice,
 } from "@/components/meeting/signup-form-controls";
 import { MeetingFoodOrderPanel } from "@/components/meeting/MeetingFoodOrderPanel";
+import { MeetingSurfUsagePanel } from "@/components/meeting/MeetingSurfUsagePanel";
 
 type OptionField = "hasLesson" | "hasBus" | "hasRental";
 
@@ -133,7 +134,12 @@ export function CompanionSignupPanel({
               </div>
             </div>
           ) : null}
-          {linkedStatus.participant.status === "APPROVED" ? <MeetingFoodOrderPanel meetingId={meetingId} /> : null}
+          {linkedStatus.participant.status === "APPROVED" ? (
+            <>
+              <MeetingSurfUsagePanel meetingId={meetingId} />
+              <MeetingFoodOrderPanel meetingId={meetingId} />
+            </>
+          ) : null}
         </div>
       ) : linkedStatus.ownerApplied ? (
         <div className="space-y-3">
@@ -328,7 +334,12 @@ export function ExistingSignupPanel({
         <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
-      {myParticipant.status === "APPROVED" ? <MeetingFoodOrderPanel meetingId={meetingId} /> : null}
+      {myParticipant.status === "APPROVED" ? (
+        <>
+          <MeetingSurfUsagePanel meetingId={meetingId} />
+          <MeetingFoodOrderPanel meetingId={meetingId} />
+        </>
+      ) : null}
 
       {!showMySignupDetails ? (
         <button

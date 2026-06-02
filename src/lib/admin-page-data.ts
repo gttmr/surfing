@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { resolveProfileImage } from "@/lib/profile-image";
 import { getParticipantChargeBreakdown, getSettlementPricingBundle, groupParticipantsForSettlement } from "@/lib/pricing";
+import { getConfirmedSurfUsageBillingByParticipant } from "@/lib/surf-usage-data";
 import type { AdminSettlementStatusSummary } from "@/lib/landing-types";
 import {
   DEFAULT_FOOD_ORDER_SUPPORT_CAP,
@@ -129,10 +130,23 @@ export type AdminSettlementParticipant = {
     cancelledReasonCode?: string | null;
     cancelledReasonText?: string | null;
   }[];
+  surfUsageLines: {
+    id: number;
+    usageItemId: number;
+    usageItemName: string;
+    serviceType: string;
+    quantity: number;
+    shopUnitPrice: number;
+    memberBillingPolicy: string;
+    regularMemberUnitPrice: number;
+  }[];
   breakdown: {
     baseFee: number;
     lessonFee: number;
     rentalFee: number;
+    surfUsageShopFee: number;
+    surfUsageMemberFee: number;
+    surfUsageCoveredFee: number;
     adjustmentFee: number;
     foodSubtotal: number;
     foodSupportApplied: number;
@@ -165,6 +179,11 @@ export type AdminSettlementData = {
     settlementOpen: boolean;
   };
   participants: AdminSettlementParticipant[];
+  surfUsageSummary: {
+    shopChargeAmount: number;
+    memberChargeAmount: number;
+    operationsCoveredAmount: number;
+  };
   confirmedRecipientCount: number;
   recipients: AdminSettlementRecipient[];
 };
@@ -310,7 +329,7 @@ function sortSettlementItems<T extends { id: number; kakaoId: string; companionI
 }
 
 async function loadSettlementContext(meetingId: number) {
-  const [meeting, { pricing, foodSupportCap }, confirmations] = await Promise.all([
+  const [meeting, { pricing, foodSupportCap }, confirmations, surfUsageBilling] = await Promise.all([
     prisma.meeting.findUnique({
       where: { id: meetingId },
       include: {
@@ -348,6 +367,7 @@ async function loadSettlementContext(meetingId: number) {
     prisma.settlementConfirmation.findMany({
       where: { meetingId },
     }),
+    getConfirmedSurfUsageBillingByParticipant(meetingId),
   ]);
 
   if (!meeting) return null;
@@ -397,7 +417,9 @@ async function loadSettlementContext(meetingId: number) {
     pricing,
     adjustmentMap,
     foodOrderMap,
-    foodSupportCap
+    foodSupportCap,
+    surfUsageBilling.billingMap,
+    surfUsageBilling.confirmedParticipantIds
   ).map((recipient) => {
     const completedAt = confirmationMap.get(recipient.recipientKakaoId) ?? null;
     return {
@@ -413,6 +435,7 @@ async function loadSettlementContext(meetingId: number) {
     adjustmentMap,
     foodOrderMap,
     foodSupportCap,
+    surfUsageBilling,
     recipients,
   };
 }
@@ -421,18 +444,21 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
   const context = await loadSettlementContext(meetingId);
   if (!context) return null;
 
-  const { meeting, pricing, adjustmentMap, foodOrderMap, foodSupportCap, recipients } = context;
+  const { meeting, pricing, adjustmentMap, foodOrderMap, foodSupportCap, surfUsageBilling, recipients } = context;
 
   const participants = sortSettlementItems(meeting.participants).map((participant) => {
     const adjustments = adjustmentMap.get(participant.id) ?? [];
     const foodOrders = foodOrderMap.get(participant.id) ?? [];
+    const surfUsageLines = surfUsageBilling.billingMap.get(participant.id) ?? [];
     const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
     const breakdown = getParticipantChargeBreakdown(
       participant,
       pricing,
       adjustmentFee,
       foodOrders,
-      foodSupportCap
+      foodSupportCap,
+      surfUsageLines,
+      surfUsageBilling.confirmedParticipantIds.has(participant.id)
     );
 
     return {
@@ -445,6 +471,16 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       hasRental: participant.hasRental,
       adjustments,
       foodOrders,
+      surfUsageLines: surfUsageLines.map((line) => ({
+        id: line.id,
+        usageItemId: line.usageItemId,
+        usageItemName: line.usageItemName,
+        serviceType: line.serviceType,
+        quantity: line.quantity,
+        shopUnitPrice: line.shopUnitPrice,
+        memberBillingPolicy: line.memberBillingPolicy,
+        regularMemberUnitPrice: line.regularMemberUnitPrice,
+      })),
       breakdown,
     };
   });
@@ -459,6 +495,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       settlementOpen: meeting.settlementOpen,
     },
     participants,
+    surfUsageSummary: surfUsageBilling.summary,
     confirmedRecipientCount: recipients.filter((recipient) => recipient.completed).length,
     recipients,
   };

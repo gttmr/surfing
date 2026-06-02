@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getFoodOrderSummary, parseAmount, type FoodOrderItemSnapshot } from "@/lib/food-ordering";
 import { DEFAULT_FOOD_ORDER_SUPPORT_CAP, DEFAULT_PRICING_SETTINGS, FOOD_ORDER_SUPPORT_CAP_KEY, PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
+import { calculateUsageBillingForParticipant, type SurfUsageBillingLine } from "@/lib/surf-usage-billing";
 
 export type PricingConfig = Record<PricingSettingKey, number>;
 
@@ -32,6 +33,9 @@ export interface ParticipantChargeBreakdown {
   baseFee: number;
   lessonFee: number;
   rentalFee: number;
+  surfUsageShopFee: number;
+  surfUsageMemberFee: number;
+  surfUsageCoveredFee: number;
   adjustmentFee: number;
   foodSubtotal: number;
   foodSupportApplied: number;
@@ -47,6 +51,7 @@ export interface SettlementLineItem extends ParticipantChargeBreakdown {
   companionId: number | null;
   adjustments: { id: number; label: string; amount: number }[];
   foodOrders: FoodOrderItemSnapshot[];
+  surfUsageLines: SurfUsageBillingLine[];
 }
 
 export interface SettlementRecipientGroup {
@@ -96,23 +101,29 @@ export function getParticipantChargeBreakdown(
   pricing: PricingConfig,
   adjustmentFee = 0,
   foodOrders: FoodOrderItemSnapshot[] = [],
-  foodSupportCap = 0
+  foodSupportCap = 0,
+  surfUsageLines: SurfUsageBillingLine[] = [],
+  useSurfUsageLedger = false
 ): ParticipantChargeBreakdown {
   const isCompanion = participant.companionId !== null;
   const baseFee = isCompanion ? pricing[PRICING_SETTING_KEYS.companionBaseFee] : pricing[PRICING_SETTING_KEYS.regularBaseFee];
-  const lessonFee = participant.hasLesson ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionLessonFee] : pricing[PRICING_SETTING_KEYS.regularLessonFee]) : 0;
-  const rentalFee = participant.hasRental ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionRentalFee] : pricing[PRICING_SETTING_KEYS.regularRentalFee]) : 0;
+  const lessonFee = !useSurfUsageLedger && participant.hasLesson ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionLessonFee] : pricing[PRICING_SETTING_KEYS.regularLessonFee]) : 0;
+  const rentalFee = !useSurfUsageLedger && participant.hasRental ? (isCompanion ? pricing[PRICING_SETTING_KEYS.companionRentalFee] : pricing[PRICING_SETTING_KEYS.regularRentalFee]) : 0;
   const foodSummary = getFoodOrderSummary(foodOrders, foodSupportCap);
+  const surfUsageBilling = calculateUsageBillingForParticipant(surfUsageLines);
 
   return {
     baseFee,
     lessonFee,
     rentalFee,
+    surfUsageShopFee: surfUsageBilling.shopChargeAmount,
+    surfUsageMemberFee: surfUsageBilling.memberChargeAmount,
+    surfUsageCoveredFee: surfUsageBilling.operationsCoveredAmount,
     adjustmentFee,
     foodSubtotal: foodSummary.subtotal,
     foodSupportApplied: foodSummary.supportApplied,
     foodCharge: foodSummary.billableAmount,
-    totalFee: baseFee + lessonFee + rentalFee + adjustmentFee + foodSummary.billableAmount,
+    totalFee: baseFee + lessonFee + rentalFee + surfUsageBilling.memberChargeAmount + adjustmentFee + foodSummary.billableAmount,
   };
 }
 
@@ -121,7 +132,9 @@ export function groupParticipantsForSettlement(
   pricing: PricingConfig,
   adjustmentMap: Map<number, { id: number; label: string; amount: number }[]> = new Map(),
   foodOrderMap: Map<number, FoodOrderItemSnapshot[]> = new Map(),
-  foodSupportCap = 0
+  foodSupportCap = 0,
+  surfUsageMap: Map<number, SurfUsageBillingLine[]> = new Map(),
+  surfUsageLedgerParticipantIds: Set<number> = new Set()
 ): SettlementRecipientGroup[] {
   const groups = new Map<string, SettlementRecipientGroup>();
 
@@ -129,13 +142,16 @@ export function groupParticipantsForSettlement(
     const isCompanion = participant.companionId !== null;
     const adjustments = adjustmentMap.get(participant.id) ?? [];
     const foodOrders = foodOrderMap.get(participant.id) ?? [];
+    const surfUsageLines = surfUsageMap.get(participant.id) ?? [];
     const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
     const breakdown = getParticipantChargeBreakdown(
       participant,
       pricing,
       adjustmentFee,
       foodOrders,
-      foodSupportCap
+      foodSupportCap,
+      surfUsageLines,
+      surfUsageLedgerParticipantIds.has(participant.id)
     );
 
     let recipientKakaoId = participant.kakaoId;
@@ -162,6 +178,7 @@ export function groupParticipantsForSettlement(
       companionId: participant.companionId,
       adjustments,
       foodOrders,
+      surfUsageLines,
       ...breakdown,
     };
 

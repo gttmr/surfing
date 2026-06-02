@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { getFoodOrderSupportCap } from "@/lib/food-ordering-data";
 import { type FoodOrderItemSnapshot } from "@/lib/food-ordering";
 import { getPricingConfig, groupParticipantsForSettlement } from "@/lib/pricing";
+import { getConfirmedSurfUsageBillingByParticipant } from "@/lib/surf-usage-data";
 
 export type SettlementMeetingGroup = {
   meeting: {
@@ -78,6 +79,13 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
   const completionMap = new Map(
     confirmations.map((item) => [item.meetingId, item.confirmedAt.toISOString()])
   );
+  const surfUsageBillingEntries = await Promise.all(
+    Array.from(meetingsMap.keys()).map(async (meetingId) => [
+      meetingId,
+      await getConfirmedSurfUsageBillingByParticipant(meetingId),
+    ] as const)
+  );
+  const surfUsageBillingByMeeting = new Map(surfUsageBillingEntries);
 
   return Array.from(meetingsMap.values())
     .map((meetingParticipants) => {
@@ -115,12 +123,15 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
         ])
       );
 
+      const surfUsageBilling = surfUsageBillingByMeeting.get(meeting.id);
       const recipients = groupParticipantsForSettlement(
         meetingParticipants,
         pricing,
         adjustmentMap,
         foodOrderMap,
-        foodSupportCap
+        foodSupportCap,
+        surfUsageBilling?.billingMap ?? new Map(),
+        surfUsageBilling?.confirmedParticipantIds ?? new Set()
       );
       const myGroup = recipients.find((recipient) => recipient.recipientKakaoId === kakaoId);
       if (!myGroup) return null;

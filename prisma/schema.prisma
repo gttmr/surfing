@@ -21,6 +21,9 @@ model Meeting {
   participants      Participant[]
   foodOrderItems    ParticipantFoodOrderItem[]
   foodOrders        ParticipantFoodOrder[]
+  surfUsageItems    SurfUsageItem[]
+  surfUsages        ParticipantSurfUsage[]
+  surfUsageSubmissions ParticipantSurfUsageSubmission[]
   chargeAdjustments ParticipantChargeAdjustment[]
   settlementConfirmations SettlementConfirmation[]
   createdAt         DateTime      @default(now())
@@ -47,6 +50,8 @@ model Participant {
   submittedAt      DateTime   @default(now())
   foodOrderItems   ParticipantFoodOrderItem[]
   foodOrders       ParticipantFoodOrder[]
+  surfUsages       ParticipantSurfUsage[]
+  surfUsageSubmissions ParticipantSurfUsageSubmission[]
   chargeAdjustments ParticipantChargeAdjustment[]
 
   @@unique([meetingId, kakaoId, companionId])
@@ -162,6 +167,71 @@ model UserNotification {
   @@index([meetingId])
   @@index([participantId])
   @@index([foodOrderItemId])
+}
+
+model SurfUsageItem {
+  id                  Int      @id @default(autoincrement())
+  meetingId           Int
+  name                String
+  description         String?
+  serviceType         String
+  shopPrice           Int
+  memberBillingPolicy String
+  regularMemberPrice  Int      @default(0)
+  isDefault           Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  displayOrder        Int      @default(0)
+  createdByKakaoId    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  meeting             Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  usages              ParticipantSurfUsage[]
+
+  @@index([meetingId, displayOrder])
+  @@index([meetingId, serviceType])
+}
+
+model ParticipantSurfUsage {
+  id                          Int       @id @default(autoincrement())
+  meetingId                   Int
+  participantId               Int
+  usageItemId                 Int
+  quantity                    Int
+  usageItemNameSnapshot       String
+  serviceTypeSnapshot         String
+  shopUnitPriceSnapshot       Int
+  memberBillingPolicySnapshot String
+  regularMemberPriceSnapshot  Int       @default(0)
+  source                      String    @default("participant")
+  submittedByKakaoId          String?
+  note                        String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  meeting                     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant                 Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  usageItem                   SurfUsageItem @relation(fields: [usageItemId], references: [id], onDelete: Restrict)
+
+  @@index([meetingId, participantId])
+  @@index([usageItemId])
+}
+
+model ParticipantSurfUsageSubmission {
+  id                 Int      @id @default(autoincrement())
+  meetingId          Int
+  participantId      Int
+  submittedByKakaoId String?
+  status             String   @default("SUBMITTED")
+  confirmedAt        DateTime?
+  confirmedByKakaoId String?
+  note               String?
+  submittedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  meeting            Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant        Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, participantId])
+  @@index([meetingId, status])
+  @@index([participantId])
 }
 
 model SettlementConfirmation {

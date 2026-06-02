@@ -45,6 +45,9 @@ export type SettlementSummary = {
       baseFee: number;
       lessonFee: number;
       rentalFee: number;
+      surfUsageShopFee: number;
+      surfUsageMemberFee: number;
+      surfUsageCoveredFee: number;
       foodSubtotal: number;
       foodSupportApplied: number;
       foodCharge: number;
