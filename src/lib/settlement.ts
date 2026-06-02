@@ -108,6 +108,9 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
             quantity: item.quantity,
             preparingQuantity: item.preparingQuantity,
             servedQuantity: item.servedQuantity,
+            cancelledAt: item.cancelledAt?.toISOString() ?? null,
+            cancelledReasonCode: item.cancelledReasonCode,
+            cancelledReasonText: item.cancelledReasonText,
           })),
         ])
       );

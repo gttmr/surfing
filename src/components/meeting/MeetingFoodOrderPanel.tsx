@@ -61,6 +61,49 @@ function groupMenusByCategory(menus: ParticipantMeetingFoodOrdersData["menus"]):
   return Array.from(groups.values());
 }
 
+type ParticipantOrderItem =
+  ParticipantMeetingFoodOrdersData["participants"][number]["orders"][number]["items"][number];
+type ParticipantOrderPerson = ParticipantMeetingFoodOrdersData["participants"][number];
+
+function getOrderItemName(item: ParticipantOrderItem) {
+  return item.optionChoiceLabel ? `${item.menuName} · ${item.optionChoiceLabel}` : item.menuName;
+}
+
+function getParticipantOrderRows(participant: ParticipantOrderPerson) {
+  const totals = new Map<
+    string,
+    { name: string; quantity: number; total: number; cancelled: boolean; reason: string | null }
+  >();
+
+  for (const order of participant.orders ?? []) {
+    for (const item of order.items) {
+      const key = `${item.cancelledAt ? "cancelled" : "active"}:${item.menuItemId ?? item.menuName}:${item.menuOptionChoiceId ?? item.optionChoiceLabel ?? "none"}`;
+      const existing = totals.get(key);
+      const itemTotal = item.unitPrice * item.quantity;
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.total += itemTotal;
+      } else {
+        totals.set(key, {
+          name: getOrderItemName(item),
+          quantity: item.quantity,
+          total: itemTotal,
+          cancelled: Boolean(item.cancelledAt),
+          reason: item.cancelledReasonText,
+        });
+      }
+    }
+  }
+
+  return Array.from(totals.values());
+}
+
+function getParticipantActiveTotal(participant: ParticipantOrderPerson) {
+  return getParticipantOrderRows(participant)
+    .filter((row) => !row.cancelled)
+    .reduce((sum, row) => sum + row.total, 0);
+}
+
 export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   const [data, setData] = useState<ParticipantMeetingFoodOrdersData | null>(null);
   const [drafts, setDrafts] = useState<DraftMap>({});
@@ -68,6 +111,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   const [savingParticipantId, setSavingParticipantId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,77 +140,40 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   }, [meetingId]);
 
   const visibleParticipants = useMemo(() => data?.participants ?? [], [data]);
+  const orderableParticipants = useMemo(
+    () => visibleParticipants.filter((participant) => participant.canOrder),
+    [visibleParticipants]
+  );
   const menuGroups = useMemo(() => groupMenusByCategory(data?.menus ?? []), [data]);
 
-  // 모든 주문 이력을 메뉴별로 합산해서 요약 문자열 생성
-  const savedSummary = useMemo(() => {
-    if (!data || visibleParticipants.length === 0) return "";
-    return visibleParticipants
-      .map((p) => {
-        const totals = new Map<string, number>();
-        for (const order of (p.orders ?? [])) {
-          for (const item of order.items) {
-            const menuRowKey = item.menuItemId ?? `deleted:${item.menuName}`;
-            const key = item.menuOptionChoiceId
-              ? `${menuRowKey}:${item.menuOptionChoiceId}`
-              : item.optionChoiceLabel
-                ? `${menuRowKey}:label:${item.optionChoiceLabel}`
-                : `${menuRowKey}:none`;
-            totals.set(key, (totals.get(key) ?? 0) + item.quantity);
-          }
-        }
-        return Array.from(totals.entries())
-          .filter(([, qty]) => qty > 0)
-          .map(([key, qty]) => {
-            for (const order of (p.orders ?? [])) {
-              const item = order.items.find((candidate) => {
-                const candidateMenuRowKey = candidate.menuItemId ?? `deleted:${candidate.menuName}`;
-                const candidateKey = candidate.menuOptionChoiceId
-                  ? `${candidateMenuRowKey}:${candidate.menuOptionChoiceId}`
-                  : candidate.optionChoiceLabel
-                    ? `${candidateMenuRowKey}:label:${candidate.optionChoiceLabel}`
-                    : `${candidateMenuRowKey}:none`;
-                return candidateKey === key;
-              });
-              if (item) {
-                return `${item.optionChoiceLabel ? `${item.menuName} · ${item.optionChoiceLabel}` : item.menuName} ${qty}`;
-              }
-            }
-            return null;
-          })
-          .filter(Boolean)
-          .join(" · ");
-      })
-      .filter(Boolean)
-      .join(" | ");
-  }, [data, visibleParticipants]);
-
-  // 누적 주문 금액 합계
-  const savedTotal = useMemo(() => {
+  const savedTotalForOrderableParticipants = useMemo(() => {
     if (!data) return 0;
-    return visibleParticipants.reduce((total, p) => {
+    return orderableParticipants.reduce((total, p) => {
       for (const order of (p.orders ?? [])) {
         for (const item of order.items) {
-          total += item.unitPrice * item.quantity;
+          if (!item.cancelledAt) total += item.unitPrice * item.quantity;
         }
       }
       return total;
     }, 0);
-  }, [data, visibleParticipants]);
+  }, [data, orderableParticipants]);
+
+  const totalSupport = orderableParticipants.length * (data?.supportCap ?? 0);
+  const selectedParticipant =
+    visibleParticipants.find((participant) => participant.participantId === selectedParticipantId) ??
+    orderableParticipants[0] ??
+    visibleParticipants[0] ??
+    null;
 
   // 현재 draft 금액 합계
-  const allDraftTotal = useMemo(() => {
-    if (!data) return 0;
-    return visibleParticipants.reduce((total, p) => {
-      return total + data.menus.reduce((pTotal, menu) => {
-        return pTotal + buildMenuDraftRows(menu).reduce((menuTotal, row) => {
-          return menuTotal + (drafts[p.participantId]?.[row.key] ?? 0) * row.price;
-        }, 0);
+  const selectedDraftTotal = useMemo(() => {
+    if (!data || !selectedParticipant) return 0;
+    return data.menus.reduce((pTotal, menu) => {
+      return pTotal + buildMenuDraftRows(menu).reduce((menuTotal, row) => {
+        return menuTotal + (drafts[selectedParticipant.participantId]?.[row.key] ?? 0) * row.price;
       }, 0);
     }, 0);
-  }, [data, drafts, visibleParticipants]);
-
-  const totalSupport = visibleParticipants.length * (data?.supportCap ?? 0);
+  }, [data, drafts, selectedParticipant]);
 
   function updateQuantity(participantId: number, rowKey: string, nextValue: number) {
     setDrafts((prev) => ({
@@ -180,6 +187,11 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
 
   async function handleOrder(participantId: number) {
     if (!data) return;
+    const participant = visibleParticipants.find((item) => item.participantId === participantId);
+    if (!participant?.canOrder) {
+      setError(participant?.lockedReason ?? "주문할 수 없는 대상입니다.");
+      return;
+    }
 
     setSavingParticipantId(participantId);
     setError("");
@@ -210,8 +222,9 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   }
 
   function handleOpen() {
-    if (!data?.meeting.orderOpen) return;
+    if (!data?.meeting.orderOpen || orderableParticipants.length === 0) return;
     setDrafts(buildFreshDraftMap(data));
+    setSelectedParticipantId(orderableParticipants[0]?.participantId ?? null);
     setError("");
     setIsOpen(true);
   }
@@ -228,6 +241,12 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     return null;
   }
 
+  const orderStateLabel = data.meeting.orderOpen
+    ? orderableParticipants.length > 0
+      ? "주문 가능"
+      : "직접 주문"
+    : "당일 오픈";
+
   return (
     <>
       {/* 헤더 카드 — 항상 표시, orderOpen 일 때만 클릭 가능 */}
@@ -237,26 +256,56 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-base font-extrabold text-[var(--brand-text)]">점심 메뉴 주문</span>
-          <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${data.meeting.orderOpen ? "brand-chip-dark" : "brand-button-secondary"}`}>
-            {data.meeting.orderOpen ? "주문 가능" : "당일 오픈"}
+          <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${data.meeting.orderOpen && orderableParticipants.length > 0 ? "brand-chip-dark" : "brand-button-secondary"}`}>
+            {orderStateLabel}
           </span>
         </div>
-        {savedSummary ? (
-          <div className="mt-2.5 space-y-1.5">
-            <div className="brand-chip-soft inline-flex items-center rounded-lg px-2.5 py-1.5">
-              <span className="text-xs font-semibold text-[var(--brand-primary-text)]">{savedSummary}</span>
-            </div>
+        <div className="mt-3 space-y-2">
+          {visibleParticipants.map((participant) => {
+            const rows = getParticipantOrderRows(participant);
+            const activeRows = rows.filter((row) => !row.cancelled);
+            const cancelledRows = rows.filter((row) => row.cancelled);
+            const activeSummary = activeRows.length > 0
+              ? activeRows.map((row) => `${row.name} ${row.quantity}`).join(" · ")
+              : "주문 없음";
+            const roleClass = participant.orderRole === "owner_proxy"
+              ? "brand-chip-companion"
+              : participant.orderRole === "linked_companion_locked"
+                ? "brand-button-secondary"
+                : "brand-chip-soft";
+
+            return (
+              <div key={participant.participantId} className="brand-panel-white rounded-2xl px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-[var(--brand-text)]">{participant.name}</p>
+                    <p className="brand-text-subtle mt-1 truncate text-xs">{activeSummary}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${roleClass}`}>
+                    {participant.roleLabel}
+                  </span>
+                </div>
+                {cancelledRows.length > 0 ? (
+                  <div className="brand-alert-error mt-2 rounded-xl px-3 py-2 text-xs">
+                    {cancelledRows.map((row) => `${row.name} 취소됨${row.reason ? ` · ${row.reason}` : ""}`).join(" / ")}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {orderableParticipants.length > 0 ? (
             <div className="flex items-center gap-2 px-0.5 text-xs">
               <span className="brand-text-muted">지원 {formatWon(totalSupport)}</span>
               <span className="brand-text-subtle">·</span>
-              {savedTotal > totalSupport ? (
-                <span className="font-semibold text-[var(--brand-danger)]">청구 {formatWon(savedTotal - totalSupport)}</span>
+              {savedTotalForOrderableParticipants > totalSupport ? (
+                <span className="font-semibold text-[var(--brand-danger)]">청구 {formatWon(savedTotalForOrderableParticipants - totalSupport)}</span>
               ) : (
                 <span className="font-semibold text-[var(--brand-success-text)]">청구 없음</span>
               )}
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       {/* Bottom sheet */}
@@ -272,137 +321,167 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
                 <div className="brand-alert-error mb-4 rounded-xl p-3 text-sm">{error}</div>
               ) : null}
 
-              {visibleParticipants.map((participant) => (
-                <div key={participant.participantId} className="mb-6 last:mb-0">
-                  {visibleParticipants.length > 1 ? (
-                    <p className="mb-2 text-sm font-bold text-[var(--brand-text)]">
-                      {participant.name}{participant.companionId ? " (동반)" : ""}
-                    </p>
-                  ) : null}
+              {visibleParticipants.length > 1 ? (
+                <div className="mb-4 grid grid-cols-2 gap-2">
+                  {visibleParticipants.map((participant) => {
+                    const selected = selectedParticipant?.participantId === participant.participantId;
+                    return (
+                      <button
+                        key={participant.participantId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedParticipantId(participant.participantId);
+                          setError("");
+                        }}
+                        className={`rounded-2xl px-3 py-2.5 text-left text-xs font-bold transition-colors ${
+                          selected ? "brand-toggle-active" : "brand-panel-white"
+                        } ${participant.canOrder ? "" : "opacity-80"}`}
+                      >
+                        <span className="block truncate text-sm font-extrabold">{participant.name}</span>
+                        <span className="brand-text-subtle mt-0.5 block truncate text-[10px]">{participant.roleLabel}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
 
-                  <div className="space-y-3">
-                    {menuGroups.map((group) => (
-                      <section key={`${participant.participantId}-${group.categoryName}`} className="brand-panel-white rounded-2xl p-3">
-                        <div className="mb-2 flex items-center gap-2 px-1">
-                          <span className="h-4 w-1 rounded-full bg-[var(--brand-primary)]" />
-                          <p className="text-xs font-extrabold tracking-[0.08em] text-[var(--brand-text)]">
-                            {group.categoryName}
-                          </p>
-                        </div>
+              {selectedParticipant ? (
+                selectedParticipant.canOrder ? (
+                  <div>
+                    <div className="brand-chip-soft mb-3 inline-flex rounded-xl px-3 py-2 text-xs font-bold">
+                      지금은 {selectedParticipant.name} 이름으로 주문합니다.
+                    </div>
 
-                        <div className="space-y-2">
-                          {group.menus.map((menu) => {
-                            const rows = buildMenuDraftRows(menu);
-                            if (menu.options.length === 0) {
-                              const row = rows[0];
-                              const value = drafts[participant.participantId]?.[row.key] ?? 0;
+                    <div className="space-y-3">
+                      {menuGroups.map((group) => (
+                        <section key={`${selectedParticipant.participantId}-${group.categoryName}`} className="brand-panel-white rounded-2xl p-3">
+                          <div className="mb-2 flex items-center gap-2 px-1">
+                            <span className="h-4 w-1 rounded-full bg-[var(--brand-primary)]" />
+                            <p className="text-xs font-extrabold tracking-[0.08em] text-[var(--brand-text)]">
+                              {group.categoryName}
+                            </p>
+                          </div>
+
+                          <div className="space-y-2">
+                            {group.menus.map((menu) => {
+                              const rows = buildMenuDraftRows(menu);
+                              if (menu.options.length === 0) {
+                                const row = rows[0];
+                                const value = drafts[selectedParticipant.participantId]?.[row.key] ?? 0;
+                                return (
+                                  <div
+                                    key={menu.id}
+                                    className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
+                                      <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => updateQuantity(selectedParticipant.participantId, row.key, value - 1)}
+                                        className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateQuantity(selectedParticipant.participantId, row.key, value + 1)}
+                                        className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div
                                   key={menu.id}
-                                  className="brand-list-item flex items-center justify-between rounded-2xl px-4 py-3"
+                                  className="brand-list-item rounded-2xl px-4 py-3"
                                 >
-                                  <div className="min-w-0">
+                                  <div className="mb-2 min-w-0">
                                     <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
-                                    <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(menu.price)}</p>
+                                    <p className="brand-text-subtle mt-0.5 text-xs">
+                                      {menu.optionGroupName ?? formatWon(menu.price)}
+                                    </p>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => updateQuantity(participant.participantId, row.key, value - 1)}
-                                      className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                                    >
-                                      -
-                                    </button>
-                                    <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => updateQuantity(participant.participantId, row.key, value + 1)}
-                                      className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                                    >
-                                      +
-                                    </button>
+                                  <div className="space-y-2">
+                                    {rows.map((row) => {
+                                      const value = drafts[selectedParticipant.participantId]?.[row.key] ?? 0;
+                                      return (
+                                        <div key={row.key} className="flex items-center justify-between gap-3">
+                                          <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{row.label}</p>
+                                            <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(row.price)}</p>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => updateQuantity(selectedParticipant.participantId, row.key, value - 1)}
+                                              className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                            >
+                                              -
+                                            </button>
+                                            <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => updateQuantity(selectedParticipant.participantId, row.key, value + 1)}
+                                              className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                            >
+                                              +
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               );
-                            }
+                            })}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
 
-                            return (
-                              <div
-                                key={menu.id}
-                                className="brand-list-item rounded-2xl px-4 py-3"
-                              >
-                                <div className="mb-2 min-w-0">
-                                  <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{menu.name}</p>
-                                  <p className="brand-text-subtle mt-0.5 text-xs">
-                                    {menu.optionGroupName ?? formatWon(menu.price)}
-                                  </p>
-                                </div>
-                                <div className="space-y-2">
-                                  {rows.map((row) => {
-                                    const value = drafts[participant.participantId]?.[row.key] ?? 0;
-                                    return (
-                                      <div key={row.key} className="flex items-center justify-between gap-3">
-                                        <div className="min-w-0">
-                                          <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{row.label}</p>
-                                          <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(row.price)}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => updateQuantity(participant.participantId, row.key, value - 1)}
-                                            className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                                          >
-                                            -
-                                          </button>
-                                          <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => updateQuantity(participant.participantId, row.key, value + 1)}
-                                            className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                                          >
-                                            +
-                                          </button>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </section>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={() => void handleOrder(selectedParticipant.participantId)}
+                      disabled={savingParticipantId === selectedParticipant.participantId}
+                      className="brand-button-primary mt-3 w-full rounded-2xl py-3 text-sm font-bold disabled:cursor-not-allowed"
+                    >
+                      {savingParticipantId === selectedParticipant.participantId ? "주문 중..." : `${selectedParticipant.name} 이름으로 주문`}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => void handleOrder(participant.participantId)}
-                    disabled={savingParticipantId === participant.participantId}
-                    className="brand-button-primary mt-3 w-full rounded-2xl py-3 text-sm font-bold disabled:cursor-not-allowed"
-                  >
-                    {savingParticipantId === participant.participantId ? "주문 중..." : "주문"}
-                  </button>
-                </div>
-              ))}
+                ) : (
+                  <div className="brand-panel-white rounded-2xl px-4 py-8 text-center">
+                    <p className="text-sm font-extrabold text-[var(--brand-text)]">{selectedParticipant.name}가 직접 주문해야 합니다.</p>
+                    <p className="brand-text-subtle mt-1 text-xs">{selectedParticipant.lockedReason}</p>
+                  </div>
+                )
+              ) : null}
 
               {/* 지원금 요약 */}
-              {allDraftTotal > 0 ? (() => {
-                const remainingSupport = Math.max(0, totalSupport - savedTotal);
-                const due = Math.max(0, allDraftTotal - remainingSupport);
+              {selectedDraftTotal > 0 && selectedParticipant?.canOrder ? (() => {
+                const selectedSavedTotal = getParticipantActiveTotal(selectedParticipant);
+                const remainingSupport = Math.max(0, data.supportCap - selectedSavedTotal);
+                const due = Math.max(0, selectedDraftTotal - remainingSupport);
                 return (
                   <div className="brand-inset-panel mt-2 rounded-xl p-3">
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="brand-text-subtle">이번 주문</span>
-                        <span className="font-semibold text-[var(--brand-text)]">{formatWon(allDraftTotal)}</span>
+                        <span className="font-semibold text-[var(--brand-text)]">{formatWon(selectedDraftTotal)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="brand-text-subtle">
-                          지원 잔액 ({visibleParticipants.length}명 × {formatWon(data.supportCap)}{savedTotal > 0 ? `, 이전 ${formatWon(savedTotal)} 사용` : ""})
+                          지원 잔액 ({formatWon(data.supportCap)}{selectedSavedTotal > 0 ? `, 이전 ${formatWon(selectedSavedTotal)} 사용` : ""})
                         </span>
                         <span className="font-semibold text-[var(--brand-success-text)]">
-                          -{formatWon(Math.min(allDraftTotal, remainingSupport))}
+                          -{formatWon(Math.min(selectedDraftTotal, remainingSupport))}
                         </span>
                       </div>
                       <div className="flex justify-between border-t border-[var(--brand-divider)] pt-1.5">

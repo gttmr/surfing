@@ -1,5 +1,5 @@
 import type { ParticipantFoodOrderItem } from "@prisma/client";
-import { getTodayInSeoul } from "@/lib/date";
+import { getTodayInSeoul } from "./date";
 
 export const UNCATEGORIZED_MENU_NAME = "미분류";
 export const UNCATEGORIZED_MENU_ORDER = Number.MAX_SAFE_INTEGER;
@@ -43,7 +43,26 @@ export type FoodOrderItemSnapshot = Pick<
   | "quantity"
   | "preparingQuantity"
   | "servedQuantity"
->;
+> & {
+  cancelledAt?: Date | string | null;
+  cancelledReasonCode?: string | null;
+  cancelledReasonText?: string | null;
+};
+
+export type FoodOrderParticipantAccessInput = {
+  sessionKakaoId: string;
+  participantKakaoId: string;
+  companionId: number | null;
+  companionOwnerKakaoId: string | null;
+  companionLinkedKakaoId: string | null;
+};
+
+export type FoodOrderParticipantAccess = {
+  canOrder: boolean;
+  orderRole: "self" | "owner_proxy" | "linked_companion_locked";
+  roleLabel: string;
+  lockedReason: string | null;
+};
 
 export type FoodOrderSummary = {
   subtotal: number;
@@ -105,15 +124,34 @@ export function isFoodOrderLocked(items: Array<Pick<FoodOrderItemSnapshot, "prep
   return items.some((item) => item.preparingQuantity > 0 || item.servedQuantity > 0);
 }
 
+export function isFoodOrderItemCancelled(item: Pick<FoodOrderItemSnapshot, "cancelledAt">) {
+  return Boolean(item.cancelledAt);
+}
+
+export function getActiveFoodOrderItems<T extends Pick<FoodOrderItemSnapshot, "cancelledAt">>(items: T[]) {
+  return items.filter((item) => !isFoodOrderItemCancelled(item));
+}
+
+export function getCancelledFoodOrderItems<T extends Pick<FoodOrderItemSnapshot, "cancelledAt">>(items: T[]) {
+  return items.filter(isFoodOrderItemCancelled);
+}
+
+export function canCancelFoodOrderItems(
+  items: Array<Pick<FoodOrderItemSnapshot, "cancelledAt" | "servedQuantity">>
+) {
+  return items.length > 0 && items.every((item) => !isFoodOrderItemCancelled(item) && item.servedQuantity <= 0);
+}
+
 export function isMeetingOrderOpen(meetingDate: string, today = getTodayInSeoul()) {
   return meetingDate === today;
 }
 
 export function getFoodOrderSummary(items: FoodOrderItemSnapshot[], supportCap: number): FoodOrderSummary {
-  const subtotal = items.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const preparingQuantity = items.reduce((sum, item) => sum + item.preparingQuantity, 0);
-  const servedQuantity = items.reduce((sum, item) => sum + item.servedQuantity, 0);
+  const activeItems = getActiveFoodOrderItems(items);
+  const subtotal = activeItems.reduce((sum, item) => sum + item.unitPriceSnapshot * item.quantity, 0);
+  const totalQuantity = activeItems.reduce((sum, item) => sum + item.quantity, 0);
+  const preparingQuantity = activeItems.reduce((sum, item) => sum + item.preparingQuantity, 0);
+  const servedQuantity = activeItems.reduce((sum, item) => sum + item.servedQuantity, 0);
   const supportApplied = Math.min(subtotal, Math.max(supportCap, 0));
 
   return {
@@ -131,6 +169,43 @@ export function getFoodOrderItemDisplayName(
   item: Pick<FoodOrderItemSnapshot, "menuNameSnapshot" | "optionChoiceLabelSnapshot">
 ) {
   return item.optionChoiceLabelSnapshot ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}` : item.menuNameSnapshot;
+}
+
+export function getFoodOrderParticipantAccess(input: FoodOrderParticipantAccessInput): FoodOrderParticipantAccess {
+  if (input.companionId === null) {
+    return {
+      canOrder: input.sessionKakaoId === input.participantKakaoId,
+      orderRole: "self",
+      roleLabel: "내 주문",
+      lockedReason: input.sessionKakaoId === input.participantKakaoId ? null : "본인 주문만 할 수 있습니다.",
+    };
+  }
+
+  if (input.companionLinkedKakaoId === input.sessionKakaoId) {
+    return {
+      canOrder: true,
+      orderRole: "self",
+      roleLabel: "내 주문",
+      lockedReason: null,
+    };
+  }
+
+  if (input.companionLinkedKakaoId) {
+    return {
+      canOrder: false,
+      orderRole: "linked_companion_locked",
+      roleLabel: "직접 주문",
+      lockedReason: "연동된 동반인이 직접 주문해야 합니다.",
+    };
+  }
+
+  const canOwnerProxyOrder = input.companionOwnerKakaoId === input.sessionKakaoId;
+  return {
+    canOrder: canOwnerProxyOrder,
+    orderRole: "owner_proxy",
+    roleLabel: "미연동 · 대리주문",
+    lockedReason: canOwnerProxyOrder ? null : "정회원만 미연동 동반인 주문을 대신할 수 있습니다.",
+  };
 }
 
 export function normalizeFoodOrderPayload(

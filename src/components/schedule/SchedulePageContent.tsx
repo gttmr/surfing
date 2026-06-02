@@ -7,6 +7,7 @@ import type {
   HomeUser,
   NoticeItem,
   SignupInitialData,
+  UserNotificationItem,
 } from "@/lib/landing-types";
 import { resolveProfileImage } from "@/lib/profile-image";
 import {
@@ -103,6 +104,7 @@ export default async function SchedulePageContent({
   let userForClient: HomeUser | null = null;
   let meetingsForClient: MeetingWithCounts[] = [];
   let noticesForClient: NoticeItem[] = [];
+  let userNotificationsForClient: UserNotificationItem[] = [];
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
   const initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   const initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
@@ -121,6 +123,7 @@ export default async function SchedulePageContent({
       prefetchedDetailedMeetings,
       regularCompanions,
       linkedCompanion,
+      userNotifications,
     ] = await Promise.all([
       session ? isSessionUserActive(session.kakaoId) : false,
       session
@@ -169,6 +172,13 @@ export default async function SchedulePageContent({
             include: { owner: { select: { name: true, kakaoId: true } } },
           })
         : Promise.resolve(null),
+      session
+        ? prisma.userNotification.findMany({
+            where: { recipientKakaoId: session.kakaoId },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          })
+        : Promise.resolve([]),
     ]);
 
     const sessionUser = session && isActive ? session : null;
@@ -204,6 +214,20 @@ export default async function SchedulePageContent({
       createdAt: notice.createdAt.toISOString(),
       updatedAt: notice.updatedAt.toISOString(),
     }));
+
+    userNotificationsForClient = sessionUser
+      ? userNotifications.map((notification) => ({
+          id: notification.id,
+          type: notification.type as UserNotificationItem["type"],
+          title: notification.title,
+          body: notification.body,
+          meetingId: notification.meetingId,
+          participantId: notification.participantId,
+          foodOrderItemId: notification.foodOrderItemId,
+          readAt: notification.readAt?.toISOString() ?? null,
+          createdAt: notification.createdAt.toISOString(),
+        }))
+      : [];
 
     participantOptionPricingGuide =
       settings[0]?.value ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
@@ -328,6 +352,7 @@ export default async function SchedulePageContent({
       initialSelectedDate={initialSelectedDate}
       initialSettlementAccount={null}
       initialSignupDataByMeetingId={initialSignupDataByMeetingId}
+      initialUserNotifications={userNotificationsForClient}
       isAdmin={isAdmin}
       meetings={meetingsForClient}
       participantOptionPricingGuide={participantOptionPricingGuide}

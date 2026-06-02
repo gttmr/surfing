@@ -15,6 +15,18 @@ export type NoticeItem = {
   updatedAt: string;
 };
 
+export type UserNotificationItem = {
+  id: number;
+  type: "ORDER_CANCELLED";
+  title: string;
+  body: string;
+  meetingId: number | null;
+  participantId: number | null;
+  foodOrderItemId: number | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
 export type SettlementSummary = {
   meeting: {
     id: number;

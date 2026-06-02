@@ -9,6 +9,7 @@ import type {
   NoticeItem,
   SettlementAccount,
   SettlementSummary,
+  UserNotificationItem,
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
@@ -33,6 +34,14 @@ export type AlertItem =
       unread: boolean;
       settlementStatus: "pending" | "in_progress" | "completed";
       settlement: SettlementSummary;
+    }
+  | {
+      key: string;
+      type: "order_cancelled";
+      title: string;
+      subtitle: string;
+      unread: boolean;
+      notification: UserNotificationItem;
     };
 
 
@@ -189,7 +198,9 @@ export function AlertCenterModal({
                     onClick={() => onToggleItem(item)}
                     type="button"
                   >
-                    <span className="shrink-0 text-lg leading-none">{item.type === "settlement" ? "💸" : "📣"}</span>
+                    <span className="shrink-0 text-lg leading-none">
+                      {item.type === "settlement" ? "💸" : item.type === "order_cancelled" ? "!" : "📣"}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-bold text-[var(--brand-text)]">{item.title}</p>
@@ -210,6 +221,11 @@ export function AlertCenterModal({
                         <div className="space-y-2">
                           <p className="text-base font-bold text-[var(--brand-text)]">{item.notice.title}</p>
                           <p className="brand-text-muted whitespace-pre-line text-sm leading-6">{item.notice.body}</p>
+                        </div>
+                      ) : item.type === "order_cancelled" ? (
+                        <div className="space-y-2">
+                          <p className="text-base font-bold text-[var(--brand-text)]">{item.notification.title}</p>
+                          <p className="brand-text-muted whitespace-pre-line text-sm leading-6">{item.notification.body}</p>
                         </div>
                       ) : (
                         <div className="space-y-3">

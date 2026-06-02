@@ -125,6 +125,9 @@ export type AdminSettlementParticipant = {
     quantity: number;
     preparingQuantity: number;
     servedQuantity: number;
+    cancelledAt?: string | null;
+    cancelledReasonCode?: string | null;
+    cancelledReasonText?: string | null;
   }[];
   breakdown: {
     baseFee: number;
@@ -382,6 +385,9 @@ async function loadSettlementContext(meetingId: number) {
         quantity: item.quantity,
         preparingQuantity: item.preparingQuantity,
         servedQuantity: item.servedQuantity,
+        cancelledAt: item.cancelledAt?.toISOString() ?? null,
+        cancelledReasonCode: item.cancelledReasonCode,
+        cancelledReasonText: item.cancelledReasonText,
       })),
     ])
   );
