@@ -10,6 +10,7 @@ interface ShopLayoutProps {
 
 const NAV_ITEMS = [
   { href: "/shop", label: "주문보드", icon: "receipt_long", exact: true },
+  { href: "/shop/usage", label: "장비이용", icon: "checklist", exact: false },
   { href: "/shop/menus", label: "메뉴관리", icon: "restaurant_menu", exact: false },
 ];
 
