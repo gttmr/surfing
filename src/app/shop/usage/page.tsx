@@ -1,9 +1,9 @@
-import { ShopDashboardPageClient } from "@/components/shop/ShopDashboardPageClient";
+import { ShopUsagePageClient } from "@/components/shop/ShopUsagePageClient";
 import { getShopDashboardData } from "@/lib/food-ordering-data";
 
 export const dynamic = "force-dynamic";
 
-export default async function ShopPage({
+export default async function ShopUsagePage({
   searchParams,
 }: {
   searchParams?: Promise<{ meetingId?: string }>;
@@ -15,10 +15,11 @@ export default async function ShopPage({
   );
 
   return (
-    <ShopDashboardPageClient
+    <ShopUsagePageClient
       meetings={data.meetings}
       selectedMeetingId={data.selectedMeetingId}
       initialData={data.selectedMeetingData}
+      initialUsageData={data.selectedUsageData}
     />
   );
 }
