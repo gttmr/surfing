@@ -1,0 +1,8 @@
+Reviewer: isolated Codex CLI
+Session: 019f5f4e-b2d9-72c2-bb3b-8e1e4e23dc0c
+Model: gpt-5.6-sol, xhigh
+Codex: 0.144.3
+Sandbox: read-only temporary clone with isolated CODEX_HOME
+Round: 3
+Verdict: REJECT
+Blocking corrections: exact QA registry and sanitized environment; owner-token DB lifecycle; literal scalar route cases; guest shop OAuth redirect contract; consistent participant version-set status; complete fulfillment and usage contracts; executable admin guard proof; immutable font asset identities; Todo ownership and validation bounds; reproducible F4 evidence transfer and verdict enforcement.

@@ -1,0 +1,17 @@
+verdict: REJECT
+reviewer: native Momus
+session: /root/momus_plan_review
+
+Blocking issue summary:
+1. QA DB prohibition was not hermetic across every Prisma/Next process.
+2. Clean-checkout auth/origin/avatar environment was incomplete.
+3. Browser interception could not trigger server-component data failures.
+4. Non-login admin pages needed a server guard before data access.
+5. The route/persona table needed executable case IDs and expectations.
+6. Mixed cancelled/active order-parent eligibility was ambiguous.
+7. Usage first-write and confirmed-state transitions were incomplete.
+8. Ordinary admin forms promised unsupported generic 409 behavior.
+9. Independent visual/React/performance gates were missing.
+10. Tracked versus ignored evidence and a clean final tree conflicted.
+
+Disposition: all ten blockers were folded into the round-2 plan.

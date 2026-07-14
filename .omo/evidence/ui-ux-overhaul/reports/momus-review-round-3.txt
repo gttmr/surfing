@@ -1,0 +1,4 @@
+Reviewer: native Momus /root/momus_plan_review_r3
+Round: 3
+Verdict: REJECT
+Blocking corrections: literal scalar route matrix; explicit fixture on fault rows; owner-only in-lock DB lifecycle; process-level server egress guard and ledger; ambiguous POST reconciliation; exact fulfillment cancellation reasons; hashed F4 evidence bundle; immutable font asset identities; Todo 4 dependency on Todo 2.
