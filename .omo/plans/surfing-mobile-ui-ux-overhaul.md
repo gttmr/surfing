@@ -15,6 +15,18 @@ Your next move: 사용자가 추가 계획·검토 확장을 중단했으므로 
 
 ---
 
+## User execution override (2026-07-14)
+
+The user clarified that this is a small non-commercial club convenience app and that the requested outcome is a UI/UX overhaul, not a security-hardening program. This newer instruction controls whenever the detailed plan below conflicts with it.
+
+- Prioritize observable mobile information architecture, navigation, search/filter/collapse behavior, read/edit separation, draft retention, accessible interaction states, Korean copy/wrapping, and visual consistency at 390px and 430px.
+- Keep QA proportionate: unit/type/lint/build, a disposable local database where writes are exercised, targeted role contexts, focused Playwright scenarios, cleanup, and visual QA. Do not spend additional cycles on capability cryptography, exhaustive egress adversaries, a full persona Cartesian product, or security proof beyond ordinary safe local-development practice unless a concrete UI flow exposes a blocker.
+- Todo 1 closes after the existing harness is coherent and passes focused unit/type/lint plus one real local-DB up/assert/down smoke. Its exhaustive isolation clauses are historical design detail, not a continuing gate.
+- Todo 2 supplies only deterministic fixtures and authenticated contexts required by the UI scenarios that will actually run; exact synthetic density targets remain useful visual stress fixtures, while exhaustive P0-P8 adversarial combinations are not required before UI work begins.
+- Todos 5-7 preserve current API/auth behavior and add only the minimum functional contract needed by the redesigned screens. Defer generalized concurrency/security hardening unless the targeted user interaction demonstrably requires it.
+- After Todo 1, run Todo 2 and Todo 3 in parallel, then Todo 4. Move directly into the member/shop/admin UI Todos as dependencies become usable; do not hold visible UI work behind unrelated hardening.
+- Todo 19 and the final wave become a focused mobile release check: targeted route coverage at 390/430, build/lint/typecheck, representative auth barriers, axe/keyboard/focus, Korean overflow, deterministic screenshots, and cleanup. The heavyweight F1-F3 security/egress matrix is replaced by this proportionate review; F4 remains an independent visual/scope review.
+
 > TL;DR (machine): XL/high-risk mobile-only overhaul covering isolated QA, versioned order/usage mutations, member ordering/history, live shop queues, bounded admin workflows, and a 19-route 390/430 release matrix.
 
 ## Scope
