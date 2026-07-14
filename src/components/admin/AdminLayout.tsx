@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Icon } from "@/components/ui/Icon";
 import { MobileDock } from "@/components/ui/MobileShell";
 
 interface AdminLayoutProps {
@@ -9,13 +10,13 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "메시지관리", icon: "📢", exact: true },
-  { href: "/admin/meetings", label: "모임관리", icon: "👥", exact: false },
-  { href: "/admin/members", label: "회원관리", icon: "🧑‍💼", exact: false },
-  { href: "/admin/pricing", label: "비용책정", icon: "💳", exact: false },
-  { href: "/admin/menus", label: "메뉴관리", icon: "☕", exact: false },
-  { href: "/admin/settings", label: "설정", icon: "⚙️", exact: false },
-];
+  { href: "/admin", label: "공지", icon: "campaign", exact: true },
+  { href: "/admin/meetings", label: "모임", icon: "groups", exact: false },
+  { href: "/admin/members", label: "회원", icon: "person_search", exact: false },
+  { href: "/admin/pricing", label: "비용", icon: "payments", exact: false },
+  { href: "/admin/menus", label: "메뉴", icon: "restaurant_menu", exact: false },
+  { href: "/admin/settings", label: "설정", icon: "settings", exact: false },
+] as const;
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
@@ -26,61 +27,46 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     router.push("/admin/login");
   }
 
-  function isActive(item: (typeof NAV_ITEMS)[0]) {
+  function isActive(item: (typeof NAV_ITEMS)[number]) {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
   }
 
   return (
     <div className="brand-admin-shell">
-      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)]">
-        <div className="mx-auto flex w-full items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="brand-link text-sm font-semibold transition-colors">&larr; 사이트</Link>
-            <span className="brand-text-subtle">|</span>
-            <span className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</span>
+      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)] pt-[var(--brand-safe-top)]">
+        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</p>
+            <nav aria-label="서비스 화면" className="mt-1 flex items-center gap-3 text-xs font-semibold">
+              <Link href="/" prefetch={false} className="brand-link inline-flex items-center gap-1">
+                <Icon className="text-[16px]" name="surfing" /> 회원 화면
+              </Link>
+              <Link href="/shop" prefetch={false} className="brand-link inline-flex items-center gap-1">
+                <Icon className="text-[16px]" name="storefront" /> 샵 화면
+              </Link>
+            </nav>
           </div>
           <button
             onClick={handleLogout}
-            className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+            className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors"
           >
             로그아웃
           </button>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full flex-1 flex-col md:flex-row">
-        <aside className="hidden w-56 shrink-0 p-4 md:block md:p-6">
-          <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                aria-current={isActive(item) ? "page" : undefined}
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors
-                  ${isActive(item)
-                    ? "brand-chip-dark"
-                    : "brand-list-item brand-list-item-hover"
-                  }`}
-              >
-                <span>{item.icon}</span>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 px-4 pb-32 pt-5 md:px-6 md:pb-8 md:pt-6">
+      <div className="mx-auto flex w-full flex-1 flex-col">
+        <main className="flex-1 px-4 pb-32 pt-5">
           {children}
         </main>
       </div>
 
       <MobileDock
-        className="md:hidden"
         items={NAV_ITEMS.map((item) => ({
           active: isActive(item),
           href: item.href,
-          icon: <span aria-hidden className="text-xl">{item.icon}</span>,
+          icon: <Icon className="text-[22px]" name={item.icon} />,
           label: item.label,
         }))}
         label="관리자 메뉴"

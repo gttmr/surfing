@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 export function AdminLoginPageClient({ shouldAutoLogin }: { shouldAutoLogin: boolean }) {
   const [password, setPassword] = useState("");
@@ -57,15 +58,16 @@ export function AdminLoginPageClient({ shouldAutoLogin }: { shouldAutoLogin: boo
       <div className="w-full max-w-sm">
         <div className="brand-card-soft rounded-3xl p-8">
           <div className="mb-6 text-center">
-            <div className="mb-2 text-4xl">🔐</div>
+            <Icon className="mb-2 text-[40px]" name="admin_panel_settings" />
             <h1 className="font-headline text-xl font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">관리자 로그인</h1>
             <p className="brand-text-subtle mt-1 text-sm">운영 도구에 접근하려면 비밀번호를 입력하세요.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">비밀번호</label>
+              <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]" htmlFor="admin-password">비밀번호</label>
               <input
+                id="admin-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

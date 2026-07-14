@@ -23,6 +23,10 @@ export function MobileDock({ label, items, className = "" }: { label: string; it
           >
             {item.icon}
             <span className="max-w-full truncate">{item.label}</span>
+            <span
+              aria-hidden
+              className={`h-1 w-4 rounded-full ${item.active ? "bg-[var(--brand-primary)]" : "bg-transparent"}`}
+            />
           </Link>
         ))}
       </div>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AdminMeetingSettlementPageClient } from "@/components/admin/AdminMeetingSettlementPageClient";
 import { getAdminSettlementData } from "@/lib/admin-page-data";
+import { requireAdminPage } from "@/lib/require-admin-page";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function AdminMeetingSettlementPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminPage();
   const { id } = await params;
   const meetingId = Number(id);
 
