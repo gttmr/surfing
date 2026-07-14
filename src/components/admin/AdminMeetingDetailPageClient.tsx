@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { Tabs } from "@/components/ui/Tabs";
 import type { AdminMeetingDetail, AdminMeetingParticipant } from "@/lib/admin-page-data";
 import type { ParticipantStatus } from "@/lib/types";
 import { DAY_KO } from "@/lib/format";
@@ -188,17 +189,11 @@ export function AdminMeetingDetailPageClient({
         {reloading ? <span className="brand-text-subtle text-xs">갱신 중...</span> : null}
       </div>
 
-      <div className="brand-tab-bar mb-5 flex items-end gap-3 overflow-x-auto">
-        {(["approved", "waitlisted", "cancelled", "all"] as Tab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`border-b-2 px-1 pb-3 text-sm font-extrabold whitespace-nowrap transition-colors ${
-              activeTab === tab
-                ? "brand-tab-underline-active"
-                : "brand-tab-underline-inactive hover:text-[var(--brand-text)]"
-            }`}
-          >
+      <Tabs
+        activeId={activeTab}
+        items={(["approved", "waitlisted", "cancelled", "all"] as Tab[]).map((tab) => ({
+          id: tab,
+          label: (
             <span className="inline-flex items-center gap-1.5">
               <span>{TAB_LABELS[tab]}</span>
               {counts[tab] > 0 ? (
@@ -207,11 +202,14 @@ export function AdminMeetingDetailPageClient({
                 </span>
               ) : null}
             </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
+          ),
+        }))}
+        label="참가자 상태"
+        listClassName="gap-3 overflow-x-auto"
+        onChange={setActiveTab}
+        panelClassName="space-y-3 pt-5"
+        tabClassName="shrink-0 whitespace-nowrap px-1 pb-3 text-sm font-extrabold"
+      >
         {filteredParticipants.length === 0 ? (
           <p className="brand-text-subtle py-10 text-center text-sm">해당 상태의 신청자가 없습니다</p>
         ) : (
@@ -225,7 +223,7 @@ export function AdminMeetingDetailPageClient({
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-[var(--brand-text)]">{participant.name}</span>
+                      <span className="w-full text-balance font-semibold text-[var(--brand-text)]">{participant.name}</span>
                       {isCompanion ? (
                         <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span>
                       ) : null}
@@ -287,7 +285,7 @@ export function AdminMeetingDetailPageClient({
             );
           })
         )}
-      </div>
+      </Tabs>
 
       {toasts.map((toast) => (
         <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />

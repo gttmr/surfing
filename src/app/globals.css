@@ -24,6 +24,7 @@
   --brand-shell-max: 26.875rem;
   --brand-shell-gutter: 1rem;
   --brand-control-min: 2.75rem;
+  --brand-dock-clearance: 5rem;
   --brand-safe-top: env(safe-area-inset-top, 0px);
   --brand-safe-right: env(safe-area-inset-right, 0px);
   --brand-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -75,8 +76,8 @@
   --brand-preparing-surface: #fef3c7;
   --brand-preparing-border: #fde68a;
   --brand-preparing-text: #92400e;
-  --brand-calendar-sun: #ef4444;
-  --brand-calendar-sat: #3b82f6;
+  --brand-calendar-sun: #b91c1c;
+  --brand-calendar-sat: #1d4ed8;
   --brand-shadow: rgba(0, 29, 110, 0.1);
   --brand-ring: rgba(127, 181, 255, 0.35);
   --brand-focus-inner: #ffffff;
@@ -163,7 +164,7 @@ body {
 }
 
 .brand-mobile-shell :where(.brand-toast-success, .brand-toast-error, .brand-toast-info).fixed {
-  bottom: calc(1.5rem + var(--brand-safe-bottom));
+  bottom: calc(var(--brand-dock-clearance) + var(--brand-safe-bottom));
   right: max(
     calc(var(--brand-shell-gutter) + var(--brand-safe-right)),
     calc((100vw - var(--brand-shell-max)) / 2 + var(--brand-shell-gutter))
@@ -384,7 +385,7 @@ body {
 
 .brand-button-danger {
   border: 1px solid var(--brand-danger-border);
-  color: var(--brand-danger);
+  color: var(--brand-danger-text);
 }
 
 .brand-button-danger:hover {

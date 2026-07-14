@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { MobileDock } from "@/components/ui/MobileShell";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -53,6 +54,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
             {NAV_ITEMS.map((item) => (
               <Link
+                aria-current={isActive(item) ? "page" : undefined}
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors
@@ -73,21 +75,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </main>
       </div>
 
-      <nav className="brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-40 md:hidden">
-        <div className="flex w-full pb-[calc(env(safe-area-inset-bottom)+0.2rem)]">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center py-2 text-xs font-semibold transition-colors
-                ${isActive(item) ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <MobileDock
+        className="md:hidden"
+        items={NAV_ITEMS.map((item) => ({
+          active: isActive(item),
+          href: item.href,
+          icon: <span aria-hidden className="text-xl">{item.icon}</span>,
+          label: item.label,
+        }))}
+        label="관리자 메뉴"
+      />
     </div>
   );
 }

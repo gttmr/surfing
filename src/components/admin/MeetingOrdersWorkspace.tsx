@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Dialog } from "@/components/ui/Dialog";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
@@ -510,19 +511,16 @@ function CancelOrderDialog({
   const [reasonCode, setReasonCode] = useState(CANCEL_REASONS[0].code);
   const [reasonText, setReasonText] = useState("");
 
-  if (!target) return null;
-
   return (
-    <div className="fixed inset-0 z-[70] bg-[var(--brand-overlay)] px-4 py-6" onClick={onClose}>
-      <div
-        className="brand-card-soft mx-auto mt-24 w-full max-w-[390px] rounded-3xl p-5 shadow-[var(--brand-avatar-shadow)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4">
-          <p className="text-base font-extrabold text-[var(--brand-text)]">주문 취소</p>
-          <p className="brand-text-subtle mt-1 text-xs">{target.label}</p>
-        </div>
-
+    <Dialog
+      closeLabel="주문 취소 창 닫기"
+      description={target?.label}
+      onClose={onClose}
+      open={Boolean(target)}
+      title="주문 취소"
+    >
+      {target ? (
+        <>
         <label className="mb-3 block">
           <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">취소 사유</span>
           <select
@@ -565,8 +563,9 @@ function CancelOrderDialog({
             {submitting ? "취소 중..." : "주문 취소"}
           </button>
         </div>
-      </div>
-    </div>
+        </>
+      ) : null}
+    </Dialog>
   );
 }
 

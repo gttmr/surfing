@@ -160,10 +160,7 @@ export function ProfilePageClient({
         />
 
         {isRegular ? (
-          <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
-        ) : null}
-
-        <div className={isRegular ? "min-h-[23rem] sm:min-h-[27rem]" : ""}>
+          <ProfileTabs activeTab={activeTab} onChange={setActiveTab}>
           {(!isRegular || activeTab === "profile") ? (
             <BasicProfileSection
               isRegular={isRegular}
@@ -200,7 +197,32 @@ export function ProfilePageClient({
               onRemoveCompanion={handleRemoveCompanion}
             />
           ) : null}
-        </div>
+          </ProfileTabs>
+        ) : (
+          <BasicProfileSection
+            isRegular={isRegular}
+            isCompanionWithoutOwner={isCompanionWithoutOwner}
+            saving={saving}
+            saved={saved}
+            profileSaveValid={profileSaveValid}
+            name={name}
+            phoneNumber={phoneNumber}
+            userMemberType={user?.memberType ?? "REGULAR"}
+            regularMembers={regularMembers}
+            selectedOwnerKakaoId={selectedOwnerKakaoId}
+            ownerCompanions={ownerCompanions}
+            loadingOwnerCompanions={loadingOwnerCompanions}
+            selectedCompanionId={selectedCompanionId}
+            linkedCompanionInfo={linkedCompanionInfo}
+            selectedProfileCompanion={selectedProfileCompanion}
+            memberTypeLabels={MEMBER_TYPE_LABELS}
+            onSubmit={handleSave}
+            onNameChange={setName}
+            onPhoneNumberChange={setPhoneNumber}
+            onSelectOwner={setSelectedOwnerKakaoId}
+            onSelectCompanion={setSelectedCompanionId}
+          />
+        )}
       </main>
 
       <MobileProfileSaveDock

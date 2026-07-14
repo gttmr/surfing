@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
+import { Tabs } from "@/components/ui/Tabs";
 import type {
   CompanionItem,
   LinkedCompanionInfo,
@@ -309,39 +311,26 @@ export function ProfileHeaderSection({
 export function ProfileTabs({
   activeTab,
   onChange,
+  children,
 }: {
   activeTab: "profile" | "companions";
   onChange: (nextTab: "profile" | "companions") => void;
+  children: ReactNode;
 }) {
   return (
-    <div className="brand-tab-bar">
-      <div className="flex">
-        <button
-          className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-            activeTab === "profile" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("profile")}
-          type="button"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span className="text-[17px]">📝</span>
-            <span>기본 정보</span>
-          </span>
-        </button>
-        <button
-          className={`flex-1 border-b-2 px-2 py-3 text-base font-bold transition-colors ${
-            activeTab === "companions" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("companions")}
-          type="button"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span className="text-[17px]">👥</span>
-            <span>동반인 관리</span>
-          </span>
-        </button>
-      </div>
-    </div>
+    <Tabs
+      activeId={activeTab}
+      items={[
+        { id: "profile", label: <span className="inline-flex items-center gap-1.5"><span aria-hidden className="text-[17px]">📝</span><span>기본 정보</span></span> },
+        { id: "companions", label: <span className="inline-flex items-center gap-1.5"><span aria-hidden className="text-[17px]">👥</span><span>동반인 관리</span></span> },
+      ]}
+      label="프로필 설정"
+      onChange={onChange}
+      panelClassName="min-h-[23rem] pt-4 sm:min-h-[27rem]"
+      tabClassName="flex-1 px-2 py-3 text-base font-bold"
+    >
+      {children}
+    </Tabs>
   );
 }
 

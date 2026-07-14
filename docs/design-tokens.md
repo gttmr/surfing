@@ -54,7 +54,7 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 | Preparing | surface `#fef3c7`; border `#fde68a`; text `#92400e` | 처리 준비 상태에만 사용 |
 | Dimmed | surface `#e5e7eb`; border `#9ca3af`; text `#4b5563` | 비활성·읽기 전용에만 사용 |
 | Companion | `--brand-companion: #c2580a`; surface `#fee2c5` | 동반인 표시 밖으로 확장 금지 |
-| Calendar | sun `#ef4444`; sat `#3b82f6` | 달력 요일 표시에만 사용 |
+| Calendar | sun `#b91c1c`; sat `#1d4ed8` | 달력 요일 표시에만 사용하며 흰 배경의 일반 텍스트 대비를 유지 |
 
 ### Focus, overlay, and Tailwind bridge
 
@@ -79,6 +79,7 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 | Supported QA widths | `390x844`, `430x932` |
 | Content gutter | `--brand-shell-gutter: 1rem`; 기존 `px-4`가 좌우 gutter를 만든다 |
 | Frequent control target | `--brand-control-min: 2.75rem` (`44px`) |
+| Fixed dock clearance | `--brand-dock-clearance: 5rem`; toast가 dock 위에 머무는 공통 여유 |
 | Safe area | top/right/bottom/left 각각 `env(safe-area-inset-*, 0px)` |
 | Full-height surface | `min-height: 100dvh` |
 | Fixed surface | shell 중앙 기준, 최대 `430px`; dock는 좌우 safe area를 포함 |
@@ -86,7 +87,7 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 
 - `sm`, `md`, `lg`, `xl`, `2xl`은 각각 `10000px`, `11000px`, `12000px`, `13000px`, `14000px`로 비활성화되어 있다. 이 값은 의도적인 모바일 전용 계약이며 일반 반응형 breakpoint로 되돌리지 않는다.
 - 기존 `max-w-[390px]` 컨테이너는 shell 아래에서 최대 `430px`로 해석된다. `px-4` gutter는 유지되어 430 화면의 사용 가능한 폭을 낭비하지 않는다.
-- fixed header, dock, scrim, sheet는 shell 경계를 벗어나지 않아야 한다. toast는 shell 우측 gutter와 safe area 안에 머문다.
+- fixed header, dock, scrim, sheet는 shell 경계를 벗어나지 않아야 한다. toast는 shell 우측 gutter와 safe area 안에 머물고 모바일 dock을 가리지 않는다.
 - spacing scale 자체는 Tailwind 기본값을 사용한다. 실제 반복 없이 새 간격 토큰이나 데스크톱 grid를 만들지 않는다.
 
 ## 5. Components
@@ -95,7 +96,10 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 
 - route entry는 `src/app`, 공용 UI는 `src/components/ui`, 도메인 조합은 landing/meeting/profile/admin/shop 디렉터리가 소유한다.
 - 컨테이너는 fetch, mutation, 파생 상태를 담당하고, 패널과 섹션은 렌더링을 담당한다. 같은 이름·상태·총액을 여러 카드에 반복하지 않는다.
-- 공용 구성요소의 현재 코드 원본은 `Icon.tsx`, `StatusBadge.tsx`, `Toast.tsx`다. 색과 표면은 아래 공용 `brand-*` 클래스를 우선한다.
+- 공용 구성요소의 현재 코드 원본은 `Icon.tsx`, `StatusBadge.tsx`, `Toast.tsx`, `Dialog.tsx`, `Tabs.tsx`, `AsyncState.tsx`, `MobileShell.tsx`다. 색과 표면은 아래 공용 `brand-*` 클래스를 우선한다.
+- `Dialog`/`Sheet`는 제목·설명 연결, focus trap·restore, Escape·scrim 닫기, body scroll lock을 공통으로 소유한다. 도메인 데이터나 저장 로직은 받지 않는다.
+- `Tabs`는 tablist/tab/tabpanel 연결과 arrow/Home/End roving focus를 소유한다. 활성 탭과 실제 panel 내용은 소비 화면이 소유한다.
+- `AsyncState`는 loading/error/empty/not-found의 공통 위계만 제공하고, `MobileDock`은 현재 경로의 `aria-current`와 safe-area dock 구조를 제공한다.
 
 ### Existing variants
 
@@ -124,6 +128,7 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 - hover는 실제 클릭 가능한 컨트롤의 상태 변화를 알려야 하며, 장식만을 위한 움직임은 추가하지 않는다.
 - `prefers-reduced-motion: reduce`에서는 transition duration/delay를 `0s`, animation duration을 `0.01ms` 1회, scroll behavior를 `auto`로 강제한다.
 - keyboard와 touch는 같은 행동 결과를 제공해야 한다. 포커스 표시를 hover로 대체하지 않고, 포커스를 제거하거나 투명하게 만들지 않는다.
+- Toast는 한 개의 live region으로 메시지를 한 번만 발표하고 포커스를 빼앗지 않는다. 닫기 버튼은 화면 읽기 이름을 갖는다.
 - fixed dock와 sheet는 마지막 포커스 가능한 행을 가리지 않아야 한다. safe-area와 bottom scroll padding은 전역 기반이고, 각 화면의 실제 dock 높이는 소비 화면에서 검증한다.
 
 ## 7. Depth & Surface
@@ -156,8 +161,7 @@ Surfing의 현재 시각 언어는 네이비, 스카이 블루, 화이트로 구
 
 | Debt | Affected users and location | Boundary / next owner |
 | --- | --- | --- |
-| `Toast.tsx`는 아직 live-region, 명시적 닫기 이름, focus 규칙을 완성하지 않았다 | screen reader와 키보드 사용자, 전역 toast | 동작 공용 primitive 작업에서 한 번만 발표하고 shell-relative placement를 소비하도록 개선 |
-| 기존 modal/sheet가 모두 동일한 focus trap·restore·Escape 계약을 공유하지 않는다 | 키보드와 screen reader 사용자, landing/meeting/profile/admin overlays | 공용 Dialog/Sheet 도입 작업이 동작을 소유하며 이 foundation은 geometry와 scrim token만 제공 |
+| 프로필 최초 설정 모달과 이미지 크롭 등 이번 소비 화면 밖의 일부 overlay는 아직 공용 `Dialog`로 이전되지 않았다 | 키보드와 screen reader 사용자, profile setup/crop | 해당 도메인 화면 리팩터링 때 동일한 동작 계약으로 이전 |
 | 여러 화면에 `max-w-[390px]` 클래스명이 남아 있다 | 430px 사용자와 유지보수자 | 현재 CSS bridge가 430 shell 폭으로 해석한다. 각 도메인 리팩터링 때 의미 있는 shell/content 클래스로 교체 |
 | 일부 기존 도메인 구성요소에 직접 Tailwind 색·임의 shadow가 남아 있다 | 시각 일관성과 고대비 사용자 | 해당 도메인 Todo에서 현재 의미 토큰으로 치환하며, foundation 범위에서 광범위한 구성요소 수정은 하지 않음 |
 | 일반 데스크톱·태블릿 layout이 없다 | 430px보다 넓은 화면 사용자 | 제품의 의도된 mobile-only 범위다. breakpoint 변경은 별도 제품 결정 없이는 금지 |

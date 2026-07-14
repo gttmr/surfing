@@ -331,34 +331,8 @@ export default function SurfClubLandingPage({
             settlementBadge={selectedSettlementBadge}
             showSettlementTab={isAdmin}
             onChange={setActiveMeetingTab}
-          />
-        ) : null}
-
-        {!user ? (
-          <section>
-            <a
-              className="brand-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold transition-all active:scale-[0.99]"
-              href={`/api/auth/kakao?returnTo=${encodeURIComponent(loginReturnTo)}`}
-            >
-              카카오로 로그인
-              <Icon className="text-[20px]" name="login" />
-            </a>
-          </section>
-        ) : null}
-
-        {selectedDate && user && (dbUnavailable || hasSelectedMeetings) ? (
-          <section id="meeting-details">
-            {!hasSelectedMeetings || dbUnavailable ? (
-              <div className="mb-3">
-              <h2 className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">모임상세</h2>
-              </div>
-            ) : null}
-
-            {dbUnavailable ? (
-              <div className="brand-alert-info rounded-2xl px-5 py-6 text-sm font-medium">
-                현재 데이터베이스 연결을 확인할 수 없어 일정 정보를 불러오지 못했습니다.
-              </div>
-            ) : user && selectedMeetings.length > 0 ? (
+          >
+            <section id="meeting-details">
               <div className="space-y-4">
                 {selectedMeetings.map((meeting) => (
                   <EmbeddedMeetingDetail
@@ -376,7 +350,30 @@ export default function SurfClubLandingPage({
                   />
                 ))}
               </div>
-            ) : null}
+            </section>
+          </MeetingTabs>
+        ) : null}
+
+        {!user ? (
+          <section>
+            <a
+              className="brand-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-4 font-headline text-base font-extrabold transition-all active:scale-[0.99]"
+              href={`/api/auth/kakao?returnTo=${encodeURIComponent(loginReturnTo)}`}
+            >
+              카카오로 로그인
+              <Icon className="text-[20px]" name="login" />
+            </a>
+          </section>
+        ) : null}
+
+        {selectedDate && user && dbUnavailable ? (
+          <section id="meeting-details">
+            <div className="mb-3">
+              <h2 className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">모임상세</h2>
+            </div>
+            <div className="brand-alert-info rounded-2xl px-5 py-6 text-sm font-medium">
+              현재 데이터베이스 연결을 확인할 수 없어 일정 정보를 불러오지 못했습니다.
+            </div>
           </section>
         ) : null}
 

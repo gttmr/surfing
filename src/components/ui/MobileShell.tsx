@@ -1,0 +1,35 @@
+"use client";
+
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+export type MobileDockItem = {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  active: boolean;
+};
+
+export function MobileDock({ label, items, className = "" }: { label: string; items: readonly MobileDockItem[]; className?: string }) {
+  return (
+    <nav aria-label={label} className={`brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-40 ${className}`}>
+      <div className="flex w-full pb-[calc(var(--brand-safe-bottom)+0.2rem)]">
+        {items.map((item) => (
+          <Link
+            aria-current={item.active ? "page" : undefined}
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition-colors ${item.active ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
+            href={item.href}
+            key={item.href}
+          >
+            {item.icon}
+            <span className="max-w-full truncate">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+export function RouteStateShell({ children }: { children: ReactNode }) {
+  return <main className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center px-4 py-12">{children}</main>;
+}

@@ -12,12 +12,17 @@ interface ToastProps {
 export function Toast({ message, type = "info", onClose, duration = 3000 }: ToastProps) {
   const [visible, setVisible] = useState(true);
 
+  function close() {
+    setVisible(false);
+    window.setTimeout(onClose, 300);
+  }
+
   useEffect(() => {
-    const t = setTimeout(() => {
+    const closeTimer = window.setTimeout(() => {
       setVisible(false);
-      setTimeout(onClose, 300);
+      window.setTimeout(onClose, 300);
     }, duration);
-    return () => clearTimeout(t);
+    return () => window.clearTimeout(closeTimer);
   }, [duration, onClose]);
 
   const colorClass = {
@@ -34,13 +39,16 @@ export function Toast({ message, type = "info", onClose, duration = 3000 }: Toas
 
   return (
     <div
-      className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
+      aria-atomic="true"
+      aria-live={type === "error" ? "assertive" : "polite"}
+      className={`fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-brand
         transition-all duration-300 ${colorClass} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+      role={type === "error" ? "alert" : "status"}
     >
-      <span className="text-base">{icons[type]}</span>
-      {message}
-      <button onClick={() => { setVisible(false); setTimeout(onClose, 300); }} className="ml-2 opacity-70 hover:opacity-100">
-        ✕
+      <span aria-hidden className="text-base">{icons[type]}</span>
+      <span>{message}</span>
+      <button aria-label="알림 닫기" className="ml-1 flex h-11 w-11 items-center justify-center rounded-full opacity-80 hover:opacity-100" onClick={close} type="button">
+        <span aria-hidden>✕</span>
       </button>
     </div>
   );

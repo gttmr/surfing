@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Sheet } from "@/components/ui/Dialog";
 import { formatWon } from "@/lib/format";
 import type { ParticipantMeetingFoodOrdersData } from "@/lib/food-ordering-data";
 
@@ -250,9 +251,11 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
   return (
     <>
       {/* 헤더 카드 — 항상 표시, orderOpen 일 때만 클릭 가능 */}
-      <div
-        className={`brand-card-soft rounded-2xl p-4 transition-opacity ${data.meeting.orderOpen ? "cursor-pointer active:opacity-75" : ""}`}
+      <button
+        className={`brand-card-soft w-full rounded-2xl p-4 text-left transition-opacity ${data.meeting.orderOpen ? "active:opacity-75" : ""}`}
+        disabled={!data.meeting.orderOpen || orderableParticipants.length === 0}
         onClick={handleOpen}
+        type="button"
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-base font-extrabold text-[var(--brand-text)]">점심 메뉴 주문</span>
@@ -306,17 +309,15 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
             </div>
           ) : null}
         </div>
-      </div>
+      </button>
 
-      {/* Bottom sheet */}
-      {isOpen ? (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setIsOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[var(--brand-surface-elevated)] pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            <div className="p-4">
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[var(--brand-divider)]" />
-              <h3 className="mb-4 text-base font-extrabold text-[var(--brand-text)]">점심 메뉴 주문</h3>
-
+      <Sheet
+        closeLabel="점심 메뉴 주문 닫기"
+        description="주문할 회원과 메뉴 수량을 선택하세요."
+        onClose={() => setIsOpen(false)}
+        open={isOpen}
+        title="점심 메뉴 주문"
+      >
               {error ? (
                 <div className="brand-alert-error mb-4 rounded-xl p-3 text-sm">{error}</div>
               ) : null}
@@ -494,10 +495,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
                   </div>
                 );
               })() : null}
-            </div>
-          </div>
-        </>
-      ) : null}
+      </Sheet>
     </>
   );
 }

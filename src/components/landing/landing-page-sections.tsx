@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type { MeetingWithCounts } from "@/lib/types";
 import type {
@@ -13,6 +14,8 @@ import type {
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
+import { Dialog } from "@/components/ui/Dialog";
+import { Tabs } from "@/components/ui/Tabs";
 import type { CalendarCell } from "@/lib/home-view";
 
 export type { CalendarCell };
@@ -160,29 +163,14 @@ export function AlertCenterModal({
   onCopySettlementAccount,
   onToggleSettlementCompleted,
 }: AlertCenterProps) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[60] bg-[var(--brand-overlay)] px-4 py-6" onClick={onClose}>
-      <div
-        className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[var(--brand-avatar-shadow)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-extrabold text-[var(--brand-text)]">알림 센터</p>
-            <p className="brand-text-subtle mt-0.5 text-xs">공지사항과 정산 알림을 확인하세요.</p>
-          </div>
-          <button
-            aria-label="알림 센터 닫기"
-            className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
-            onClick={onClose}
-            type="button"
-          >
-            <Icon className="text-[18px]" name="close" />
-          </button>
-        </div>
-
+    <Dialog
+      closeLabel="알림 센터 닫기"
+      description="공지사항과 정산 알림을 확인하세요."
+      onClose={onClose}
+      open={open}
+      title="알림 센터"
+    >
         <div className="space-y-3">
           {alertItems.length === 0 ? (
             <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
@@ -316,8 +304,7 @@ export function AlertCenterModal({
             })
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -429,52 +416,49 @@ export function MeetingTabs({
   settlementBadge,
   showSettlementTab,
   onChange,
+  children,
 }: {
   activeTab: "apply" | "status" | "settlement";
   participantBadge: string;
   settlementBadge?: string;
   showSettlementTab: boolean;
   onChange: (tab: "apply" | "status" | "settlement") => void;
+  children: ReactNode;
 }) {
-  return (
-    <section>
-      <div className="brand-tab-bar flex items-end">
-        <button
-          className={`flex-1 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-            activeTab === "apply" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("apply")}
-          type="button"
-        >
-          참가하기
-        </button>
-        <button
-          className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-            activeTab === "status" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("status")}
-          type="button"
-        >
+  const items = [
+    { id: "apply" as const, label: "참가하기" },
+    {
+      id: "status" as const,
+      label: (
+        <span className="inline-flex items-center gap-2">
           신청 현황
-          <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
-            {participantBadge}
-          </span>
-        </button>
-        {showSettlementTab ? (
-          <button
-            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-              activeTab === "settlement" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-            }`}
-            onClick={() => onChange("settlement")}
-            type="button"
-          >
-            정산 현황
-            <span className="brand-chip-soft flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
-              {settlementBadge ?? "0"}
+          <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{participantBadge}</span>
+        </span>
+      ),
+    },
+    ...(showSettlementTab
+      ? [{
+          id: "settlement" as const,
+          label: (
+            <span className="inline-flex items-center gap-2">
+              정산 현황
+              <span className="brand-chip-soft flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{settlementBadge ?? "0"}</span>
             </span>
-          </button>
-        ) : null}
-      </div>
-    </section>
+          ),
+        }]
+      : []),
+  ];
+
+  return (
+    <Tabs
+      activeId={activeTab}
+      items={items}
+      label="모임 정보"
+      onChange={onChange}
+      panelClassName="pt-6"
+      tabClassName="flex-1 px-0 pb-3 text-base font-extrabold"
+    >
+      {children}
+    </Tabs>
   );
 }
