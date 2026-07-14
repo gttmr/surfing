@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sds-surfing.web.app";
@@ -36,55 +35,13 @@ export const metadata: Metadata = {
   },
 };
 
-const kakaoJsKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
-        />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-screen bg-[var(--brand-page)] font-sans text-[var(--brand-text)]">
-        <div className="brand-mobile-shell mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-[var(--brand-page)]">
+      <body className="min-h-dvh bg-[var(--brand-page)] font-sans text-[var(--brand-text)]">
+        <div className="brand-mobile-shell mx-auto min-h-dvh w-full max-w-[430px] overflow-x-hidden bg-[var(--brand-page)]">
           {children}
         </div>
-        {kakaoJsKey ? (
-          <>
-            <Script
-              src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js"
-              integrity="sha384-DKYJZ8NLiK8MN4/C5P2dtSmLQ4KwPaoqAfyA/DfmEc1VDxu4yyC7wy6K1Hs90nk"
-              crossOrigin="anonymous"
-              strategy="afterInteractive"
-            />
-            <Script id="kakao-init" strategy="afterInteractive">
-              {`
-                window.__KAKAO_INIT__ = function() {
-                  if (window.Kakao && !window.Kakao.isInitialized()) {
-                    window.Kakao.init(${JSON.stringify(kakaoJsKey)});
-                  }
-                };
-                (function waitForKakao() {
-                  if (window.Kakao) {
-                    window.__KAKAO_INIT__();
-                    return;
-                  }
-                  window.setTimeout(waitForKakao, 100);
-                })();
-              `}
-            </Script>
-          </>
-        ) : null}
       </body>
     </html>
   );
