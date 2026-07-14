@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 
 export type MobileDockItem = {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  active: boolean;
+  readonly href: string;
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly active: boolean;
+  readonly onClick?: MouseEventHandler<HTMLAnchorElement>;
 };
 
 export function MobileDock({ label, items, className = "" }: { label: string; items: readonly MobileDockItem[]; className?: string }) {
@@ -20,6 +21,7 @@ export function MobileDock({ label, items, className = "" }: { label: string; it
             className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition-colors ${item.active ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
             href={item.href}
             key={item.href}
+            onClick={item.onClick}
           >
             {item.icon}
             <span className="max-w-full truncate">{item.label}</span>

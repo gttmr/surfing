@@ -1,303 +1,165 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import {
+  AdminSettingActionBar,
+  AdminSettingSaveError,
+  saveFailureMessage,
+} from "@/components/admin/AdminSettingControls";
+import {
+  AdminFoodSupportSection,
+  AdminMemberFeesSection,
+} from "@/components/admin/AdminPricingSections";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
+import {
+  MEMBER_FEE_KEYS,
+  validatePricingDraft,
+  type PricingInputErrors,
+  type PricingInputKey,
+} from "@/lib/admin-pricing-settings";
 import type { AdminPricingState } from "@/lib/admin-page-data";
+import {
+  FOOD_ORDER_SUPPORT_CAP_KEY,
+  PRICING_SETTING_KEYS,
+} from "@/lib/settings";
 
-const PRICING_FIELDS: Array<{
-  title: string;
-  description: string;
-  regularKey: PricingSettingKey;
-  companionKey: PricingSettingKey;
-}> = [
-  {
-    title: "기본 참가비",
-    description: "모임 참가 자체에 대한 기본 비용입니다.",
-    regularKey: PRICING_SETTING_KEYS.regularBaseFee,
-    companionKey: PRICING_SETTING_KEYS.companionBaseFee,
-  },
-  {
-    title: "강습비",
-    description: "강습 선택 시 추가되는 비용입니다.",
-    regularKey: PRICING_SETTING_KEYS.regularLessonFee,
-    companionKey: PRICING_SETTING_KEYS.companionLessonFee,
-  },
-  {
-    title: "장비 대여비",
-    description: "장비 대여 선택 시 추가되는 비용입니다.",
-    regularKey: PRICING_SETTING_KEYS.regularRentalFee,
-    companionKey: PRICING_SETTING_KEYS.companionRentalFee,
-  },
-];
-
-function parseWon(value: string) {
-  const normalized = value.replace(/[^\d]/g, "");
-  return normalized ? Number(normalized) : 0;
-}
-
-function formatWon(value: string) {
-  return `${parseWon(value).toLocaleString("ko-KR")}원`;
-}
+type PricingSection = "memberFees" | "foodSupport";
 
 export function AdminPricingPageClient({
   initialPricing,
 }: {
-  initialPricing: AdminPricingState;
+  readonly initialPricing: AdminPricingState;
 }) {
-  const [pricing, setPricing] = useState(initialPricing);
+  const [snapshot, setSnapshot] = useState(initialPricing);
+  const [draft, setDraft] = useState(initialPricing);
+  const [editingSection, setEditingSection] = useState<PricingSection | null>(null);
+  const [errors, setErrors] = useState<PricingInputErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
-  const preview = useMemo(() => {
-    const regularBase = parseWon(pricing[PRICING_SETTING_KEYS.regularBaseFee]);
-    const companionBase = parseWon(pricing[PRICING_SETTING_KEYS.companionBaseFee]);
-    const regularLesson = parseWon(pricing[PRICING_SETTING_KEYS.regularLessonFee]);
-    const companionLesson = parseWon(pricing[PRICING_SETTING_KEYS.companionLessonFee]);
-    const regularRental = parseWon(pricing[PRICING_SETTING_KEYS.regularRentalFee]);
-    const companionRental = parseWon(pricing[PRICING_SETTING_KEYS.companionRentalFee]);
+  const memberFeesDirty = MEMBER_FEE_KEYS.some((key) => snapshot[key] !== draft[key]);
+  const foodSupportDirty = snapshot.foodOrderSupportCap !== draft.foodOrderSupportCap;
+  const dirtySectionCount = Number(memberFeesDirty) + Number(foodSupportDirty);
 
-    return {
-      regularJoinOnly: regularBase,
-      companionJoinOnly: companionBase,
-      regularLessonRental: regularBase + regularLesson + regularRental,
-      companionLessonRental: companionBase + companionLesson + companionRental,
-      regularRentalOnly: regularBase + regularRental,
-      companionRentalOnly: companionBase + companionRental,
-      foodSupportCap: parseWon(pricing.foodOrderSupportCap),
-    };
-  }, [pricing]);
-
-  function updateValue(key: PricingSettingKey, value: string) {
-    const normalized = value.replace(/[^\d]/g, "");
-    setPricing((prev) => ({ ...prev, [key]: normalized }));
+  function toggleEditing(section: PricingSection) {
+    if (saving) return;
+    setEditingSection((current) => current === section ? null : section);
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  function updateValue(key: PricingInputKey, value: string) {
+    if (saving) return;
+    setDraft((current) => ({ ...current, [key]: value }));
+    setErrors({});
+    setSaveError(null);
+  }
 
+  function discardDraft() {
+    if (saving) return;
+    setDraft(snapshot);
+    setErrors({});
+    setSaveError(null);
+    setEditingSection(null);
+    addToast("저장하지 않은 변경을 취소했습니다", "info");
+  }
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const validation = validatePricingDraft(draft);
+    if (!validation.valid) {
+      setErrors(validation.errors);
+      setSaveError(null);
+      setEditingSection(validation.firstKey === "foodOrderSupportCap" ? "foodSupport" : "memberFees");
+      window.requestAnimationFrame(() => document.getElementById(`pricing-${validation.firstKey}`)?.focus());
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    const nextSnapshot = validation.value;
     try {
-      const updates = Object.fromEntries(
-        Object.entries(pricing).map(([key, value]) => [key, String(parseWon(value))])
-      );
-      const res = await fetch("/api/admin/settings", {
+      const response = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates }),
+        body: JSON.stringify({
+          updates: {
+            [PRICING_SETTING_KEYS.regularBaseFee]: nextSnapshot[PRICING_SETTING_KEYS.regularBaseFee],
+            [PRICING_SETTING_KEYS.companionBaseFee]: nextSnapshot[PRICING_SETTING_KEYS.companionBaseFee],
+            [PRICING_SETTING_KEYS.regularLessonFee]: nextSnapshot[PRICING_SETTING_KEYS.regularLessonFee],
+            [PRICING_SETTING_KEYS.companionLessonFee]: nextSnapshot[PRICING_SETTING_KEYS.companionLessonFee],
+            [PRICING_SETTING_KEYS.regularRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.regularRentalFee],
+            [PRICING_SETTING_KEYS.companionRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.companionRentalFee],
+            [FOOD_ORDER_SUPPORT_CAP_KEY]: nextSnapshot.foodOrderSupportCap,
+          },
+        }),
       });
-      if (!res.ok) throw new Error("save_failed");
+      if (!response.ok) {
+        const message = saveFailureMessage(response.status);
+        setSaveError(message);
+        addToast("비용 초안을 저장하지 못했습니다", "error");
+        return;
+      }
+
+      setSnapshot(nextSnapshot);
+      setDraft(nextSnapshot);
+      setErrors({});
+      setEditingSection(null);
       addToast("비용 설정이 저장되었습니다", "success");
-    } catch {
-      addToast("저장에 실패했습니다", "error");
+    } catch (error) {
+      const message = error instanceof Error
+        ? "네트워크 연결을 확인한 뒤 다시 시도해 주세요."
+        : "비용 설정을 저장하지 못했습니다.";
+      setSaveError(message);
+      addToast("비용 초안을 저장하지 못했습니다", "error");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout dirtyNavigation={{ isDirty: dirtySectionCount > 0, onDiscard: discardDraft }}>
       <div className="space-y-4">
-        <div className="space-y-3">
+        <header className="space-y-3">
           <div>
-            <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
-              Admin Workspace
-            </p>
-            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-              비용 책정
-            </h1>
-            <p className="brand-text-muted mt-1 text-sm">
-              참가비, 옵션 비용, 식음료 지원 한도를 운영 기준에 맞춰 저장합니다.
-            </p>
+            <p className="brand-text-subtle text-xs font-semibold">관리자 · 정산 기준</p>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">비용 책정</h1>
+            <p className="brand-text-muted mt-1 text-sm">회원 정산에 쓰는 금액을 섹션별로 확인하고 필요한 항목만 편집합니다.</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">정회원 기준 확인</span>
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">동반인 기준 확인</span>
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">
-              식음료 지원 {preview.foodSupportCap.toLocaleString("ko-KR")}원
-            </span>
-          </div>
-        </div>
+          <p aria-live="polite" className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${dirtySectionCount > 0 ? "brand-chip-preparing" : "brand-chip-success"}`}>
+            {dirtySectionCount > 0 ? `${dirtySectionCount}개 섹션 변경됨` : "모든 변경사항 저장됨"}
+          </p>
+        </header>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header px-5 py-4">
-              <div className="grid grid-cols-[1.4fr,1fr,1fr] items-center gap-3">
-                <div>
-                  <h2 className="text-base font-extrabold text-[var(--brand-text)]">요금 항목</h2>
-                  <p className="brand-text-subtle mt-1 text-xs">
-                    조합형 금액은 아래 미리보기에서 자동 계산됩니다.
-                  </p>
-                </div>
-                <div className="brand-chip-soft justify-self-center rounded-full px-3 py-1 text-xs font-bold">
-                  정회원
-                </div>
-                <div className="brand-chip-companion justify-self-center rounded-full px-3 py-1 text-xs font-bold">
-                  동반인
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3 px-5 py-5">
-              {PRICING_FIELDS.map((field) => (
-                <div key={field.title} className="brand-list-item rounded-2xl p-4">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.4fr,1fr,1fr]">
-                    <div>
-                      <p className="text-sm font-bold text-[var(--brand-text)]">{field.title}</p>
-                      <p className="brand-text-subtle mt-1 text-xs">{field.description}</p>
-                    </div>
-
-                    <label className="block">
-                      <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">정회원</span>
-                      <input
-                        className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                        inputMode="numeric"
-                        onChange={(e) => updateValue(field.regularKey, e.target.value)}
-                        placeholder="0"
-                        type="text"
-                        value={pricing[field.regularKey]}
-                      />
-                      <span className="brand-text-subtle mt-1 block text-[11px]">
-                        {formatWon(pricing[field.regularKey])}
-                      </span>
-                    </label>
-
-                    <label className="block">
-                      <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">동반인</span>
-                      <input
-                        className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                        inputMode="numeric"
-                        onChange={(e) => updateValue(field.companionKey, e.target.value)}
-                        placeholder="0"
-                        type="text"
-                        value={pricing[field.companionKey]}
-                      />
-                      <span className="brand-text-subtle mt-1 block text-[11px]">
-                        {formatWon(pricing[field.companionKey])}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header px-5 py-4">
-              <h2 className="text-base font-extrabold text-[var(--brand-text)]">조합 미리보기</h2>
-              <p className="brand-text-subtle mt-1 text-xs">
-                입력한 숫자가 실제 청구 조합으로 어떻게 보이는지 확인합니다.
-              </p>
-            </div>
-            <div className="grid gap-3 px-5 py-5 md:grid-cols-2">
-              <div className="brand-list-item rounded-2xl p-4">
-                <p className="text-sm font-bold text-[var(--brand-text)]">정회원</p>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">참가만</span>
-                    <span className="font-bold">{preview.regularJoinOnly.toLocaleString("ko-KR")}원</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">장비 대여만</span>
-                    <span className="font-bold">{preview.regularRentalOnly.toLocaleString("ko-KR")}원</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">강습+장비대여</span>
-                    <span className="font-bold">{preview.regularLessonRental.toLocaleString("ko-KR")}원</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="brand-list-item rounded-2xl p-4">
-                <p className="text-sm font-bold text-[var(--brand-text)]">동반인</p>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">참가만</span>
-                    <span className="font-bold">{preview.companionJoinOnly.toLocaleString("ko-KR")}원</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">장비 대여만</span>
-                    <span className="font-bold">{preview.companionRentalOnly.toLocaleString("ko-KR")}원</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">강습+장비대여</span>
-                    <span className="font-bold">{preview.companionLessonRental.toLocaleString("ko-KR")}원</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header flex items-center justify-between gap-3 px-5 py-4">
-              <div>
-                <h2 className="text-base font-extrabold text-[var(--brand-text)]">식음료 지원 정책</h2>
-                <p className="brand-text-subtle mt-1 text-xs">
-                  참가자 1인 기준으로 차감할 최대 지원 금액입니다.
-                </p>
-              </div>
-              <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">운영진 설정</span>
-            </div>
-
-            <div className="grid gap-3 px-5 py-5 md:grid-cols-[minmax(0,220px)_1fr] md:items-start">
-              <label className="block">
-                <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">1인당 지원 한도</span>
-                <input
-                  className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                  inputMode="numeric"
-                  onChange={(e) =>
-                    setPricing((prev) => ({
-                      ...prev,
-                      foodOrderSupportCap: e.target.value.replace(/[^\d]/g, ""),
-                    }))
-                  }
-                  placeholder="10000"
-                  type="text"
-                  value={pricing.foodOrderSupportCap}
-                />
-                <span className="brand-text-subtle mt-1 block text-[11px]">
-                  {formatWon(pricing.foodOrderSupportCap)}
-                </span>
-              </label>
-
-              <div className="brand-list-item rounded-2xl p-4">
-                <p className="text-sm font-bold text-[var(--brand-text)]">정산 반영 방식</p>
-                <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">식음료 총액</span>
-                    <span className="font-bold">참가자별 합산</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">지원 차감</span>
-                    <span className="font-bold">최대 {preview.foodSupportCap.toLocaleString("ko-KR")}원</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="brand-text-muted">초과 청구</span>
-                    <span className="font-bold">정산서에 자동 반영</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <button
-            className="brand-button-primary w-full rounded-2xl py-3 text-sm font-bold transition-all"
+        <form className="space-y-4" noValidate onSubmit={handleSave}>
+          {saveError ? <AdminSettingSaveError message={saveError} /> : null}
+          <AdminMemberFeesSection
+            dirty={memberFeesDirty}
             disabled={saving}
-            type="submit"
-          >
-            {saving ? "저장 중..." : "비용 정책 저장"}
-          </button>
+            draft={draft}
+            editing={editingSection === "memberFees"}
+            errors={errors}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("memberFees")}
+            snapshot={snapshot}
+          />
+          <AdminFoodSupportSection
+            dirty={foodSupportDirty}
+            disabled={saving}
+            draft={draft}
+            editing={editingSection === "foodSupport"}
+            error={errors.foodOrderSupportCap}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("foodSupport")}
+            snapshot={snapshot}
+          />
+          <AdminSettingActionBar dirtySectionCount={dirtySectionCount} onDiscard={discardDraft} saving={saving} />
         </form>
       </div>
 
       {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          onClose={() => removeToast(toast.id)}
-          type={toast.type}
-        />
+        <Toast key={toast.id} message={toast.message} onClose={() => removeToast(toast.id)} type={toast.type} />
       ))}
     </AdminLayout>
   );

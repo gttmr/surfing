@@ -2,255 +2,182 @@
 
 import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import {
+  AdminSettingActionBar,
+  AdminSettingSaveError,
+  saveFailureMessage,
+} from "@/components/admin/AdminSettingControls";
+import {
+  AdminCancellationPolicySection,
+  AdminParticipantGuideSection,
+} from "@/components/admin/AdminPolicySettingsSections";
+import { AdminSettlementAccountSection } from "@/components/admin/AdminSettlementAccountSection";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { validateSettingsDraft, type SettingsInputErrors } from "@/lib/admin-pricing-settings";
 import type { AdminSettingsFormData } from "@/lib/admin-page-data";
+import {
+  PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
+  SETTLEMENT_ACCOUNT_HOLDER_KEY,
+  SETTLEMENT_ACCOUNT_NUMBER_KEY,
+  SETTLEMENT_BANK_NAME_KEY,
+} from "@/lib/settings";
 
-type SettingsFormState = AdminSettingsFormData;
+type SettingsSection = "cancellation" | "participantGuide" | "settlementAccount";
 
 export function AdminSettingsPageClient({
   initialSettings,
 }: {
-  initialSettings: AdminSettingsFormData;
+  readonly initialSettings: AdminSettingsFormData;
 }) {
-  const [form, setForm] = useState<SettingsFormState>(initialSettings);
+  const [snapshot, setSnapshot] = useState(initialSettings);
+  const [draft, setDraft] = useState(initialSettings);
+  const [editingSection, setEditingSection] = useState<SettingsSection | null>(null);
+  const [errors, setErrors] = useState<SettingsInputErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  const cancellationDirty = snapshot.penaltyDays !== draft.penaltyDays
+    || snapshot.penaltyMessage !== draft.penaltyMessage;
+  const participantGuideDirty = snapshot.participantOptionPricingGuide !== draft.participantOptionPricingGuide;
+  const settlementAccountDirty = snapshot.settlementBankName !== draft.settlementBankName
+    || snapshot.settlementAccountNumber !== draft.settlementAccountNumber
+    || snapshot.settlementAccountHolder !== draft.settlementAccountHolder;
+  const dirtySectionCount = Number(cancellationDirty)
+    + Number(participantGuideDirty)
+    + Number(settlementAccountDirty);
 
+  function toggleEditing(section: SettingsSection) {
+    if (saving) return;
+    setEditingSection((current) => current === section ? null : section);
+  }
+
+  function updateValue(key: keyof AdminSettingsFormData, value: string) {
+    if (saving) return;
+    setDraft((current) => ({ ...current, [key]: value }));
+    setErrors({});
+    setSaveError(null);
+  }
+
+  function discardDraft() {
+    if (saving) return;
+    setDraft(snapshot);
+    setErrors({});
+    setSaveError(null);
+    setEditingSection(null);
+    addToast("저장하지 않은 변경을 취소했습니다", "info");
+  }
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const validation = validateSettingsDraft(draft);
+    if (!validation.valid) {
+      setErrors(validation.errors);
+      setSaveError(null);
+      const firstSection: SettingsSection = validation.firstKey === "penaltyDays" || validation.firstKey === "penaltyMessage"
+        ? "cancellation"
+        : validation.firstKey === "participantOptionPricingGuide"
+          ? "participantGuide"
+          : "settlementAccount";
+      setEditingSection(firstSection);
+      window.requestAnimationFrame(() => document.getElementById(`settings-${validation.firstKey}`)?.focus());
+      return;
+    }
+
+    const nextSnapshot = validation.value;
+    setSaving(true);
+    setSaveError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      const response = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           updates: {
-            cancellation_penalty_message: form.penaltyMessage,
-            cancellation_penalty_days: form.penaltyDays,
-            participant_option_pricing_guide: form.participantOptionPricingGuide,
-            settlement_bank_name: form.settlementBankName,
-            settlement_account_number: form.settlementAccountNumber,
-            settlement_account_holder: form.settlementAccountHolder,
+            cancellation_penalty_message: nextSnapshot.penaltyMessage,
+            cancellation_penalty_days: nextSnapshot.penaltyDays,
+            [PARTICIPANT_OPTION_PRICING_GUIDE_KEY]: nextSnapshot.participantOptionPricingGuide,
+            [SETTLEMENT_BANK_NAME_KEY]: nextSnapshot.settlementBankName,
+            [SETTLEMENT_ACCOUNT_NUMBER_KEY]: nextSnapshot.settlementAccountNumber,
+            [SETTLEMENT_ACCOUNT_HOLDER_KEY]: nextSnapshot.settlementAccountHolder,
           },
         }),
       });
+      if (!response.ok) {
+        const message = saveFailureMessage(response.status);
+        setSaveError(message);
+        addToast("설정 초안을 저장하지 못했습니다", "error");
+        return;
+      }
 
-      if (!res.ok) throw new Error("save_failed");
+      setSnapshot(nextSnapshot);
+      setDraft(nextSnapshot);
+      setErrors({});
+      setEditingSection(null);
       addToast("설정이 저장되었습니다", "success");
-    } catch {
-      addToast("저장에 실패했습니다", "error");
+    } catch (error) {
+      const message = error instanceof Error
+        ? "네트워크 연결을 확인한 뒤 다시 시도해 주세요."
+        : "설정을 저장하지 못했습니다.";
+      setSaveError(message);
+      addToast("설정 초안을 저장하지 못했습니다", "error");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout dirtyNavigation={{ isDirty: dirtySectionCount > 0, onDiscard: discardDraft }}>
       <div className="space-y-4">
-        <div className="space-y-3">
+        <header className="space-y-3">
           <div>
-            <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
-              Admin Workspace
-            </p>
-            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-              설정
-            </h1>
-            <p className="brand-text-muted mt-1 text-sm">
-              취소 정책, 안내 문구, 정산 계좌를 같은 운영 화면에서 관리합니다.
-            </p>
+            <p className="brand-text-subtle text-xs font-semibold">관리자 · 회원 안내</p>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">설정</h1>
+            <p className="brand-text-muted mt-1 text-sm">회원에게 보이는 안내와 정산 계좌를 역할별로 확인하고 편집합니다.</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">
-              패널티 {form.penaltyDays || "0"}일 기준
-            </span>
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">
-              안내 문구 {form.participantOptionPricingGuide.length}자
-            </span>
-            <span className="brand-admin-stat rounded-full px-3 py-1.5">
-              계좌 {form.settlementBankName ? "입력됨" : "미입력"}
-            </span>
-          </div>
-        </div>
+          <p aria-live="polite" className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${dirtySectionCount > 0 ? "brand-chip-preparing" : "brand-chip-success"}`}>
+            {dirtySectionCount > 0 ? `${dirtySectionCount}개 섹션 변경됨` : "모든 변경사항 저장됨"}
+          </p>
+        </header>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header px-5 py-4">
-              <h2 className="flex items-center gap-2 text-base font-bold text-[var(--brand-text)]">
-                <span>⚠️</span> 취소 패널티 설정
-              </h2>
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                  패널티 기준 일수
-                </label>
-                <p className="brand-text-subtle mb-2 text-xs">
-                  모임 날짜 기준 이 일수 이내에 취소하면 패널티가 부과됩니다.
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={form.penaltyDays}
-                    onChange={(e) => setForm((prev) => ({ ...prev, penaltyDays: e.target.value }))}
-                    min="0"
-                    max="30"
-                    className="brand-input w-20 rounded-xl px-3 py-2 text-center text-sm outline-none"
-                  />
-                  <span className="brand-text-muted text-sm">일 이내 취소 시 패널티</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                  취소 시 안내 메시지
-                </label>
-                <p className="brand-text-subtle mb-2 text-xs">
-                  패널티가 적용될 때 회원에게 표시되는 메시지입니다.
-                </p>
-                <textarea
-                  value={form.penaltyMessage}
-                  onChange={(e) => setForm((prev) => ({ ...prev, penaltyMessage: e.target.value }))}
-                  rows={4}
-                  className="brand-input w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition-colors"
-                  placeholder="취소 시 안내할 메시지를 입력하세요..."
-                />
-                <p className="brand-text-subtle mt-1 text-right text-xs">{form.penaltyMessage.length}자</p>
-              </div>
-
-              <div>
-                <label className="brand-text-muted mb-2 block text-xs font-bold">미리보기</label>
-                <div className="brand-alert-error rounded-xl p-4">
-                  <div className="mb-2 text-center">
-                    <span className="text-2xl">⚠️</span>
-                  </div>
-                  <p className="mb-2 text-center text-sm font-bold text-[var(--brand-text)]">
-                    참가가 취소되었습니다
-                  </p>
-                  <div className="brand-inline-danger rounded-lg p-3 text-sm">
-                    {form.penaltyMessage || "(메시지 없음)"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header px-5 py-4">
-              <h2 className="flex items-center gap-2 text-base font-bold text-[var(--brand-text)]">
-                <span>ℹ️</span> 참가 옵션 가격 안내
-              </h2>
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-              <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                  안내 문구
-                </label>
-                <p className="brand-text-subtle mb-2 text-xs">
-                  참가 신청 화면의 정보 버튼을 눌렀을 때 표시되는 안내입니다.
-                </p>
-                <textarea
-                  value={form.participantOptionPricingGuide}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, participantOptionPricingGuide: e.target.value }))
-                  }
-                  rows={4}
-                  className="brand-input w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition-colors"
-                  placeholder="참가 옵션 가격 안내 문구를 입력하세요..."
-                />
-                <p className="brand-text-subtle mt-1 text-right text-xs">
-                  {form.participantOptionPricingGuide.length}자
-                </p>
-              </div>
-
-              <div>
-                <label className="brand-text-muted mb-2 block text-xs font-bold">미리보기</label>
-                <div className="brand-list-item rounded-2xl p-4">
-                  <p className="brand-text-muted whitespace-pre-line text-sm">
-                    {form.participantOptionPricingGuide || "(메시지 없음)"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="brand-admin-section overflow-hidden">
-            <div className="brand-admin-section-header px-5 py-4">
-              <h2 className="flex items-center gap-2 text-base font-bold text-[var(--brand-text)]">
-                <span>💸</span> 정산 입금 계좌
-              </h2>
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">은행명</span>
-                  <input
-                    value={form.settlementBankName}
-                    onChange={(e) => setForm((prev) => ({ ...prev, settlementBankName: e.target.value }))}
-                    className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                    placeholder="예: 카카오뱅크"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">계좌번호</span>
-                  <input
-                    value={form.settlementAccountNumber}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, settlementAccountNumber: e.target.value }))
-                    }
-                    className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                    placeholder="예: 3333-12-1234567"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">예금주</span>
-                  <input
-                    value={form.settlementAccountHolder}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, settlementAccountHolder: e.target.value }))
-                    }
-                    className="brand-input w-full rounded-xl px-3 py-2.5 text-sm outline-none"
-                    placeholder="예: 홍길동"
-                  />
-                </label>
-              </div>
-
-              <div>
-                <label className="brand-text-muted mb-2 block text-xs font-bold">미리보기</label>
-                <div className="brand-list-item rounded-2xl p-4">
-                  {form.settlementBankName || form.settlementAccountNumber || form.settlementAccountHolder ? (
-                    <p className="text-sm font-semibold text-[var(--brand-text)]">
-                      {form.settlementBankName} {form.settlementAccountNumber}{" "}
-                      {form.settlementAccountHolder ? `(${form.settlementAccountHolder})` : ""}
-                    </p>
-                  ) : (
-                    <p className="brand-text-subtle text-sm">정산 팝업에 표시할 입금 계좌를 입력하세요.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <button
-            type="submit"
+        <form className="space-y-4" noValidate onSubmit={handleSave}>
+          {saveError ? <AdminSettingSaveError message={saveError} /> : null}
+          <AdminCancellationPolicySection
+            dirty={cancellationDirty}
             disabled={saving}
-            className="brand-button-primary w-full rounded-2xl py-3 text-sm font-bold transition-all"
-          >
-            {saving ? "저장 중..." : "설정 저장"}
-          </button>
+            draft={draft}
+            editing={editingSection === "cancellation"}
+            errors={errors}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("cancellation")}
+            snapshot={snapshot}
+          />
+          <AdminParticipantGuideSection
+            dirty={participantGuideDirty}
+            disabled={saving}
+            draft={draft}
+            editing={editingSection === "participantGuide"}
+            errors={errors}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("participantGuide")}
+            snapshot={snapshot}
+          />
+          <AdminSettlementAccountSection
+            dirty={settlementAccountDirty}
+            disabled={saving}
+            draft={draft}
+            editing={editingSection === "settlementAccount"}
+            errors={errors}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("settlementAccount")}
+            snapshot={snapshot}
+          />
+          <AdminSettingActionBar dirtySectionCount={dirtySectionCount} onDiscard={discardDraft} saving={saving} />
         </form>
       </div>
 
       {toasts.map((toast) => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => removeToast(toast.id)}
-        />
+        <Toast key={toast.id} message={toast.message} onClose={() => removeToast(toast.id)} type={toast.type} />
       ))}
     </AdminLayout>
   );
