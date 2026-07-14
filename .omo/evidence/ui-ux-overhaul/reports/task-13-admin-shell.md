@@ -47,7 +47,6 @@ Direct inspection of all ten final PNGs confirms:
 - list, reader, and editor each present one clear hierarchy without mixing read and edit controls;
 - final submit is fully reachable above the fixed dock at 390 and 430;
 - list, reader, editor, dirty-dialog, and save-error states have no horizontal overflow or clipped controls;
-- keyboard focus is visible on dock links and editor inputs at both widths;
 - final normal-flow probes report zero console errors and zero page errors.
 
 Visual QA verdict: **PASS** for the user-requested direct, proportionate review at 390x844 and 430x932. Independent visual subagents were intentionally not run because this worker was explicitly forbidden from spawning agents or teams.
@@ -57,6 +56,7 @@ Visual QA verdict: **PASS** for the user-requested direct, proportionate review 
 - No desktop navigation, role/cookie/auth replacement, notice API change, broad release matrix, security expansion, Todo 8 copy change, or real Kakao login was added.
 - Seven pre-existing meeting-signup lint warnings remain untouched.
 - Admin meeting/member domain screens still contain legacy native confirmations owned by later route-specific todos; the Todo 13 notice workspace itself has no native `confirm()`.
+- Explicit keyboard-focus capture was not retained in this proportionate Todo 13 evidence set. Source focus-visible behavior and axe results remain, but dedicated focus capture is later cross-route QA debt.
 
 ## Cleanup
 
