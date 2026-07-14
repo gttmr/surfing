@@ -1,0 +1,22 @@
+name: surfing-ux-qa
+
+services:
+  db:
+    image: postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_DB: surfing_ux_test
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d surfing_ux_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - qa-data:/var/lib/postgresql/data
+
+volumes:
+  qa-data:
+    name: surfing-ux-qa-data

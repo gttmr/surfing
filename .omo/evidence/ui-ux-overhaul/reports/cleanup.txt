@@ -1,0 +1,14 @@
+task=01-qa-harness
+acceptance=lightweight-focused
+container=absent
+volume=absent
+port-55432=absent
+port-3100=absent
+lock=absent
+generation=absent
+server=absent
+task-processes=absent
+browser-auth=absent
+uploads=absent
+external-request-followed=no
+product-start-invoked=no

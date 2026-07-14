@@ -2,13 +2,35 @@
   "name": "club-management",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "eslint-config-next": {
+      "eslint-plugin-react-hooks": "7.0.1"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "prisma db push --accept-data-loss && next start -p ${PORT:-3000}",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "qa:browsers:install": "tsx scripts/qa/run.ts qa:browsers:install",
+    "qa:run": "tsx scripts/qa/run.ts qa:run",
+    "test:unit": "tsx scripts/qa/run.ts test:unit",
+    "test:integration": "tsx scripts/qa/run.ts test:integration",
+    "qa:db:assert": "tsx scripts/qa/run.ts qa:db:assert",
+    "qa:db:up": "tsx scripts/qa/run.ts qa:db:up",
+    "qa:db:push": "tsx scripts/qa/run.ts qa:db:push",
+    "qa:db:seed": "tsx scripts/qa/run.ts qa:db:seed",
+    "qa:db:reset": "tsx scripts/qa/run.ts qa:db:reset",
+    "qa:db:down": "tsx scripts/qa/run.ts qa:db:down",
+    "build:qa": "tsx scripts/qa/run.ts build:qa",
+    "start:qa": "tsx scripts/qa/run.ts start:qa",
+    "test:e2e:mobile": "tsx scripts/qa/run.ts test:e2e:mobile",
+    "qa:visual": "tsx scripts/qa/run.ts qa:visual",
+    "gate:f1": "tsx scripts/qa/run.ts gate:f1",
+    "gate:f2": "tsx scripts/qa/run.ts gate:f2",
+    "gate:f3": "tsx scripts/qa/run.ts gate:f3"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
@@ -20,14 +42,21 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "^16.2.1",
+    "lighthouse": "13.4.0",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "postcss": "^8",
+    "react-doctor": "0.7.7",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }
