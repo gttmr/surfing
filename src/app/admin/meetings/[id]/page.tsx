@@ -14,7 +14,7 @@ export default async function AdminMeetingDetailPage({
   const { id } = await params;
   const meetingId = Number(id);
 
-  if (!Number.isInteger(meetingId)) {
+  if (!/^\d+$/.test(id) || !Number.isSafeInteger(meetingId) || meetingId < 1) {
     notFound();
   }
 

@@ -4,292 +4,200 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { AdminMeetingParticipants, type ParticipantAction, type ParticipantTab } from "@/components/admin/AdminMeetingParticipants";
+import { isAdminMeetingDetail, meetingResponseError } from "@/components/admin/admin-meeting-response";
+import { Dialog } from "@/components/ui/Dialog";
+import { Icon } from "@/components/ui/Icon";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { Tabs } from "@/components/ui/Tabs";
 import type { AdminMeetingDetail, AdminMeetingParticipant } from "@/lib/admin-page-data";
-import type { ParticipantStatus } from "@/lib/types";
 import { DAY_KO } from "@/lib/format";
 
-type Tab = "approved" | "waitlisted" | "cancelled" | "all";
+type Confirmation =
+  | { readonly kind: "delete" }
+  | { readonly kind: "participant"; readonly action: ParticipantAction; readonly participant: AdminMeetingParticipant };
 
-const TAB_LABELS: Record<Tab, string> = {
-  approved: "참가 확정",
-  waitlisted: "대기자",
-  cancelled: "취소됨",
-  all: "전체",
+type AdminMeetingDetailPageClientProps = {
+  readonly meetingId: number;
+  readonly initialMeeting: AdminMeetingDetail;
 };
 
-function sortWithCompanions(participants: AdminMeetingParticipant[]) {
-  const regulars = participants.filter((participant) => participant.companionId === null);
-  const companions = participants.filter((participant) => participant.companionId !== null);
-
-  const result: AdminMeetingParticipant[] = [];
-  for (const regular of regulars) {
-    result.push(regular);
-    result.push(...companions.filter((companion) => companion.kakaoId === regular.kakaoId));
-  }
-  const placed = new Set(result.map((participant) => participant.id));
-  for (const companion of companions) {
-    if (!placed.has(companion.id)) result.push(companion);
-  }
-  return result;
+function displayDate(dateValue: string): string {
+  const date = new Date(`${dateValue}T00:00:00`);
+  const [, month, day] = dateValue.split("-");
+  return `${Number(month)}월 ${Number(day)}일 (${DAY_KO[date.getDay()]})`;
 }
 
-function KakaoBadge({ nickname }: { nickname: string }) {
-  return (
-    <span className="brand-chip-accent inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs">
-      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
-        <path d="M12 3C6.477 3 2 6.477 2 10.857c0 2.713 1.584 5.1 3.988 6.577L5 21l4.29-2.287C10.145 18.9 11.058 19 12 19c5.523 0 10-3.477 10-7.143C22 6.477 17.523 3 12 3z" />
-      </svg>
-      {nickname}
-    </span>
-  );
-}
-
-export function AdminMeetingDetailPageClient({
-  meetingId,
-  initialMeeting,
-}: {
-  meetingId: number;
-  initialMeeting: AdminMeetingDetail;
-}) {
+export function AdminMeetingDetailPageClient({ meetingId, initialMeeting }: AdminMeetingDetailPageClientProps) {
   const [meeting, setMeeting] = useState(initialMeeting);
-  const [activeTab, setActiveTab] = useState<Tab>("approved");
+  const [activeTab, setActiveTab] = useState<ParticipantTab>("approved");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [reloading, setReloading] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const [dialogError, setDialogError] = useState("");
   const { toasts, addToast, removeToast } = useToast();
   const router = useRouter();
+  const meetingName = `${displayDate(meeting.date)} · ${meeting.location}`;
 
   async function reloadMeeting() {
     setReloading(true);
+    setPageError("");
     try {
-      const res = await fetch(`/api/meetings/${meetingId}`);
-      if (!res.ok) throw new Error("reload_failed");
-      const next = (await res.json()) as AdminMeetingDetail;
-      setMeeting(next);
+      const response = await fetch(`/api/meetings/${meetingId}`);
+      if (!response.ok) {
+        setPageError(await meetingResponseError(response, "모임 정보를 다시 불러오지 못했습니다."));
+        return;
+      }
+      const value: unknown = await response.json();
+      if (!isAdminMeetingDetail(value)) {
+        setPageError("모임 응답을 읽지 못했습니다. 다시 시도해 주세요.");
+        return;
+      }
+      setMeeting(value);
+    } catch (error) {
+      setPageError(error instanceof Error ? "네트워크 연결을 확인하고 다시 시도해 주세요." : "모임 정보를 다시 불러오지 못했습니다.");
     } finally {
       setReloading(false);
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("이 일정을 삭제하시겠습니까?")) return;
-
-    const res = await fetch(`/api/meetings/${meeting.id}`, { method: "DELETE" });
-
-    if (res.ok) {
-      addToast("삭제되었습니다", "success");
-      setTimeout(() => router.push("/admin/meetings"), 500);
-    } else {
-      addToast("삭제에 실패했습니다", "error");
-    }
-  }
-
-  async function handleAction(participantId: number, action: string) {
-    const res = await fetch(`/api/participants/${participantId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-
-    if (res.ok) {
-      const actionLabels: Record<string, string> = {
-        approve: "참가 확정되었습니다",
-        cancel: "취소되었습니다",
-        waitlist: "대기자로 변경되었습니다",
-      };
-      addToast(actionLabels[action] || "업데이트되었습니다", "success");
-      await reloadMeeting();
-    } else {
-      addToast("오류가 발생했습니다", "error");
-    }
-  }
-
   async function handleToggleOpen() {
-    const res = await fetch(`/api/meetings/${meetingId}`, {
+    setWorking(true);
+    setPageError("");
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: !meeting.isOpen }),
+      });
+      if (!response.ok) {
+        const detail = await meetingResponseError(response, "잠시 후 다시 시도해 주세요.");
+        setPageError(`신청 상태를 바꾸지 못했습니다. ${detail}`);
+        addToast("신청 상태를 바꾸지 못했습니다", "error");
+        return;
+      }
+      setMeeting((current) => ({ ...current, isOpen: !current.isOpen }));
+      addToast(meeting.isOpen ? "신청을 마감했습니다" : "신청을 다시 열었습니다", "success");
+    } catch (error) {
+      setPageError(error instanceof Error ? "네트워크 연결을 확인하고 다시 시도해 주세요." : "신청 상태를 바꾸지 못했습니다.");
+      addToast("신청 상태를 바꾸지 못했습니다", "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleParticipantAction(target: Extract<Confirmation, { readonly kind: "participant" }>) {
+    const response = await fetch(`/api/participants/${target.participant.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isOpen: !meeting.isOpen }),
+      body: JSON.stringify({ action: target.action }),
     });
-    if (!res.ok) {
-      addToast("신청 상태를 바꾸지 못했습니다", "error");
+    if (!response.ok) {
+      setDialogError(await meetingResponseError(response, "참가 상태를 변경하지 못했습니다."));
       return;
     }
-    setMeeting((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+    setConfirmation(null);
+    addToast(target.action === "cancel" ? "참가를 취소 상태로 변경했습니다" : "참가를 확정 상태로 복구했습니다", "success");
+    await reloadMeeting();
   }
 
-  const date = new Date(`${meeting.date}T00:00:00`);
-  const [, month, day] = meeting.date.split("-");
-  const displayDate = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${DAY_KO[date.getDay()]})`;
+  async function handleDelete() {
+    const response = await fetch(`/api/meetings/${meeting.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setDialogError(await meetingResponseError(response, "모임을 삭제하지 못했습니다."));
+      return;
+    }
+    setConfirmation(null);
+    addToast("모임을 삭제했습니다", "success");
+    requestAnimationFrame(() => router.push("/admin/meetings"));
+  }
 
-  const filteredParticipants = meeting.participants.filter((participant) => {
-    if (activeTab === "all") return true;
-    return participant.status.toLowerCase() === activeTab;
-  });
+  async function handleConfirmedAction() {
+    if (!confirmation) return;
+    setWorking(true);
+    setDialogError("");
+    try {
+      switch (confirmation.kind) {
+        case "delete":
+          await handleDelete();
+          break;
+        case "participant":
+          await handleParticipantAction(confirmation);
+          break;
+        default: {
+          const exhaustive: never = confirmation;
+          return exhaustive;
+        }
+      }
+    } catch (error) {
+      setDialogError(error instanceof Error ? "네트워크 연결을 확인하고 다시 시도해 주세요." : "요청을 처리하지 못했습니다.");
+    } finally {
+      setWorking(false);
+    }
+  }
 
-  const counts: Record<Tab, number> = {
-    approved: meeting.participants.filter((participant) => participant.status === "APPROVED").length,
-    waitlisted: meeting.participants.filter((participant) => participant.status === "WAITLISTED").length,
-    cancelled: meeting.participants.filter((participant) => participant.status === "CANCELLED").length,
-    all: meeting.participants.length,
-  };
+  function requestParticipantAction(request: { readonly action: ParticipantAction; readonly participant: AdminMeetingParticipant }) {
+    setDialogError("");
+    setConfirmation({ kind: "participant", ...request });
+  }
+
+  const participantConfirmation = confirmation?.kind === "participant" ? confirmation : null;
+  const restoring = participantConfirmation?.action === "approve";
+  const dialogTitle = confirmation?.kind === "delete" ? "모임을 삭제할까요?" : restoring ? "참가를 복구할까요?" : "참가를 취소할까요?";
+  const dialogDescription = confirmation?.kind === "delete"
+    ? `“${meetingName}” 모임과 참가·주문·정산 등 운영 기록도 함께 삭제되며 복구할 수 없습니다.`
+    : participantConfirmation
+      ? restoring
+        ? `“${meetingName}” 모임의 ${participantConfirmation.participant.name}님을 참가 확정 상태로 복구합니다.`
+        : `“${meetingName}” 모임의 ${participantConfirmation.participant.name}님 참가를 취소합니다. 이 참가자만 취소 상태로 변경하며 패널티와 다른 참가자 상태는 바뀌지 않습니다.`
+      : undefined;
 
   return (
     <AdminLayout>
-      <div className="mb-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <Link href="/admin/meetings" className="brand-link mt-0.5 text-xl">&larr;</Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="font-headline break-keep text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
-              {displayDate}
-            </h1>
-            <p className="brand-text-muted mt-0.5 break-keep text-sm">
-              {meeting.startTime}–{meeting.endTime} · {meeting.location}
-            </p>
+      <div className="space-y-4">
+        <header>
+          <div className="flex items-start gap-3">
+            <Link aria-label="모임 목록으로 돌아가기" className="brand-button-secondary flex h-11 w-11 shrink-0 items-center justify-center rounded-full" href="/admin/meetings"><Icon name="arrow_back" /></Link>
+            <div className="min-w-0 flex-1">
+              <p className="brand-text-subtle text-xs font-bold">MEETING DETAIL</p>
+              <h1 className="mt-1 font-headline text-[1.55rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">{displayDate(meeting.date)}</h1>
+              <p className="brand-text-muted mt-1 break-keep text-sm">{meeting.startTime}–{meeting.endTime} · {meeting.location}</p>
+            </div>
+            <button aria-label="모임 정보 새로고침" className="brand-button-secondary flex h-11 w-11 shrink-0 items-center justify-center rounded-full" disabled={reloading} onClick={reloadMeeting} type="button"><Icon className={reloading ? "animate-spin" : ""} name="refresh" /></button>
           </div>
-        </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="brand-chip-soft rounded-full px-2.5 py-1 font-bold">{meeting.meetingType}</span>
+            <span className={meeting.isOpen ? "brand-chip-success rounded-full px-2.5 py-1 font-bold" : "brand-chip-dimmed rounded-full px-2.5 py-1 font-bold"}>{meeting.isOpen ? "신청 중" : "신청 마감"}</span>
+            <span className="brand-text-muted font-semibold">확정 {meeting.approvedCount}명</span>
+          </div>
+        </header>
 
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/admin/meetings/${meetingId}/orders`}
-            className="brand-button-secondary shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-          >
-            주문 관리
-          </Link>
-          <Link
-            href={`/admin/meetings/${meetingId}/settlement`}
-            className="brand-button-primary shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-          >
-            정산 관리
-          </Link>
-          <button
-            onClick={handleToggleOpen}
-            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              meeting.isOpen
-                ? "brand-button-secondary"
-                : "brand-chip-success"
-            }`}
-          >
-            {meeting.isOpen ? "신청 마감하기" : "신청 열기"}
-          </button>
-          <button
-            onClick={handleDelete}
-            className="brand-button-danger shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-          >
-            삭제
-          </button>
-        </div>
+        {pageError ? <div aria-live="polite" className="brand-alert-error flex items-start justify-between gap-3 rounded-2xl p-4 text-sm" role="status"><span className="font-semibold">{pageError}</span><button className="brand-button-secondary shrink-0 rounded-xl px-3 py-2 text-xs font-bold" disabled={reloading} onClick={reloadMeeting} type="button">다시 시도</button></div> : null}
+
+        <section className="brand-admin-section overflow-hidden">
+          <div className="brand-admin-section-header px-4 py-3"><h2 className="text-sm font-extrabold">모임 운영</h2></div>
+          <div className="grid grid-cols-2 gap-2 px-4 py-4">
+            <Link className="brand-button-secondary flex items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${meetingId}/orders`}>주문 관리</Link>
+            <Link className="brand-button-primary flex items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${meetingId}/settlement`}>정산 관리</Link>
+            <button className="brand-button-secondary rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={handleToggleOpen} type="button">{meeting.isOpen ? "신청 마감하기" : "신청 열기"}</button>
+            <button className="brand-button-danger rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">모임 삭제</button>
+          </div>
+        </section>
+
+        <AdminMeetingParticipants activeTab={activeTab} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
       </div>
 
-      <div className="mb-5 flex items-center gap-2">
-        <span className="brand-chip-soft rounded-full px-2 py-0.5 text-xs font-semibold">
-          {meeting.meetingType}
-        </span>
-        <span className="brand-text-muted text-sm">참가자 {meeting.approvedCount}명</span>
-        {reloading ? <span className="brand-text-subtle text-xs">갱신 중...</span> : null}
-      </div>
+      <Dialog className="[&_p]:break-keep" description={dialogDescription} onClose={() => { if (!working) setConfirmation(null); }} open={confirmation !== null} title={dialogTitle}>
+        {dialogError ? <div className="brand-alert-error mb-4 rounded-xl p-3 text-sm font-semibold" role="alert">{dialogError}</div> : null}
+        <div className="flex gap-3">
+          <button className="brand-button-secondary flex-1 rounded-2xl px-4 py-3 text-sm font-bold" disabled={working} onClick={() => setConfirmation(null)} type="button">돌아가기</button>
+          <button className="brand-button-danger-solid flex-1 rounded-2xl px-4 py-3 text-sm font-bold" disabled={working} onClick={handleConfirmedAction} type="button">
+            {working ? "처리 중" : confirmation?.kind === "delete" ? "모임 삭제" : restoring ? "참가 복구" : "참가 취소"}
+          </button>
+        </div>
+      </Dialog>
 
-      <Tabs
-        activeId={activeTab}
-        items={(["approved", "waitlisted", "cancelled", "all"] as Tab[]).map((tab) => ({
-          id: tab,
-          label: (
-            <span className="inline-flex items-center gap-1.5">
-              <span>{TAB_LABELS[tab]}</span>
-              {counts[tab] > 0 ? (
-                <span className={`${activeTab === tab ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-1.5 py-0.5 text-[10px] font-bold`}>
-                  {counts[tab]}
-                </span>
-              ) : null}
-            </span>
-          ),
-        }))}
-        label="참가자 상태"
-        listClassName="gap-3 overflow-x-auto"
-        onChange={setActiveTab}
-        panelClassName="space-y-3 pt-5"
-        tabClassName="shrink-0 whitespace-nowrap px-1 pb-3 text-sm font-extrabold"
-      >
-        {filteredParticipants.length === 0 ? (
-          <p className="brand-text-subtle py-10 text-center text-sm">해당 상태의 신청자가 없습니다</p>
-        ) : (
-          sortWithCompanions(filteredParticipants).map((participant) => {
-            const isCompanion = participant.companionId !== null;
-            return (
-              <div
-                key={participant.id}
-                className={`brand-card-soft rounded-xl p-4 ${isCompanion ? "ml-6 border-l-2 border-l-[var(--brand-primary-border-strong)]" : ""}`}
-              >
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="w-full text-balance font-semibold text-[var(--brand-text)]">{participant.name}</span>
-                      {isCompanion ? (
-                        <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span>
-                      ) : null}
-                      <StatusBadge status={participant.status as ParticipantStatus} waitlistPosition={participant.waitlistPosition} size="sm" />
-                      {participant.isPenalized ? (
-                        <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">패널티</span>
-                      ) : null}
-                      {participant.hasBus ? (
-                        <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span>
-                      ) : null}
-                      {participant.hasLesson ? (
-                        <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span>
-                      ) : null}
-                      {participant.hasRental ? (
-                        <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span>
-                      ) : null}
-                    </div>
-                    <KakaoBadge nickname={participant.kakaoNickname} />
-                    {participant.note ? (
-                      <p className="brand-panel mt-1 rounded px-2 py-1 text-xs brand-text-muted">{participant.note}</p>
-                    ) : null}
-                    <p className="brand-text-subtle mt-1 text-xs">
-                      {new Date(participant.submittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      {participant.cancelledAt ? (
-                        <span className="brand-text-subtle ml-2">
-                          취소: {new Date(participant.cancelledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-1.5">
-                    {participant.status !== "APPROVED" && participant.status !== "CANCELLED" ? (
-                      <button
-                        onClick={() => handleAction(participant.id, "approve")}
-                        className="brand-button-confirm rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                      >
-                        확정
-                      </button>
-                    ) : null}
-                    {participant.status !== "CANCELLED" ? (
-                      <button
-                        onClick={() => handleAction(participant.id, "cancel")}
-                        className="brand-button-danger rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                      >
-                        취소
-                      </button>
-                    ) : null}
-                    {participant.status === "CANCELLED" ? (
-                      <button
-                        onClick={() => handleAction(participant.id, "approve")}
-                        className="brand-button-confirm rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                      >
-                        복구
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </Tabs>
-
-      {toasts.map((toast) => (
-        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />
-      ))}
+      {toasts.map((toast) => <Toast key={toast.id} message={toast.message} onClose={() => removeToast(toast.id)} type={toast.type} />)}
     </AdminLayout>
   );
 }
