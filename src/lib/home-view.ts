@@ -86,3 +86,41 @@ export function buildCalendarCells(year: number, month: number): CalendarCell[] 
 
   return cells;
 }
+
+export type CalendarNavigationKey = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown" | "Home" | "End" | "PageUp" | "PageDown";
+
+export function moveCalendarDate(date: string, key: CalendarNavigationKey) {
+  const current = new Date(`${date}T12:00:00`);
+  const day = current.getDay();
+
+  if (key === "ArrowLeft") current.setDate(current.getDate() - 1);
+  if (key === "ArrowRight") current.setDate(current.getDate() + 1);
+  if (key === "ArrowUp") current.setDate(current.getDate() - 7);
+  if (key === "ArrowDown") current.setDate(current.getDate() + 7);
+  if (key === "Home") current.setDate(current.getDate() - day);
+  if (key === "End") current.setDate(current.getDate() + (6 - day));
+  if (key === "PageUp" || key === "PageDown") {
+    const target = new Date(current.getFullYear(), current.getMonth() + (key === "PageUp" ? -1 : 1), 1, 12);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0, 12).getDate();
+    target.setDate(Math.min(current.getDate(), lastDay));
+    current.setTime(target.getTime());
+  }
+
+  return `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`;
+}
+
+export function formatCalendarDateLabel(date: string, options: { selected: boolean; today: boolean; hasMeeting: boolean }) {
+  const value = new Date(`${date}T12:00:00`);
+  const label = new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  }).format(value);
+  const states = [
+    options.today ? "오늘" : null,
+    options.selected ? "선택됨" : null,
+    options.hasMeeting ? "모임 있음" : "모임 없음",
+  ].filter(Boolean);
+  return `${label}, ${states.join(", ")}`;
+}
