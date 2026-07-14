@@ -5,7 +5,7 @@ import {
   verifyRealMeetingCreate,
   verifyRealParticipantRoundTrip,
 } from "./admin-meetings-scenarios";
-import { assertAccessible, assertControlClearsDock, assertMobileGeometry, capture, prepareAdminContext } from "./admin-meetings-support";
+import { assertAccessible, assertControlClearsDock, assertDialogChunkFitsParagraph, assertMobileGeometry, capture, prepareAdminContext } from "./admin-meetings-support";
 
 test.beforeEach(async ({ context }) => {
   await prepareAdminContext(context);
@@ -136,6 +136,12 @@ test("R10 participant cancellation requires a named consequence and restores tri
   await expect(dialog).toContainText("합성 서핑 해변 A");
   await expect(dialog).toContainText("합성 회원 01");
   await expect(dialog).toContainText("패널티와 다른 참가자 상태는 바뀌지 않습니다");
+  const cancelParticipantName = dialog.locator('[data-dialog-chunk="participant-name"]');
+  const cancelAction = dialog.locator('[data-dialog-chunk="participant-action"]');
+  await expect(cancelParticipantName).toHaveText("합성 회원 01님");
+  await expect(cancelAction).toHaveText("참가를 취소합니다");
+  await assertDialogChunkFitsParagraph(cancelParticipantName);
+  await assertDialogChunkFitsParagraph(cancelAction);
   await capture(page, "cancel-confirmation", testInfo.project.name);
   await assertAccessible(page);
   await dialog.getByRole("button", { name: "돌아가기" }).click();
@@ -222,6 +228,12 @@ test("R10 participant restore and meeting delete require action-specific confirm
   await expect(restoreDialog.getByRole("button", { name: "닫기" })).toBeFocused();
   await expect(restoreDialog).toContainText("합성 서핑 해변 A");
   await expect(restoreDialog).toContainText("참가 확정 상태로 복구합니다");
+  const restoreParticipantName = restoreDialog.locator('[data-dialog-chunk="participant-name"]');
+  const restoreAction = restoreDialog.locator('[data-dialog-chunk="participant-action"]');
+  await expect(restoreParticipantName).toHaveText("합성 회원 34님");
+  await expect(restoreAction).toHaveText("참가 확정 상태로 복구합니다");
+  await assertDialogChunkFitsParagraph(restoreParticipantName);
+  await assertDialogChunkFitsParagraph(restoreAction);
   await capture(page, "restore-confirmation", testInfo.project.name);
   await restoreDialog.getByRole("button", { name: "돌아가기" }).click();
   await expect(restoreTrigger).toBeFocused();

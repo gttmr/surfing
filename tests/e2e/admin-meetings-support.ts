@@ -52,3 +52,21 @@ export async function assertControlClearsDock(page: Page, control: Locator): Pro
   expect(controlBox?.y !== undefined && controlBox.height !== undefined ? controlBox.y + controlBox.height : Number.POSITIVE_INFINITY)
     .toBeLessThanOrEqual(dockBox?.y ?? Number.NEGATIVE_INFINITY);
 }
+
+export async function assertDialogChunkFitsParagraph(chunk: Locator): Promise<void> {
+  const geometry = await chunk.evaluate((element) => {
+    const chunkRects = Array.from(element.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+    const paragraphRect = element.closest("p")?.getBoundingClientRect();
+    const chunkRect = chunkRects[0];
+    return {
+      lineCount: chunkRects.length,
+      insideParagraph: Boolean(chunkRect && paragraphRect
+        && chunkRect.left >= paragraphRect.left - 1
+        && chunkRect.right <= paragraphRect.right + 1
+        && chunkRect.top >= paragraphRect.top - 1
+        && chunkRect.bottom <= paragraphRect.bottom + 1),
+    };
+  });
+  expect(geometry.lineCount).toBe(1);
+  expect(geometry.insideParagraph).toBe(true);
+}

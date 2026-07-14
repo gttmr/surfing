@@ -148,8 +148,8 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting }: Admi
     ? `“${meetingName}” 모임과 참가·주문·정산 등 운영 기록도 함께 삭제되며 복구할 수 없습니다.`
     : participantConfirmation
       ? restoring
-        ? `“${meetingName}” 모임의 ${participantConfirmation.participant.name}님을 참가 확정 상태로 복구합니다.`
-        : `“${meetingName}” 모임의 ${participantConfirmation.participant.name}님 참가를 취소합니다. 이 참가자만 취소 상태로 변경하며 패널티와 다른 참가자 상태는 바뀌지 않습니다.`
+        ? <>“{meetingName}” 모임의 <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-name">{participantConfirmation.participant.name}님</span>을 <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-action">참가 확정 상태로 복구합니다</span>.</>
+        : <>“{meetingName}” 모임의 <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-name">{participantConfirmation.participant.name}님</span> <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-action">참가를 취소합니다</span>. 이 참가자만 취소 상태로 변경하며 패널티와 다른 참가자 상태는 바뀌지 않습니다.</>
       : undefined;
 
   return (

@@ -16,7 +16,7 @@ type DialogProps = {
   open: boolean;
   onClose: () => void;
   title: string;
-  description?: string;
+  description?: ReactNode;
   children: ReactNode;
   variant?: "dialog" | "sheet";
   closeLabel?: string;
