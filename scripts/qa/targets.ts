@@ -44,7 +44,7 @@ export const QA_TARGETS = {
   "qa:db:assert": { name: "qa:db:assert", action: "db-assert", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:up": { name: "qa:db:up", action: "db-up", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:push": { name: "qa:db:push", action: "db-push", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
-  "qa:db:seed": { name: "qa:db:seed", action: "not-implemented", nodeEnvironment: "test", ownerLifecycle: true, implemented: false, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
+  "qa:db:seed": { name: "qa:db:seed", action: "db-seed", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:reset": { name: "qa:db:reset", action: "db-reset", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:down": { name: "qa:db:down", action: "db-down", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "build:qa": { name: "build:qa", action: "build", nodeEnvironment: "production", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },

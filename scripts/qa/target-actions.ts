@@ -70,6 +70,9 @@ async function executeDatabaseAction(action: string, evidenceDirectory: string):
     case "db-push":
       await db.push(owner);
       return true;
+    case "db-seed":
+      await db.seed(owner, evidenceDirectory);
+      return true;
     case "db-reset":
       await db.reset(owner, evidenceDirectory);
       return true;

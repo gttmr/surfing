@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { assertFixedDatabaseEnvironment } from "./assert-local-test-db";
 import { cleanupQaResources } from "./cleanup";
 import { writeJsonEvidence } from "./evidence";
+import { seedMobileUx } from "./seed-mobile-ux";
 
 const COMPOSE = ["compose", "-p", "surfing-ux-qa", "-f", "compose.qa.yml"] as const;
 const GENERATION_PATH = ".tmp/qa/generation";
@@ -94,26 +95,25 @@ async function push(ownerToken: string): Promise<void> {
   prisma(["db", "push", "--force-reset", "--skip-generate"]);
 }
 
-async function reset(ownerToken: string, evidenceDirectory: string): Promise<string> {
-  assertOwner(ownerToken);
-  await push(ownerToken);
-  const generation = randomUUID();
-  const prismaModule = await import("@prisma/client");
-  const client = new prismaModule.PrismaClient();
-  try {
-    await client.setting.upsert({
-      where: { key: "__qa_reset_generation" },
-      create: { key: "__qa_reset_generation", value: generation },
-      update: { value: generation },
-    });
-  } finally {
-    await client.$disconnect();
-  }
+function writeGeneration(generation: string): void {
   mkdirSync(dirname(GENERATION_PATH), { recursive: true });
   const temporaryPath = `${GENERATION_PATH}.${process.pid}`;
   writeFileSync(temporaryPath, `${generation}\n`, { encoding: "utf8", mode: 0o600 });
   renameSync(temporaryPath, GENERATION_PATH);
   process.env.QA_RESET_GENERATION = generation;
+}
+
+async function seed(ownerToken: string, evidenceDirectory: string): Promise<string> {
+  assertOwner(ownerToken);
+  const generation = randomUUID();
+  const prismaModule = await import("@prisma/client");
+  const client = new prismaModule.PrismaClient();
+  try {
+    await seedMobileUx(client, generation, evidenceDirectory);
+  } finally {
+    await client.$disconnect();
+  }
+  writeGeneration(generation);
   writeJsonEvidence(join(evidenceDirectory, "reset-receipt.json"), {
     generation: "generated-uuid",
     file: "present",
@@ -122,10 +122,16 @@ async function reset(ownerToken: string, evidenceDirectory: string): Promise<str
   return generation;
 }
 
+async function reset(ownerToken: string, evidenceDirectory: string): Promise<string> {
+  assertOwner(ownerToken);
+  await push(ownerToken);
+  return seed(ownerToken, evidenceDirectory);
+}
+
 async function down(ownerToken: string): Promise<void> {
   assertOwner(ownerToken);
   docker(["down", "--volumes", "--remove-orphans", "--timeout", "10"], 60_000);
   await cleanupQaResources();
 }
 
-export const db = { start, stop, assertHealthy, push, reset, down } as const;
+export const db = { start, stop, assertHealthy, push, seed, reset, down } as const;
