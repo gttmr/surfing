@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Icon } from "@/components/ui/Icon";
 import type { ParticipantStatus } from "@/lib/types";
 import { DAY_KO } from "@/lib/format";
+import { ConfirmationAddressCleaner } from "@/components/signup/ConfirmationAddressCleaner";
 
 type ConfirmSearchParams = {
   readonly status?: string;
@@ -70,6 +71,7 @@ export default async function ConfirmPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--brand-page)] text-[var(--brand-text)]">
+      <ConfirmationAddressCleaner />
       <header className="brand-header-surface">
         <div className="mx-auto flex h-16 w-full max-w-[430px] items-center px-4">
           <p className="text-sm font-extrabold">신청 결과</p>

@@ -16,6 +16,8 @@ import {
   useProfilePageState,
 } from "@/components/profile/useProfilePageState";
 import { KakaoIcon } from "@/components/meeting/signup-form-controls";
+import { ProfileLeaveDialog } from "@/components/profile/ProfileLeaveDialog";
+import { useProfileLeaveGuard } from "@/components/profile/useProfileLeaveGuard";
 
 const MEMBER_TYPE_LABELS: Record<string, string> = {
   REGULAR: "정회원",
@@ -61,11 +63,11 @@ export function ProfilePageClient({
       companions,
       addCompanionName,
       addingCompanion,
+      avatarDraft,
       selectedSetupCompanion,
       selectedProfileCompanion,
     },
     actions: {
-      setUser,
       setActiveTab,
       setName,
       setSetupName,
@@ -74,6 +76,7 @@ export function ProfilePageClient({
       setSelectedOwnerKakaoId,
       setSelectedCompanionId,
       setAddCompanionName,
+      setAvatarDraft,
       handleSetupSave,
       handleSave,
       handleAddCompanion,
@@ -83,6 +86,15 @@ export function ProfilePageClient({
       discardDraft,
     },
   } = useProfilePageState({ isSetup, router, initialData });
+
+  const leaveGuard = useProfileLeaveGuard({
+    activeTab,
+    discardDraft,
+    isDirty,
+    logout: handleLogout,
+    push: router.push,
+    setActiveTab,
+  });
 
   if (loading) {
     return (
@@ -125,6 +137,11 @@ export function ProfilePageClient({
 
   return (
     <div className="min-h-screen bg-[var(--brand-page)] pb-12 text-[var(--brand-text)]">
+      <ProfileLeaveDialog
+        onDiscard={leaveGuard.discardAndContinue}
+        onStay={leaveGuard.stay}
+        open={leaveGuard.dialogOpen}
+      />
       <ProfileSetupModal
         show={showSetup}
         saving={saving}
@@ -159,16 +176,22 @@ export function ProfilePageClient({
           profileFallbackSeed={profileFallbackSeed}
           companionsCount={companions.length}
           editable={isEditing}
+          avatarDraft={avatarDraft}
           memberTypeLabels={MEMBER_TYPE_LABELS}
           memberTypeColors={MEMBER_TYPE_COLORS}
-          onUserUpdated={setUser}
-          onLogout={handleLogout}
+          onAvatarDraftChange={setAvatarDraft}
+          onLogout={leaveGuard.requestLogout}
+          onNavigate={leaveGuard.onNavigate}
         />
 
-        <PersonalJourneyLinks canAccessAdminPortal={canAccessAdminPortal} canAccessShopPortal={canAccessShopPortal} />
+        <PersonalJourneyLinks
+          canAccessAdminPortal={canAccessAdminPortal}
+          canAccessShopPortal={canAccessShopPortal}
+          onNavigate={leaveGuard.onNavigate}
+        />
 
         {isRegular ? (
-          <ProfileTabs activeTab={activeTab} onChange={setActiveTab}>
+          <ProfileTabs activeTab={activeTab} onChange={leaveGuard.requestTab}>
           {(!isRegular || activeTab === "profile") ? (
             <BasicProfileSection
               isRegular={isRegular}

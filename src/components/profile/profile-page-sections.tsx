@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { ProfileImageUploader } from "@/components/profile/ProfileImageUploader";
+import type { MouseEventHandler, ReactNode } from "react";
+import {
+  ProfileImageUploader,
+  type ProfileImageDraft,
+} from "@/components/profile/ProfileImageUploader";
 import { Tabs } from "@/components/ui/Tabs";
 import { Icon } from "@/components/ui/Icon";
 import type {
@@ -220,9 +223,11 @@ type HeaderProps = {
   profileFallbackSeed: string;
   companionsCount: number;
   editable: boolean;
+  avatarDraft: ProfileImageDraft | null;
   memberTypeLabels: MemberTypeLabels;
   memberTypeColors: MemberTypeColors;
-  onUserUpdated: (updater: (prev: UserProfile | null) => UserProfile | null) => void;
+  onAvatarDraftChange: (draft: ProfileImageDraft) => void;
+  onNavigate: MouseEventHandler<HTMLAnchorElement>;
   onLogout: () => void;
 };
 
@@ -232,16 +237,18 @@ export function ProfileHeaderSection({
   profileFallbackSeed,
   companionsCount,
   editable,
+  avatarDraft,
   memberTypeLabels,
   memberTypeColors,
-  onUserUpdated,
+  onAvatarDraftChange,
+  onNavigate,
   onLogout,
 }: HeaderProps) {
   return (
     <>
       <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[430px] items-center justify-between px-4">
-          <Link href="/" className="flex h-12 items-center">
+          <Link href="/" className="flex h-12 items-center" onClick={onNavigate}>
             <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
           </Link>
           <div className="flex items-center gap-2">
@@ -259,11 +266,10 @@ export function ProfileHeaderSection({
       <section className="flex flex-col items-center pt-0 sm:pt-2">
         <ProfileImageUploader
           currentImage={user?.profileImage ?? null}
+          draftImage={avatarDraft}
           editable={editable}
           fallbackSeed={profileFallbackSeed}
-          onUpdated={(updatedUser) => {
-            onUserUpdated((prev) => (prev ? { ...prev, ...updatedUser } : prev));
-          }}
+          onDraftChange={onAvatarDraftChange}
         />
         <h1 className="mt-3 text-xl font-extrabold text-[var(--brand-text)] sm:mt-4">{profileDisplayName}</h1>
         <p className="brand-text-subtle mt-1 text-xs">가입일 {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
@@ -295,9 +301,11 @@ export function ProfileHeaderSection({
 export function PersonalJourneyLinks({
   canAccessAdminPortal,
   canAccessShopPortal,
+  onNavigate,
 }: {
   canAccessAdminPortal: boolean;
   canAccessShopPortal: boolean;
+  onNavigate: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const links = [
     { href: "/", icon: "home", label: "모임 홈", detail: "일정과 신청 확인" },
@@ -315,7 +323,7 @@ export function PersonalJourneyLinks({
       <p className="brand-text-subtle px-2 pb-2 text-xs font-bold">바로 가기</p>
       <div className="grid grid-cols-2 gap-2">
         {links.map((link) => (
-          <Link className="brand-panel-white flex min-h-20 items-center gap-3 rounded-2xl p-3" href={link.href} key={link.href}>
+          <Link className="brand-panel-white flex min-h-20 items-center gap-3 rounded-2xl p-3" href={link.href} key={link.href} onClick={onNavigate}>
             <span className="brand-chip-soft flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
               <Icon className="text-[21px]" name={link.icon} />
             </span>
@@ -637,6 +645,7 @@ export function CompanionManagementSection({
       </div>
       <div className="mb-4 flex min-w-0 gap-2">
         <input
+          aria-label="동반인 이름"
           type="text"
           value={addCompanionName}
           onChange={(e) => onNameChange(e.target.value)}

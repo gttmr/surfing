@@ -599,7 +599,7 @@ body {
 
 .brand-inline-danger {
   background-color: var(--brand-danger-surface-inline);
-  color: var(--brand-danger);
+  color: var(--brand-danger-text);
 }
 
 @media (prefers-reduced-motion: reduce) {

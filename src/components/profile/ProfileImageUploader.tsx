@@ -11,27 +11,54 @@ import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import { Dialog } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
 
-type ProfileUserPatch = {
-  customProfileImageUrl: string | null;
-  kakaoProfileImage: string | null;
-  profileImage: string | null;
+export type ProfileImageDraft = CompressedProfileImage;
+
+type CropMetrics = {
+  readonly width: number;
+  readonly height: number;
+  readonly centeredX: number;
+  readonly centeredY: number;
 };
+
+function calculateCropMetrics(image: HTMLImageElement, zoom: number, frameSize: number): CropMetrics {
+  const coverScale = Math.max(
+    frameSize / image.naturalWidth,
+    frameSize / image.naturalHeight,
+  ) * zoom;
+  const width = image.naturalWidth * coverScale;
+  const height = image.naturalHeight * coverScale;
+  return {
+    width,
+    height,
+    centeredX: (frameSize - width) / 2,
+    centeredY: (frameSize - height) / 2,
+  };
+}
+
+function clampCropOffset(metrics: CropMetrics, frameSize: number, offset: { readonly x: number; readonly y: number }) {
+  const nextDrawX = Math.min(0, Math.max(frameSize - metrics.width, metrics.centeredX + offset.x));
+  const nextDrawY = Math.min(0, Math.max(frameSize - metrics.height, metrics.centeredY + offset.y));
+  return {
+    x: nextDrawX - metrics.centeredX,
+    y: nextDrawY - metrics.centeredY,
+  };
+}
 
 export function ProfileImageUploader({
   currentImage,
+  draftImage,
   editable,
   fallbackSeed,
-  onUpdated,
+  onDraftChange,
 }: {
   currentImage: string | null;
+  draftImage: ProfileImageDraft | null;
   editable: boolean;
   fallbackSeed?: string | null;
-  onUpdated: (user: ProfileUserPatch) => void;
+  onDraftChange: (draft: ProfileImageDraft) => void;
 }) {
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
   const [cropImage, setCropImage] = useState<HTMLImageElement | null>(null);
   const [cropOriginalBytes, setCropOriginalBytes] = useState(0);
@@ -52,14 +79,6 @@ export function ProfileImageUploader({
 
   useEffect(() => {
     return () => {
-      if (previewImage?.startsWith("blob:")) {
-        URL.revokeObjectURL(previewImage);
-      }
-    };
-  }, [previewImage]);
-
-  useEffect(() => {
-    return () => {
       if (cropSourceUrl?.startsWith("blob:")) {
         URL.revokeObjectURL(cropSourceUrl);
       }
@@ -70,29 +89,12 @@ export function ProfileImageUploader({
   const cropGuideSize = Math.round(previewFrameSize * (88 / 96));
   const cropMetrics = useMemo(() => {
     if (!cropImage) return null;
-    const coverScale = Math.max(
-      previewFrameSize / cropImage.naturalWidth,
-      previewFrameSize / cropImage.naturalHeight,
-    ) * cropZoom;
-    const width = cropImage.naturalWidth * coverScale;
-    const height = cropImage.naturalHeight * coverScale;
-    const centeredX = (previewFrameSize - width) / 2;
-    const centeredY = (previewFrameSize - height) / 2;
-    return { width, height, centeredX, centeredY };
+    return calculateCropMetrics(cropImage, cropZoom, previewFrameSize);
   }, [cropImage, cropZoom]);
 
   const clampOffset = useCallback((nextX: number, nextY: number) => {
     if (!cropMetrics) return { x: nextX, y: nextY };
-    const minDrawX = previewFrameSize - cropMetrics.width;
-    const maxDrawX = 0;
-    const minDrawY = previewFrameSize - cropMetrics.height;
-    const maxDrawY = 0;
-    const nextDrawX = Math.min(maxDrawX, Math.max(minDrawX, cropMetrics.centeredX + nextX));
-    const nextDrawY = Math.min(maxDrawY, Math.max(minDrawY, cropMetrics.centeredY + nextY));
-    return {
-      x: nextDrawX - cropMetrics.centeredX,
-      y: nextDrawY - cropMetrics.centeredY,
-    };
+    return clampCropOffset(cropMetrics, previewFrameSize, { x: nextX, y: nextY });
   }, [cropMetrics]);
 
   function clampZoom(nextZoom: number) {
@@ -110,15 +112,6 @@ export function ProfileImageUploader({
     pinchRef.current = null;
   }
 
-  useEffect(() => {
-    if (!cropMetrics) return;
-    setCropOffset((prev) => {
-      const next = clampOffset(prev.x, prev.y);
-      if (next.x === prev.x && next.y === prev.y) return prev;
-      return next;
-    });
-  }, [clampOffset, cropMetrics]);
-
   function closeCropper() {
     if (cropSourceUrl?.startsWith("blob:")) {
       URL.revokeObjectURL(cropSourceUrl);
@@ -131,45 +124,6 @@ export function ProfileImageUploader({
     pointersRef.current.clear();
     resetGestureState();
     window.requestAnimationFrame(() => fileTriggerRef.current?.focus());
-  }
-
-  async function uploadCompressed(compressed: CompressedProfileImage) {
-    setIsUploading(true);
-    setError(null);
-
-    const file = new File([compressed.blob], "profile.webp", {
-      type: compressed.blob.type,
-    });
-    const form = new FormData();
-    form.append("file", file);
-
-    try {
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        body: form,
-      });
-
-      let data: { error?: string; user?: ProfileUserPatch } = {};
-      try {
-        data = await response.json();
-      } catch {
-        // 서버가 JSON이 아닌 응답을 반환한 경우
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "업로드에 실패했습니다.");
-      }
-
-      if (data.user) onUpdated(data.user);
-      setPreviewImage((prev) => {
-        if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return null;
-      });
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "업로드에 실패했습니다.");
-    } finally {
-      setIsUploading(false);
-    }
   }
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -228,13 +182,9 @@ export function ProfileImageUploader({
         },
       );
 
-      setPreviewImage((prev) => {
-        if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
-        return nextCompressed.previewUrl;
-      });
+      onDraftChange(nextCompressed);
       closeCropper();
       setIsProcessing(false);
-      await uploadCompressed(nextCompressed);
     } catch (processingError) {
       setError(processingError instanceof Error ? processingError.message : "이미지 처리에 실패했습니다.");
       setIsProcessing(false);
@@ -242,8 +192,11 @@ export function ProfileImageUploader({
   }
 
   function handleZoomChange(nextZoom: number) {
-    setCropZoom(clampZoom(nextZoom));
-    setCropOffset((prev) => clampOffset(prev.x, prev.y));
+    const clampedZoom = clampZoom(nextZoom);
+    setCropZoom(clampedZoom);
+    if (!cropImage) return;
+    const nextMetrics = calculateCropMetrics(cropImage, clampedZoom, previewFrameSize);
+    setCropOffset((prev) => clampCropOffset(nextMetrics, previewFrameSize, prev));
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -351,7 +304,7 @@ export function ProfileImageUploader({
     handleZoomChange(cropZoom + step);
   }
 
-  const activeImage = previewImage ?? currentImage;
+  const activeImage = draftImage?.previewUrl ?? currentImage;
   const fallbackEmoji = pickSurfAvatarEmoji(fallbackSeed);
   return (
     <>
@@ -371,9 +324,9 @@ export function ProfileImageUploader({
             <button
               aria-label="프로필 사진 변경"
               className={`brand-avatar-action absolute bottom-0 right-0 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95 ${
-                isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
+                isProcessing ? "pointer-events-none opacity-70" : ""
               }`}
-              disabled={isProcessing || isUploading}
+              disabled={isProcessing}
               onClick={() => fileInputRef.current?.click()}
               ref={fileTriggerRef}
               type="button"
@@ -384,7 +337,7 @@ export function ProfileImageUploader({
               accept="image/jpeg,image/png,image/webp"
               aria-label="프로필 사진 파일 선택"
               className="sr-only"
-              disabled={isProcessing || isUploading}
+              disabled={isProcessing}
               onChange={handleChange}
               ref={fileInputRef}
               type="file"
@@ -393,6 +346,7 @@ export function ProfileImageUploader({
           ) : null}
         </div>
 
+        {draftImage ? <p className="brand-chip-soft mt-2 rounded-full px-3 py-1.5 text-xs font-semibold">저장하기 전 미리보기</p> : null}
         {error ? <p className="brand-chip-danger mt-2 rounded-full px-3 py-1.5 text-xs font-semibold">{error}</p> : null}
       </div>
 
@@ -463,11 +417,11 @@ export function ProfileImageUploader({
               </button>
               <button
                 className="brand-button-primary flex-1 rounded-2xl px-4 py-3 text-sm font-bold"
-                disabled={isProcessing || isUploading}
+                disabled={isProcessing}
                 onClick={handleCropSave}
                 type="button"
               >
-                {isProcessing || isUploading ? "저장 중..." : "썸네일 적용"}
+                {isProcessing ? "적용 중..." : "썸네일 적용"}
               </button>
             </div>
           </>

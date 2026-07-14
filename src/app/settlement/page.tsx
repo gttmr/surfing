@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session";
 import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
+import { SettlementCompletionControl } from "@/components/settlement/SettlementCompletionControl";
+import { getSettlementChargeLines } from "@/lib/settlement-presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +71,7 @@ export default async function SettlementPage() {
             <Link className="brand-button-secondary mt-5 inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-bold" href="/profile">프로필로 돌아가기</Link>
           </div>
         ) : (
-          settlementMeetings.map(({ meeting, group }) => (
+          settlementMeetings.map(({ meeting, group, isCompleted }) => (
             <section key={meeting.id} className="brand-card-soft rounded-3xl p-5">
               <div className="mb-4 flex items-start justify-between gap-3 border-b border-[var(--brand-divider)] pb-4">
                 <div>
@@ -83,33 +85,33 @@ export default async function SettlementPage() {
                 </div>
               </div>
 
+              <SettlementCompletionControl initialCompleted={isCompleted} meetingId={meeting.id} />
+
               <div className="space-y-3">
-                {group.items.map((item) => (
-                  <div key={item.participantId} className="brand-panel-white rounded-2xl p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-[var(--brand-text)]">
-                          {item.participantName}
-                          {item.memberType === "COMPANION" ? " (동반)" : ""}
-                        </p>
-                        <div className="brand-text-subtle mt-2 space-y-1 text-xs leading-5">
-                          <p>참가 {formatWon(item.baseFee)}</p>
-                          {item.lessonFee > 0 ? <p>강습 {formatWon(item.lessonFee)}</p> : null}
-                          {item.rentalFee > 0 ? <p>대여 {formatWon(item.rentalFee)}</p> : null}
-                          {item.surfUsageMemberFee > 0 ? (
-                            <p>샵 이용 {formatWon(item.surfUsageMemberFee)}</p>
-                          ) : null}
-                          {item.adjustments.map((adjustment) => (
-                            <p key={adjustment.id}>
-                              {adjustment.label} {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
-                            </p>
-                          ))}
+                {group.items.map((item) => {
+                  const chargeLines = getSettlementChargeLines(item);
+                  return (
+                    <div key={item.participantId} className="brand-panel-white rounded-2xl p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-[var(--brand-text)]">
+                            {item.participantName}
+                            {item.memberType === "COMPANION" ? " (동반)" : ""}
+                          </p>
+                          <dl className="brand-text-subtle mt-2 space-y-1 text-xs leading-5">
+                            {chargeLines.map((line) => (
+                              <div className="flex gap-2" key={line.key}>
+                                <dt>{line.label}</dt>
+                                <dd>{formatWon(line.amount)}</dd>
+                              </div>
+                            ))}
+                          </dl>
                         </div>
+                        <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(item.totalFee)}</span>
                       </div>
-                      <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(item.totalFee)}</span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           ))

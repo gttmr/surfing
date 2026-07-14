@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { ProfileImageDraft } from "@/components/profile/ProfileImageUploader";
+import { isProfileDraftDirty } from "@/lib/profile-draft";
 
 export interface UserProfile {
   id: number;
@@ -108,9 +110,18 @@ export function useProfilePageState({
   const [companions, setCompanions] = useState<CompanionItem[]>(initialCompanions);
   const [addCompanionName, setAddCompanionName] = useState("");
   const [addingCompanion, setAddingCompanion] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState<ProfileImageDraft | null>(null);
   const [loadedOwnerKakaoId, setLoadedOwnerKakaoId] = useState<string | null>(
     initialOwnerCompanions.length > 0 ? initialSelectedOwnerKakaoId : null
   );
+
+  useEffect(() => {
+    return () => {
+      if (avatarDraft?.previewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarDraft.previewUrl);
+      }
+    };
+  }, [avatarDraft]);
 
   useEffect(() => {
     if (initialData) return;
@@ -217,9 +228,15 @@ export function useProfilePageState({
   const selectedProfileCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;
   const persistedCompanionId = linkedCompanionInfo?.companion?.id ?? null;
   const persistedOwnerKakaoId = linkedCompanionInfo?.companion?.owner.kakaoId ?? null;
-  const isDirty = name !== (user?.name ?? "")
-    || phoneNumber !== (user?.phoneNumber ?? "")
-    || selectedCompanionId !== persistedCompanionId;
+  const isDirty = isProfileDraftDirty({
+    avatarDraftPending: avatarDraft !== null,
+    draftCompanionId: selectedCompanionId,
+    draftName: name,
+    draftPhoneNumber: phoneNumber,
+    persistedCompanionId,
+    persistedName: user?.name ?? "",
+    persistedPhoneNumber: user?.phoneNumber ?? "",
+  });
 
   function beginEditing() {
     setSaveError(null);
@@ -231,6 +248,7 @@ export function useProfilePageState({
     setPhoneNumber(user?.phoneNumber ?? "");
     setSelectedOwnerKakaoId(persistedOwnerKakaoId);
     setSelectedCompanionId(persistedCompanionId);
+    setAvatarDraft(null);
     setSaveError(null);
     setIsEditing(false);
   }
@@ -302,7 +320,13 @@ export function useProfilePageState({
         return;
       }
 
-      const updated: UserProfile = await res.json();
+      const responseUser: UserProfile = await res.json();
+      const updated: UserProfile = user ? {
+        ...responseUser,
+        customProfileImageUrl: user.customProfileImageUrl,
+        kakaoProfileImage: user.kakaoProfileImage,
+        profileImage: user.profileImage,
+      } : responseUser;
       if ((updated.memberType ?? user?.memberType) === "COMPANION" && selectedCompanionId) {
         const linkRes = await fetch("/api/profile/companion-link", {
           method: "PUT",
@@ -318,7 +342,43 @@ export function useProfilePageState({
         setLinkedCompanionInfo(linked);
       }
 
-      setUser(updated);
+      let savedUser = updated;
+      if (avatarDraft) {
+        const avatarFile = new File([avatarDraft.blob], "profile.webp", {
+          type: avatarDraft.blob.type,
+        });
+        const avatarForm = new FormData();
+        avatarForm.append("file", avatarFile);
+        const avatarResponse = await fetch("/api/profile/avatar", {
+          method: "POST",
+          body: avatarForm,
+        });
+        const avatarPayload: unknown = await avatarResponse.json().catch(() => null);
+        const avatarUser = typeof avatarPayload === "object"
+          && avatarPayload !== null
+          && "user" in avatarPayload
+          && typeof avatarPayload.user === "object"
+          && avatarPayload.user !== null
+          ? avatarPayload.user
+          : null;
+        if (!avatarResponse.ok || !avatarUser) {
+          const avatarMessage = typeof avatarPayload === "object"
+            && avatarPayload !== null
+            && "error" in avatarPayload
+            && typeof avatarPayload.error === "string"
+            ? avatarPayload.error
+            : "프로필 사진을 저장하지 못했습니다.";
+          setUser(updated);
+          setName(updated.name ?? resolvedName);
+          setPhoneNumber(updated.phoneNumber ?? "");
+          setSaveError(`${avatarMessage} 사진 미리보기는 남아 있으니 다시 저장해 주세요.`);
+          return;
+        }
+        savedUser = { ...updated, ...avatarUser };
+        setAvatarDraft(null);
+      }
+
+      setUser(savedUser);
       setName(updated.name ?? resolvedName);
       setPhoneNumber(updated.phoneNumber ?? "");
       setSaved(true);
@@ -407,6 +467,7 @@ export function useProfilePageState({
       companions,
       addCompanionName,
       addingCompanion,
+      avatarDraft,
       selectedSetupCompanion,
       selectedProfileCompanion,
     },
@@ -423,6 +484,7 @@ export function useProfilePageState({
       setSelectedCompanionId,
       setLinkedCompanionInfo,
       setAddCompanionName,
+      setAvatarDraft,
       beginEditing,
       discardDraft,
       handleSetupSave,
