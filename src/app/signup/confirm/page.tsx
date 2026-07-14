@@ -1,90 +1,128 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Icon } from "@/components/ui/Icon";
 import type { ParticipantStatus } from "@/lib/types";
 import { DAY_KO } from "@/lib/format";
+
+type ConfirmSearchParams = {
+  readonly status?: string;
+  readonly waitlist?: string;
+  readonly meetingId?: string;
+  readonly name?: string;
+  readonly companions?: string;
+};
+
+const KNOWN_STATUSES = ["APPROVED", "WAITLISTED", "CANCELLED"] as const satisfies readonly ParticipantStatus[];
+
+function positiveInteger(value: string | undefined): number | null {
+  if (!value || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function participantStatus(value: string | undefined): ParticipantStatus | null {
+  return KNOWN_STATUSES.find((candidate) => candidate === value) ?? null;
+}
 
 export default async function ConfirmPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; waitlist?: string; meetingId?: string; name?: string; companions?: string }>;
+  searchParams: Promise<ConfirmSearchParams>;
 }) {
   const { status, waitlist, meetingId, name, companions } = await searchParams;
-  const companionCount = companions ? parseInt(companions) : 0;
+  const normalizedStatus = participantStatus(status);
+  const waitlistPosition = positiveInteger(waitlist);
+  const meetingIdentifier = positiveInteger(meetingId);
+  const companionCount = positiveInteger(companions) ?? 0;
+  const queryMissing = !status && !meetingId && !name;
 
   let meetingDisplay = "";
-  if (meetingId) {
-    const meeting = await prisma.meeting.findUnique({ where: { id: parseInt(meetingId) } });
+  if (meetingIdentifier !== null) {
+    const meeting = await prisma.meeting.findUnique({ where: { id: meetingIdentifier } });
     if (meeting) {
-      const date = new Date(meeting.date + "T00:00:00");
+      const date = new Date(`${meeting.date}T00:00:00`);
       const dayName = DAY_KO[date.getDay()];
       const [, month, day] = meeting.date.split("-");
-      meetingDisplay = `${parseInt(month)}월 ${parseInt(day)}일 (${dayName}) ${meeting.startTime}`;
+      meetingDisplay = `${Number(month)}월 ${Number(day)}일 (${dayName}) ${meeting.startTime}`;
     }
   }
 
-  const participantStatus = (status as ParticipantStatus) || "APPROVED";
-  const waitlistPos = waitlist ? parseInt(waitlist) : null;
-
-  const statusMessages: Record<string, string> = {
-    APPROVED: "모임 참가가 확정되었습니다!",
-    WAITLISTED: `정원 초과로 대기자 ${waitlistPos}번째로 등록되었습니다.`,
-    CANCELLED: "참가가 취소되었습니다.",
-  };
+  const message = queryMissing
+    ? "신청 정보가 비어 있습니다. 홈에서 현재 참가 상태를 확인해 주세요."
+    : normalizedStatus === "APPROVED"
+      ? "모임 참가가 확정되었습니다."
+      : normalizedStatus === "WAITLISTED"
+        ? waitlistPosition
+          ? `대기 ${waitlistPosition}번째로 등록되었습니다.`
+          : "대기자로 등록되었습니다."
+        : normalizedStatus === "CANCELLED"
+          ? "참가 취소가 반영되었습니다."
+          : "처리된 신청의 최신 상태는 홈에서 확인할 수 있습니다.";
+  const title = queryMissing
+    ? "신청 결과를 확인해 주세요"
+    : normalizedStatus === "CANCELLED"
+      ? "취소가 반영되었습니다"
+      : normalizedStatus
+        ? "신청이 처리되었습니다"
+        : "처리 상태를 확인 중입니다";
+  const icon = normalizedStatus === "CANCELLED" || queryMissing ? "info" : normalizedStatus ? "check" : "schedule";
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--brand-page)]">
+    <div className="flex min-h-screen flex-col bg-[var(--brand-page)] text-[var(--brand-text)]">
       <header className="brand-header-surface">
-        <div className="max-w-xl mx-auto px-4 py-5">
-          <h1 className="font-bold text-base text-[var(--brand-text)]">신청 완료</h1>
+        <div className="mx-auto flex h-16 w-full max-w-[430px] items-center px-4">
+          <p className="text-sm font-extrabold">신청 결과</p>
         </div>
       </header>
 
-      <main className="flex-1 max-w-xl mx-auto px-4 py-12 w-full">
-        <div className="brand-card-soft rounded-2xl p-8 text-center">
-          <div className="brand-alert-success w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
+      <main className="mx-auto flex w-full max-w-[430px] flex-1 items-center px-4 py-10">
+        <section aria-labelledby="confirm-heading" className="brand-card-soft w-full rounded-3xl p-6 text-center">
+          <span className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${normalizedStatus === "APPROVED" ? "brand-alert-success" : "brand-chip-soft"}`}>
+            <Icon className="text-[32px]" name={icon} />
+          </span>
 
-          <h2 className="text-xl font-extrabold text-[var(--brand-text)] mb-2">신청이 완료되었습니다!</h2>
-          <p className="text-sm brand-text-muted mb-6">{statusMessages[participantStatus] ?? "신청이 처리되었습니다."}</p>
+          <h1 className="mt-5 text-xl font-extrabold" id="confirm-heading">{title}</h1>
+          <p className="brand-text-muted mt-2 text-sm leading-6">{message}</p>
 
-          <div className="brand-inset-panel rounded-xl p-4 text-left space-y-3 mb-6">
-            {name && (
-              <div className="flex justify-between text-sm">
-                <span className="brand-text-subtle">이름</span>
-                <span className="font-semibold text-[var(--brand-text)]">{decodeURIComponent(name)}</span>
+          <dl className="brand-inset-panel mt-6 space-y-3 rounded-2xl p-4 text-left">
+            {name ? (
+              <div className="flex justify-between gap-4 text-sm">
+                <dt className="brand-text-subtle">이름</dt>
+                <dd className="text-right font-semibold">{name}</dd>
               </div>
-            )}
-            {meetingDisplay && (
-              <div className="flex justify-between text-sm">
-                <span className="brand-text-subtle">모임</span>
-                <span className="font-semibold text-[var(--brand-text)]">{meetingDisplay}</span>
+            ) : null}
+            {meetingDisplay ? (
+              <div className="flex justify-between gap-4 text-sm">
+                <dt className="brand-text-subtle">모임</dt>
+                <dd className="max-w-[70%] text-right font-semibold">{meetingDisplay}</dd>
               </div>
-            )}
-            {companionCount > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="brand-text-subtle">동반인</span>
-                <span className="font-semibold" style={{ color: "var(--brand-companion)" }}>{companionCount}명 함께 신청</span>
+            ) : null}
+            {companionCount > 0 ? (
+              <div className="flex justify-between gap-4 text-sm">
+                <dt className="brand-text-subtle">동반인</dt>
+                <dd className="text-right font-semibold text-[var(--brand-companion)]">{companionCount}명 함께 신청</dd>
               </div>
-            )}
-            <div className="flex justify-between text-sm">
-              <span className="brand-text-subtle">상태</span>
-              <StatusBadge status={participantStatus} waitlistPosition={waitlistPos} size="sm" />
+            ) : null}
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <dt className="brand-text-subtle">상태</dt>
+              <dd>
+                {normalizedStatus ? (
+                  <StatusBadge size="sm" status={normalizedStatus} waitlistPosition={waitlistPosition} />
+                ) : (
+                  <span className="brand-chip-soft rounded-full px-2.5 py-1 text-xs font-bold">확인 필요</span>
+                )}
+              </dd>
             </div>
-          </div>
+          </dl>
 
-          <p className="text-xs brand-text-subtle mb-4">홈 화면에서 참가 상태를 확인하거나 취소할 수 있습니다.</p>
-
-          <Link
-            href="/"
-            className="brand-button-primary inline-block w-full py-3 rounded-xl font-bold text-sm transition-colors"
-          >
-            &larr; 홈으로 돌아가기
+          <Link className="brand-button-primary mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl px-5 text-sm font-bold" href="/">
+            홈에서 참가 상태 확인하기
           </Link>
-        </div>
+          <Link className="brand-link mt-3 inline-flex min-h-11 items-center justify-center px-4 text-sm font-bold" href="/profile">
+            내 프로필로 이동
+          </Link>
+        </section>
       </main>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   BasicProfileSection,
   CompanionManagementSection,
   MobileProfileSaveDock,
+  PersonalJourneyLinks,
   ProfileHeaderSection,
   ProfileSetupModal,
   ProfileTabs,
@@ -39,6 +40,10 @@ export function ProfilePageClient({
       loading,
       saving,
       saved,
+      isEditing,
+      isDirty,
+      saveError,
+      companionError,
       notLoggedIn,
       showSetup,
       activeTab,
@@ -74,6 +79,8 @@ export function ProfilePageClient({
       handleAddCompanion,
       handleRemoveCompanion,
       handleLogout,
+      beginEditing,
+      discardDraft,
     },
   } = useProfilePageState({ isSetup, router, initialData });
 
@@ -145,19 +152,20 @@ export function ProfilePageClient({
         onSave={handleSetupSave}
       />
 
-      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
+      <main className="mx-auto flex w-full max-w-[430px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
         <ProfileHeaderSection
           user={user}
-          canAccessAdminPortal={canAccessAdminPortal}
-          canAccessShopPortal={canAccessShopPortal}
           profileDisplayName={profileDisplayName}
           profileFallbackSeed={profileFallbackSeed}
           companionsCount={companions.length}
+          editable={isEditing}
           memberTypeLabels={MEMBER_TYPE_LABELS}
           memberTypeColors={MEMBER_TYPE_COLORS}
           onUserUpdated={setUser}
           onLogout={handleLogout}
         />
+
+        <PersonalJourneyLinks canAccessAdminPortal={canAccessAdminPortal} canAccessShopPortal={canAccessShopPortal} />
 
         {isRegular ? (
           <ProfileTabs activeTab={activeTab} onChange={setActiveTab}>
@@ -165,8 +173,11 @@ export function ProfilePageClient({
             <BasicProfileSection
               isRegular={isRegular}
               isCompanionWithoutOwner={isCompanionWithoutOwner}
+              isEditing={isEditing}
+              isDirty={isDirty}
               saving={saving}
               saved={saved}
+              saveError={saveError}
               profileSaveValid={profileSaveValid}
               name={name}
               phoneNumber={phoneNumber}
@@ -184,6 +195,8 @@ export function ProfilePageClient({
               onPhoneNumberChange={setPhoneNumber}
               onSelectOwner={setSelectedOwnerKakaoId}
               onSelectCompanion={setSelectedCompanionId}
+              onBeginEditing={beginEditing}
+              onDiscardDraft={discardDraft}
             />
           ) : null}
 
@@ -192,6 +205,7 @@ export function ProfilePageClient({
               companions={companions}
               addCompanionName={addCompanionName}
               addingCompanion={addingCompanion}
+              error={companionError}
               onNameChange={setAddCompanionName}
               onAddCompanion={handleAddCompanion}
               onRemoveCompanion={handleRemoveCompanion}
@@ -202,8 +216,11 @@ export function ProfilePageClient({
           <BasicProfileSection
             isRegular={isRegular}
             isCompanionWithoutOwner={isCompanionWithoutOwner}
+            isEditing={isEditing}
+            isDirty={isDirty}
             saving={saving}
             saved={saved}
+            saveError={saveError}
             profileSaveValid={profileSaveValid}
             name={name}
             phoneNumber={phoneNumber}
@@ -221,16 +238,19 @@ export function ProfilePageClient({
             onPhoneNumberChange={setPhoneNumber}
             onSelectOwner={setSelectedOwnerKakaoId}
             onSelectCompanion={setSelectedCompanionId}
+            onBeginEditing={beginEditing}
+            onDiscardDraft={discardDraft}
           />
         )}
       </main>
 
       <MobileProfileSaveDock
-        visible={!isRegular || activeTab === "profile"}
+        visible={isEditing && (!isRegular || activeTab === "profile")}
         saving={saving}
         saved={saved}
         profileSaveValid={profileSaveValid}
         isCompanionWithoutOwner={isCompanionWithoutOwner}
+        isDirty={isDirty}
       />
     </div>
   );

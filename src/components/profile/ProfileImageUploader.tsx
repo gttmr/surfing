@@ -8,6 +8,8 @@ import {
   type ProfileImageCrop,
 } from "@/lib/profile-image-client";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
+import { Dialog } from "@/components/ui/Dialog";
+import { Icon } from "@/components/ui/Icon";
 
 type ProfileUserPatch = {
   customProfileImageUrl: string | null;
@@ -17,10 +19,12 @@ type ProfileUserPatch = {
 
 export function ProfileImageUploader({
   currentImage,
+  editable,
   fallbackSeed,
   onUpdated,
 }: {
   currentImage: string | null;
+  editable: boolean;
   fallbackSeed?: string | null;
   onUpdated: (user: ProfileUserPatch) => void;
 }) {
@@ -34,6 +38,8 @@ export function ProfileImageUploader({
   const [cropZoom, setCropZoom] = useState(1);
   const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileTriggerRef = useRef<HTMLButtonElement>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{
     startDistance: number;
@@ -124,6 +130,7 @@ export function ProfileImageUploader({
     setCropOffset({ x: 0, y: 0 });
     pointersRef.current.clear();
     resetGestureState();
+    window.requestAnimationFrame(() => fileTriggerRef.current?.focus());
   }
 
   async function uploadCompressed(compressed: CompressedProfileImage) {
@@ -168,6 +175,7 @@ export function ProfileImageUploader({
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    fileTriggerRef.current?.focus();
 
     if (!file.type.startsWith("image/")) {
       setError("이미지 파일만 선택할 수 있습니다.");
@@ -358,53 +366,54 @@ export function ProfileImageUploader({
             )}
           </div>
 
-          <label
-            className={`brand-avatar-action absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95 sm:h-9 sm:w-9 ${
-              isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
-            }`}
-          >
-            <span className="sr-only">프로필 사진 변경</span>
+          {editable ? (
+            <>
+            <button
+              aria-label="프로필 사진 변경"
+              className={`brand-avatar-action absolute bottom-0 right-0 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-95 ${
+                isProcessing || isUploading ? "pointer-events-none opacity-70" : ""
+              }`}
+              disabled={isProcessing || isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              ref={fileTriggerRef}
+              type="button"
+            >
+              <Icon className="text-[20px]" name="photo_camera" />
+            </button>
             <input
-              accept="image/*"
-              className="hidden"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="프로필 사진 파일 선택"
+              className="sr-only"
               disabled={isProcessing || isUploading}
               onChange={handleChange}
+              ref={fileInputRef}
               type="file"
             />
-            <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path d="M4 7h3l1.5-2h7L17.5 7H20a2 2 0 0 1 2 2v8.5A2.5 2.5 0 0 1 19.5 20h-15A2.5 2.5 0 0 1 2 17.5V9a2 2 0 0 1 2-2Z" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} />
-              <circle cx="12" cy="12.5" r="3.5" strokeWidth={1.8} />
-            </svg>
-          </label>
+            </>
+          ) : null}
         </div>
 
         {error ? <p className="brand-chip-danger mt-2 rounded-full px-3 py-1.5 text-xs font-semibold">{error}</p> : null}
       </div>
 
-      {cropImage && cropSourceUrl ? (
-        <div className="fixed inset-0 z-[70] bg-[var(--brand-overlay-strong)] px-4 py-6">
-          <div className="brand-card-soft mx-auto mt-12 w-full max-w-[390px] rounded-3xl p-5 shadow-[0_20px_48px_var(--brand-shadow)]">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-base font-extrabold text-[var(--brand-text)]">프로필 사진 다듬기</p>
-              </div>
-              <button
-                className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
-                onClick={closeCropper}
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
+      <Dialog
+        description="사진을 움직이고 확대해 원 안에 보일 영역을 맞춰 주세요."
+        onClose={closeCropper}
+        open={Boolean(cropImage && cropSourceUrl)}
+        title="프로필 사진 다듬기"
+      >
+        {cropImage && cropSourceUrl ? (
+          <>
             <div className="mb-4 flex flex-col items-center gap-4">
               <div
+                aria-label="프로필 사진 자르기 영역"
                 className="brand-panel-white relative h-[260px] w-[260px] touch-none overflow-hidden rounded-[2rem]"
                 onPointerCancel={handlePointerEnd}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerEnd}
                 onWheel={handleWheel}
+                role="group"
               >
                 {cropMetrics ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -429,6 +438,19 @@ export function ProfileImageUploader({
                   }}
                 />
               </div>
+              <label className="w-full text-sm font-semibold text-[var(--brand-text)]">
+                확대
+                <input
+                  aria-label="프로필 사진 확대"
+                  className="mt-2 w-full accent-[var(--brand-primary)]"
+                  max="3"
+                  min="1"
+                  onChange={(event) => handleZoomChange(Number(event.target.value))}
+                  step="0.1"
+                  type="range"
+                  value={cropZoom}
+                />
+              </label>
             </div>
 
             <div className="flex gap-3">
@@ -448,9 +470,9 @@ export function ProfileImageUploader({
                 {isProcessing || isUploading ? "저장 중..." : "썸네일 적용"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </Dialog>
     </>
   );
 }

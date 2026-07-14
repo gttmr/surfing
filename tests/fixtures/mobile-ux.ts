@@ -185,6 +185,7 @@ function fixtureParticipants(users: readonly FixtureUser[]): readonly FixturePar
     ...direct,
     { id: 8836, meetingId: 8102, name: "연동된 합성 동반인", kakaoId: "qa-user-03", companionId: 8701, status: "APPROVED", hasLesson: true, hasBus: false, hasRental: true },
     { id: 8837, meetingId: 8102, name: "미연동 합성 동반인", kakaoId: "qa-user-03", companionId: 8702, status: "APPROVED", hasLesson: false, hasBus: true, hasRental: false },
+    { id: 8838, meetingId: 8103, name: users[0]?.name ?? "합성 회원 01", kakaoId: "qa-user-01", companionId: null, status: "APPROVED", hasLesson: false, hasBus: false, hasRental: false },
   ];
 }
 

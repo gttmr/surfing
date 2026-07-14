@@ -87,6 +87,9 @@ export function useProfilePageState({
   const [loading, setLoading] = useState(!initialData);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [companionError, setCompanionError] = useState<string | null>(null);
   const [notLoggedIn, setNotLoggedIn] = useState(Boolean(initialData?.notLoggedIn));
   const [showSetup, setShowSetup] = useState(Boolean(isSetup && initialData && !initialData.notLoggedIn));
   const [activeTab, setActiveTab] = useState<"profile" | "companions">("profile");
@@ -212,6 +215,25 @@ export function useProfilePageState({
 
   const selectedSetupCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;
   const selectedProfileCompanion = ownerCompanions.find((companion) => companion.id === selectedCompanionId) ?? null;
+  const persistedCompanionId = linkedCompanionInfo?.companion?.id ?? null;
+  const persistedOwnerKakaoId = linkedCompanionInfo?.companion?.owner.kakaoId ?? null;
+  const isDirty = name !== (user?.name ?? "")
+    || phoneNumber !== (user?.phoneNumber ?? "")
+    || selectedCompanionId !== persistedCompanionId;
+
+  function beginEditing() {
+    setSaveError(null);
+    setIsEditing(true);
+  }
+
+  function discardDraft() {
+    setName(user?.name ?? "");
+    setPhoneNumber(user?.phoneNumber ?? "");
+    setSelectedOwnerKakaoId(persistedOwnerKakaoId);
+    setSelectedCompanionId(persistedCompanionId);
+    setSaveError(null);
+    setIsEditing(false);
+  }
 
   const handleSetupSave = useCallback(async () => {
     const resolvedSetupName =
@@ -262,62 +284,95 @@ export function useProfilePageState({
     e.preventDefault();
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     const isRegular = (user?.memberType ?? "REGULAR") === "REGULAR";
     const resolvedName = isRegular ? name.trim() : (selectedProfileCompanion?.name.trim() ?? "");
-    const res = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: resolvedName, phoneNumber }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setUser(updated);
-      if (!isRegular && resolvedName) {
-        setName(resolvedName);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: resolvedName, phoneNumber }),
+      });
+      if (!res.ok) {
+        const data: unknown = await res.json().catch(() => null);
+        const message = typeof data === "object" && data !== null && "error" in data && typeof data.error === "string"
+          ? data.error
+          : "프로필을 저장하지 못했습니다.";
+        setSaveError(`${message} 입력한 내용은 그대로 남아 있습니다.`);
+        return;
       }
 
+      const updated: UserProfile = await res.json();
       if ((updated.memberType ?? user?.memberType) === "COMPANION" && selectedCompanionId) {
         const linkRes = await fetch("/api/profile/companion-link", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ companionId: selectedCompanionId }),
         });
-
-        if (linkRes.ok) {
-          const linked = await linkRes.json();
-          setLinkedCompanionInfo(linked);
+        if (!linkRes.ok) {
+          setSaveError("프로필은 저장했지만 동반인 연결을 완료하지 못했습니다. 선택한 내용은 그대로 남아 있습니다.");
+          setUser(updated);
+          return;
         }
+        const linked: LinkedCompanionInfo = await linkRes.json();
+        setLinkedCompanionInfo(linked);
       }
 
+      setUser(updated);
+      setName(updated.name ?? resolvedName);
+      setPhoneNumber(updated.phoneNumber ?? "");
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setIsEditing(false);
+      window.setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      setSaveError(error instanceof Error
+        ? `저장 중 문제가 발생했습니다. 입력한 내용은 그대로 남아 있습니다.`
+        : "프로필을 저장하지 못했습니다. 입력한 내용은 그대로 남아 있습니다.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleAddCompanion() {
     if (!addCompanionName.trim()) return;
     setAddingCompanion(true);
-    const res = await fetch("/api/companions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: addCompanionName.trim() }),
-    });
-    if (res.ok) {
-      const added = await res.json();
+    setCompanionError(null);
+    try {
+      const res = await fetch("/api/companions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: addCompanionName.trim() }),
+      });
+      if (!res.ok) {
+        setCompanionError("동반인을 추가하지 못했습니다. 이름을 확인하고 다시 시도해 주세요.");
+        return;
+      }
+      const added: CompanionItem = await res.json();
       setCompanions((prev) => [...prev, added]);
       setAddCompanionName("");
+    } catch {
+      setCompanionError("동반인을 추가하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setAddingCompanion(false);
     }
-    setAddingCompanion(false);
   }
 
   async function handleRemoveCompanion(id: number) {
-    const res = await fetch("/api/companions", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    if (res.ok) setCompanions((prev) => prev.filter((companion) => companion.id !== id));
+    setCompanionError(null);
+    try {
+      const res = await fetch("/api/companions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        setCompanions((prev) => prev.filter((companion) => companion.id !== id));
+        return;
+      }
+      setCompanionError("동반인을 삭제하지 못했습니다. 연결 상태를 확인해 주세요.");
+    } catch {
+      setCompanionError("동반인을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
   }
 
   async function handleLogout() {
@@ -331,6 +386,10 @@ export function useProfilePageState({
       loading,
       saving,
       saved,
+      isEditing,
+      isDirty,
+      saveError,
+      companionError,
       notLoggedIn,
       showSetup,
       activeTab,
@@ -364,6 +423,8 @@ export function useProfilePageState({
       setSelectedCompanionId,
       setLinkedCompanionInfo,
       setAddCompanionName,
+      beginEditing,
+      discardDraft,
       handleSetupSave,
       handleSave,
       handleAddCompanion,
