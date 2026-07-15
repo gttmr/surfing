@@ -11,6 +11,7 @@ interface AdminLayoutProps {
   readonly children: React.ReactNode;
   readonly dirtyNavigation?: {
     readonly isDirty: boolean;
+    readonly isSaveInFlight: boolean;
     readonly onDiscard: () => void;
   };
 }
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
 export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const isSaveInFlight = dirtyNavigation?.isSaveInFlight ?? false;
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -37,6 +39,7 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
     currentPath: pathname,
     discardDraft: dirtyNavigation?.onDiscard,
     isDirty: dirtyNavigation?.isDirty ?? false,
+    isSaveInFlight,
     logout: handleLogout,
     push: router.push,
   });
@@ -58,7 +61,7 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
           <button className="brand-button-secondary min-h-11 flex-1 rounded-2xl px-4 text-sm font-bold" onClick={leaveGuard.stay} type="button">
             계속 편집
           </button>
-          <button className="brand-button-danger-solid min-h-11 flex-1 rounded-2xl px-4 text-sm font-bold" onClick={leaveGuard.discardAndContinue} type="button">
+          <button className="brand-button-danger-solid min-h-11 flex-1 rounded-2xl px-4 text-sm font-bold" disabled={isSaveInFlight} onClick={leaveGuard.discardAndContinue} type="button">
             버리고 이동
           </button>
         </div>
@@ -68,17 +71,32 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
           <div className="min-w-0">
             <p className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</p>
             <nav aria-label="서비스 화면" className="mt-1 flex items-center gap-3 text-xs font-semibold">
-              <Link href="/" prefetch={false} className="brand-link inline-flex items-center gap-1" onClick={leaveGuard.onNavigate}>
+              <Link
+                aria-disabled={isSaveInFlight || undefined}
+                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
+                href="/"
+                onClick={leaveGuard.onNavigate}
+                prefetch={false}
+                tabIndex={isSaveInFlight ? -1 : undefined}
+              >
                 <Icon className="text-[16px]" name="surfing" /> 회원 화면
               </Link>
-              <Link href="/shop" prefetch={false} className="brand-link inline-flex items-center gap-1" onClick={leaveGuard.onNavigate}>
+              <Link
+                aria-disabled={isSaveInFlight || undefined}
+                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
+                href="/shop"
+                onClick={leaveGuard.onNavigate}
+                prefetch={false}
+                tabIndex={isSaveInFlight ? -1 : undefined}
+              >
                 <Icon className="text-[16px]" name="storefront" /> 샵 화면
               </Link>
             </nav>
           </div>
           <button
+            disabled={isSaveInFlight}
             onClick={leaveGuard.requestLogout}
-            className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors"
+            className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             로그아웃
           </button>
@@ -94,6 +112,7 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
       <MobileDock
         items={NAV_ITEMS.map((item) => ({
           active: isActive(item),
+          disabled: isSaveInFlight,
           href: item.href,
           icon: <Icon className="text-[22px]" name={item.icon} />,
           label: item.label,

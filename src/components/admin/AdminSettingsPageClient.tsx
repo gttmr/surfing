@@ -127,7 +127,7 @@ export function AdminSettingsPageClient({
   }
 
   return (
-    <AdminLayout dirtyNavigation={{ isDirty: dirtySectionCount > 0, onDiscard: discardDraft }}>
+    <AdminLayout dirtyNavigation={{ isDirty: dirtySectionCount > 0, isSaveInFlight: saving, onDiscard: discardDraft }}>
       <div className="space-y-4">
         <header className="space-y-3">
           <div>

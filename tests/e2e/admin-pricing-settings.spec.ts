@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { installBrowserEgressGuard } from "../../scripts/qa/browser-egress";
-import { assertAccessible, authenticateAdmin, capture, evidenceDirectory, registerAdminPricingVisualCases } from "./admin-pricing-settings.helpers";
+import {
+  assertAccessible,
+  authenticateAdmin,
+  capture,
+  evidenceDirectory,
+  registerAdminPricingVisualCases,
+  verifyDelayedSaveLocksEditorAndShell,
+} from "./admin-pricing-settings.helpers";
 
 test.beforeEach(async ({ context }) => {
   if (!evidenceDirectory) throw new Error("EVIDENCE_DIR is required");
@@ -92,35 +99,12 @@ test("dirty administrator navigation offers stay or discard and restores focus w
   await expect(page.getByRole("group", { name: "기본 참가비" }).getByLabel(/정회원/)).toHaveValue(original);
 });
 
-for (const delayedSave of [{ path: "/admin/pricing", edit: "식음료 지원 한도 편집", field: "1인당 지원 한도" }, { path: "/admin/settings", edit: "참가 옵션 안내 편집", field: "참가 옵션 가격 안내 문구" }] as const) {
-  test(`${delayedSave.path} locks every editor mutation during a delayed save`, async ({ page }) => {
-    const putStarted = Promise.withResolvers<void>();
-    const releasePut = Promise.withResolvers<void>();
-    await page.route("**/api/admin/settings", async (route) => {
-      if (route.request().method() !== "PUT") {
-        await route.continue();
-        return;
-      }
-      putStarted.resolve();
-      await releasePut.promise;
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
-    });
-
-    await page.goto(delayedSave.path, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: delayedSave.edit }).click();
-    const field = page.getByLabel(delayedSave.field);
-    const original = await field.inputValue();
-    await field.fill(delayedSave.path.endsWith("pricing") ? String(Number(original) + 1) : `${original}\n지연 저장 잠금 초안`);
-    await page.getByRole("button", { name: "변경사항 저장" }).click();
-    await putStarted.promise;
-
-    await expect(field).toBeDisabled();
-    await expect(page.getByRole("button", { name: "변경 취소" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: "저장 중" })).toBeDisabled();
-    await expect(page.getByRole("button", { name: /편집$|편집 접기$/ }).first()).toBeDisabled();
-
-    releasePut.resolve();
-    await expect(page.getByText("모든 변경사항 저장됨")).toBeVisible();
+for (const delayedSave of [
+  { path: "/admin/pricing", edit: "식음료 지원 한도 편집", field: "1인당 지원 한도", dockDestination: "설정" },
+  { path: "/admin/settings", edit: "참가 옵션 안내 편집", field: "참가 옵션 가격 안내 문구", dockDestination: "비용" },
+] as const) {
+  test(`${delayedSave.path} locks editor and shell leave actions during a delayed save`, async ({ page }) => {
+    await verifyDelayedSaveLocksEditorAndShell(page, delayedSave);
   });
 }
 

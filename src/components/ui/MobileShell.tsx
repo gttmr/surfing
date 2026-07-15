@@ -8,6 +8,7 @@ export type MobileDockItem = {
   readonly label: string;
   readonly icon: ReactNode;
   readonly active: boolean;
+  readonly disabled?: boolean;
   readonly onClick?: MouseEventHandler<HTMLAnchorElement>;
 };
 
@@ -18,10 +19,12 @@ export function MobileDock({ label, items, className = "" }: { label: string; it
         {items.map((item) => (
           <Link
             aria-current={item.active ? "page" : undefined}
-            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition-colors ${item.active ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
+            aria-disabled={item.disabled || undefined}
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold transition-colors ${item.active ? "text-[var(--brand-text)]" : "brand-text-subtle"} ${item.disabled ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
             href={item.href}
             key={item.href}
             onClick={item.onClick}
+            tabIndex={item.disabled ? -1 : undefined}
           >
             {item.icon}
             <span className="max-w-full truncate">{item.label}</span>

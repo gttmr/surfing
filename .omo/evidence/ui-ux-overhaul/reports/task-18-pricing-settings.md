@@ -9,6 +9,15 @@
 - 시작 시 `HEAD`의 `src/components/admin/AdminSettingsPageClient.tsx:76-244`는 세 역할이 다른 설정을 모두 상시 편집 상태로 보여 주고 persisted 요약, 섹션별 dirty 상태, Discard를 제공하지 않았다.
 - `src/app/api/admin/settings/route.ts:19-59`의 기존 PUT API는 `updates` 객체를 그대로 저장한다. Todo 18에서는 이 API와 설정 키·값 데이터 shape를 유지하고 클라이언트 경계에서 필요한 검증과 복구 상태만 추가한다.
 
+## 독립 검토 재개방 및 정적 교정 (2026-07-15)
+
+- 독립 검토가 Todo 18 완료 판정을 다시 열었다. 현재 `HEAD 50f0c78`에는 PUT 진행 중 dirty shell 링크와 로그아웃이 계속 활성 상태여서 discard dialog를 열 수 있고, dialog의 discard handler는 페이지의 `discardDraft`가 저장 중 조용히 반환한 뒤에도 이동이나 로그아웃을 실행할 수 있었다.
+- 두 페이지의 명시적 `isSaveInFlight` 상태를 `AdminLayout`과 `useAdminDirtyNavigationGuard`까지 전달했다. 저장 중 portal link와 다른 dock 목적지는 `aria-disabled=true`와 tab 제외 상태를, 로그아웃은 native disabled 상태를 노출한다. guard의 navigate/logout/discard callback도 synthetic 또는 programmatic 호출을 먼저 거부한다. 저장 완료 후 기존 clean shell 의미가 복원된다.
+- 기존 pricing/settings delayed PUT 시나리오 각각에서 portal, 다른 dock 목적지, logout의 disabled 의미, discard dialog 미노출, URL 유지, logout 무요청과 완료 후 정상 의미 복원을 검증하도록 회귀 assertion을 확장했다.
+- `AdminSettingSectionHeader`는 320px 미만에서 내용과 편집 action을 세로로 배치하고, 390/430에서는 기존 단일 행 구성을 유지한다. 역할 badge는 Korean word group을 유지하고, persisted summary는 좁은 폭에서 clamp를 제거하되 긴 무공백 token은 containment를 위해 줄바꿈할 수 있다.
+- 195px/215px 200%-equivalent 시나리오는 대상 header의 stacked geometry와 containment, 역할 label의 단일 rect 및 computed `word-break`/`overflow-wrap`, persisted 원문과 clamp 미적용·전체 높이 노출, 문서의 zero horizontal overflow, sticky action/dock clearance를 객관적으로 검사한다. 캡처 직전 editor를 접어 교정된 header와 sticky action이 같은 viewport에 실제로 보이는지도 검사한다.
+- 정적 교정 뒤 아래의 등록 synthetic QA lifecycle, current-source production build, focused Playwright 재실행, 12개 fresh screenshot 직접 검토까지 완료했다.
+
 ## 구현 범위
 
 - 비용 화면을 `참가비와 옵션 비용`(회원 정산)과 `식음료 지원 한도`(식음료 정산)로 나눴다. 각 섹션은 서버에 저장된 요약을 항상 표시하고 편집 버튼을 눌렀을 때만 입력과 현재 데이터로 지원되는 금액 미리보기를 연다.
@@ -38,17 +47,31 @@
 - 파일 크기 점검 — production TypeScript는 모두 200 pure LOC 미만. 실행 spec은 247 pure LOC warning band이며 별도 helper로 시각/axe harness를 분리했다. 다음 시나리오 추가 전 추가 분리가 필요하다.
 - 최종 `npm run build -- --webpack` — PASS, TypeScript와 32 static pages 생성 완료.
 
-## 런타임·시각 검증
+### 독립 검토 교정 최종 재검증 (2026-07-15)
 
-- 포트 3100/55432 free 확인 후 등록 QA wrapper로 `qa:db:up` → `qa:db:assert` → `qa:db:reset` → `qa:db:assert`를 통과했다. DB는 `127.0.0.1:55432`에만 열었다.
-- production server는 동일 synthetic `SESSION_SECRET=surfing-qa-session-secret-not-production`로 `127.0.0.1:3100`에만 열었다. standalone 실행에는 현재 build의 `.next/static` 복사가 필요함을 HTML-only/no-hydration 실패로 확인하고 runtime bundle을 조립했다. 보호 route는 비인증 요청에 `307 /admin/login`을 반환했다.
-- `EVIDENCE_DIR=.omo/evidence/ui-ux-overhaul/390 npm run test:e2e:mobile -- tests/e2e/admin-pricing-settings.spec.ts --project=mobile-390 --workers=1` — 최종 PASS, 13/13.
-- 같은 명령의 `mobile-430`/430 evidence — 최종 PASS, 13/13.
-- 두 폭 모두 pricing/policy edit/discard/save/reload, portal/logout/dock dirty stay/discard/focus, synthetic beforeunload, delayed PUT lock, whitespace-only·mixed account validation/payload/reload/restore, 400/403/404/500 draft retention, long Korean, half-width 200% zoom equivalent, sticky action/dock geometry, zero horizontal overflow, serious/critical Axe를 통과했다.
-- 최종 browser egress ledger는 390에서 1,469건, 430에서 940건 모두 `allowed:127.0.0.1:3100`뿐이다. Kakao 또는 외부 서비스는 열거나 따라가지 않았다.
-- fresh PNG 12개를 직접 원본 크기로 확인했다. dirty dialog는 제목/설명/Stay/Discard 위계와 focus target이 명확하고, 390/430 component preview는 저장 항목과 confirmed-usage 설명을 자연스럽게 감싼다. 긴 한국어, 오류/초안 구분, sticky action과 fixed dock, half-width reflow에 clipping·겹침·수평 overflow가 없다.
+- `node --import tsx --test src/lib/admin-pricing-settings.test.ts` — PASS, 4/4.
+- `npx tsc --noEmit --incremental false` — PASS.
+- correction changed-file ESLint — PASS, TypeScript 8개 파일.
+- TypeScript no-excuse checker — PASS, 8개 파일, violation 0. Plugin 절대 경로의 `typescript` resolution 한계는 workspace `.tmp`에 script를 일시 복사해 실행하고 같은 command의 `trap`으로 제거했다.
+- `git diff --check` — PASS.
+- 파일 크기 점검 — 변경 TypeScript 8개 모두 250 pure LOC 이하이며 실행 spec은 234 pure LOC다.
+- `npm run build -- --webpack` — PASS, Next.js 16.2.1 production compile·TypeScript·32 static pages 완료.
+
+## 교정 후 런타임·시각 검증
+
+- 등록 QA wrapper로 `qa:db:up` → `qa:db:assert` → `qa:db:reset` → `qa:db:assert`를 통과했다. PostgreSQL은 `127.0.0.1:55432`에만 열었고 reset이 schema push와 deterministic fixture seed를 함께 수행했다.
+- current build의 `public` 7개 파일과 `.next/static` 97개 파일을 `.next/standalone`에 복사하고 fixed synthetic `SESSION_SECRET=surfing-qa-session-secret-not-production` 및 DB URL로 production server를 `127.0.0.1:3100`에만 열었다. root probe는 HTTP 200이었다.
+- 첫 direct `npx playwright` 시도는 test process에 fixed `SESSION_SECRET`가 없어 synthetic cookie가 development fallback으로 서명되어 `/admin/login`으로 이동한 harness invocation 오류였다. 로그인 snapshot과 환경 차이로 원인을 확정했고 product/test source는 수정하지 않았다. 이후 모든 최종 실행은 fixed 환경을 주는 등록 target을 사용했다.
+- `EVIDENCE_DIR=.omo/evidence/ui-ux-overhaul/390 npm run test:e2e:mobile -- tests/e2e/admin-pricing-settings.spec.ts --project=mobile-390 --workers=1` — PASS, 13/13, 22.3초, fresh PNG 6개.
+- server를 내린 뒤 두 번째 `qa:db:reset`과 `qa:db:assert`로 fixture를 다시 만들고 같은 production build를 재기동했다. `EVIDENCE_DIR=.omo/evidence/ui-ux-overhaul/430 npm run test:e2e:mobile -- tests/e2e/admin-pricing-settings.spec.ts --project=mobile-430 --workers=1` — PASS, 13/13, 22.4초, fresh PNG 6개.
+- 두 폭 모두 editor mutation, portal link, 다른 dock 목적지, logout이 delayed PUT 동안 실제·synthetic click에 반응하지 않고 dialog·navigation·logout request를 만들지 않으며, 저장 완료 뒤 disabled semantics가 복원되는 것을 통과했다.
+- 390/430 capture는 각 6개, 합계 12개다. PNG signature와 390×844/430×932 크기를 확인했고 zoom-equivalent는 각각 195×844/215×932였다. 모든 파일 timestamp와 SHA-256을 fresh run 뒤 확인했다.
+- 12개 capture를 모두 직접 열어 검사하고 두 zoom-equivalent 이미지는 original detail로 다시 검사했다. 195/215 모두 header content와 edit action이 세로로 쌓이고, Korean 역할 chip이 단어 안에서 끊기지 않으며, persisted summary 전체가 clamp·clipping 없이 보이고, full-width edit action·sticky save action·fixed dock가 겹치지 않고 도달 가능하다. 나머지 10개에도 CJK clipping, 수평 overflow, action 가림, dialog hierarchy 이상이 없다. 시각 판정은 GOOD이다.
+- fresh browser ledger는 폭별 484행 모두 `127.0.0.1:3100` 허용 요청뿐이었다. QA process guard는 Prisma의 `checkpoint.prisma.io` 시도 2건씩을 차단했으며 실제 외부 연결은 없었다. Kakao/external login이나 browser egress는 실행하지 않았다.
+- 종료 시 `qa:db:down`을 통과했고 container와 `surfing-ux-qa-data` volume이 제거됐다. `ss`에서 3100/55432 listener가 없음을 확인했다. `.next`, `test-results`, debug journal, QA receipts/ledgers, temp 파일을 제거하고 intended PNG 12개와 실제 `node_modules`만 보존했다.
 
 ## 남은 범위
 
-- 사용자 경계에 따라 subagent/독립 visual oracle, 광범위 Lighthouse·persona·release matrix는 실행하지 않았다. Todo 18의 두 모바일 폭과 요청된 synthetic 상태는 main worker가 fresh evidence로 직접 판정했다.
+- 현재 tool surface에는 완료 agent를 닫을 수 있는 subagent API가 없어 프로젝트 constitution에 따라 resident agent를 만들지 않았다. 따라서 visual-qa의 독립 dual-oracle은 실행하지 못했고, fresh 12개에 대한 main worker 직접 검토와 geometry/accessibility assertions가 최종 시각 근거다.
+- 사용자 경계에 따라 광범위 Lighthouse·persona·security/release matrix는 추가하지 않았다.
 - backend API validation/schema, CAS/409, 새 billing policy, 데스크톱 layout, 중앙 plan/ledger 갱신은 의도적으로 범위 밖이다.

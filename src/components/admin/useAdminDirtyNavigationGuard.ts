@@ -10,6 +10,7 @@ type AdminDirtyNavigationOptions = {
   readonly currentPath: string;
   readonly discardDraft: (() => void) | undefined;
   readonly isDirty: boolean;
+  readonly isSaveInFlight: boolean;
   readonly logout: () => Promise<void>;
   readonly push: (href: string) => void;
 };
@@ -18,6 +19,7 @@ export function useAdminDirtyNavigationGuard({
   currentPath,
   discardDraft,
   isDirty,
+  isSaveInFlight,
   logout,
   push,
 }: AdminDirtyNavigationOptions) {
@@ -37,6 +39,10 @@ export function useAdminDirtyNavigationGuard({
   }, [isDirty]);
 
   const onNavigate = useCallback<MouseEventHandler<HTMLAnchorElement>>((event) => {
+    if (isSaveInFlight) {
+      event.preventDefault();
+      return;
+    }
     const opensSeparateContext = event.button !== 0
       || event.metaKey
       || event.ctrlKey
@@ -49,16 +55,20 @@ export function useAdminDirtyNavigationGuard({
     event.preventDefault();
     triggerRef.current = event.currentTarget;
     setPendingLeave({ kind: "href", href });
-  }, [currentPath, isDirty]);
+  }, [currentPath, isDirty, isSaveInFlight]);
 
   const requestLogout = useCallback<MouseEventHandler<HTMLButtonElement>>((event) => {
+    if (isSaveInFlight) {
+      event.preventDefault();
+      return;
+    }
     if (!isDirty) {
       void logout();
       return;
     }
     triggerRef.current = event.currentTarget;
     setPendingLeave({ kind: "logout" });
-  }, [isDirty, logout]);
+  }, [isDirty, isSaveInFlight, logout]);
 
   const stay = useCallback(() => {
     const trigger = triggerRef.current;
@@ -67,7 +77,7 @@ export function useAdminDirtyNavigationGuard({
   }, []);
 
   const discardAndContinue = useCallback(() => {
-    if (!pendingLeave) return;
+    if (isSaveInFlight || !pendingLeave) return;
     discardDraft?.();
     setPendingLeave(null);
     switch (pendingLeave.kind) {
@@ -78,10 +88,10 @@ export function useAdminDirtyNavigationGuard({
         void logout();
         return;
     }
-  }, [discardDraft, logout, pendingLeave, push]);
+  }, [discardDraft, isSaveInFlight, logout, pendingLeave, push]);
 
   return {
-    dialogOpen: pendingLeave !== null,
+    dialogOpen: !isSaveInFlight && pendingLeave !== null,
     discardAndContinue,
     onNavigate,
     requestLogout,

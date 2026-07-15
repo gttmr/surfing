@@ -22,17 +22,17 @@ export function AdminSettingSectionHeader({
   title,
 }: AdminSettingSectionHeaderProps) {
   return (
-    <div className="brand-admin-section-header space-y-3 px-4 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-2">
+    <div className="brand-admin-section-header space-y-3 px-4 py-4" data-admin-setting-header={title}>
+      <div className="flex flex-col items-stretch gap-3 min-[320px]:flex-row min-[320px]:items-start min-[320px]:justify-between">
+        <div className="min-w-0 space-y-2" data-admin-setting-header-content>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-extrabold text-[var(--brand-text)]">{title}</h2>
-            <span className="brand-chip-soft rounded-full px-2.5 py-1 text-[11px] font-bold">{roleLabel}</span>
+            <span className="brand-chip-soft inline-flex max-w-full break-keep rounded-full px-2.5 py-1 text-center text-[11px] font-bold leading-4 [overflow-wrap:normal]" data-admin-role-label>{roleLabel}</span>
             {dirty ? (
               <span className="brand-chip-preparing rounded-full px-2.5 py-1 text-[11px] font-bold">초안 있음</span>
             ) : null}
           </div>
-          <p className="brand-text-muted line-clamp-2 text-xs leading-5">
+          <p className="brand-text-muted line-clamp-2 text-xs leading-5 max-[319px]:line-clamp-none max-[319px]:[overflow-wrap:anywhere]" data-admin-persisted-summary>
             <span className="font-bold text-[var(--brand-text)]">저장된 값</span> · {summary}
           </p>
         </div>
@@ -40,7 +40,7 @@ export function AdminSettingSectionHeader({
           aria-label={`${title} ${editing ? "편집 접기" : "편집"}`}
           aria-controls={contentId}
           aria-expanded={editing}
-          className="brand-button-secondary inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-3 text-xs font-bold"
+          className="brand-button-secondary inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1 rounded-xl px-3 text-xs font-bold min-[320px]:w-auto"
           disabled={disabled}
           onClick={onToggleEditing}
           type="button"
