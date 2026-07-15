@@ -116,7 +116,7 @@
 html {
   overflow-x: clip;
   scroll-padding-top: var(--brand-safe-top);
-  scroll-padding-bottom: calc(6rem + var(--brand-safe-bottom));
+  scroll-padding-bottom: calc(var(--brand-dock-clearance) + 4rem + var(--brand-safe-bottom));
   text-size-adjust: 100%;
 }
 
@@ -133,9 +133,9 @@ body {
   position: relative;
   isolation: isolate;
   max-width: var(--brand-shell-max);
-  padding-bottom: calc(6rem + var(--brand-safe-bottom));
+  padding-bottom: calc(var(--brand-dock-clearance) + 4rem + var(--brand-safe-bottom));
   scroll-padding-top: var(--brand-safe-top);
-  scroll-padding-bottom: calc(6rem + var(--brand-safe-bottom));
+  scroll-padding-bottom: calc(var(--brand-dock-clearance) + 4rem + var(--brand-safe-bottom));
 }
 
 .brand-mobile-shell [class~="max-w-[390px]"] {
