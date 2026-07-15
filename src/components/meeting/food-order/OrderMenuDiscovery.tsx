@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { OrderVariantRow } from "@/components/meeting/food-order/OrderVariantRow";
 import {
@@ -47,14 +48,29 @@ export function OrderMenuDiscovery({
   readonly onSelectedOnlyChange: (selectedOnly: boolean) => void;
   readonly onQuantityChange: (key: string, quantity: number) => void;
 }) {
-  const visible = filterOrderMenuVariants(variants, query, selectedOnly, draft);
-  const groups = groupVariants(visible);
+  const categories = groupVariants(variants);
+  const [selectedCategoryName, setSelectedCategoryName] = useState(
+    () => categories[0]?.categoryName ?? "",
+  );
+  const selectedCategory = categories.find(
+    (group) => group.categoryName === selectedCategoryName,
+  ) ?? categories[0];
+  const visible = filterOrderMenuVariants(
+    selectedCategory?.variants ?? [],
+    query,
+    selectedOnly,
+    draft,
+  );
+  const groups = selectedCategory && visible.length > 0
+    ? [{ ...selectedCategory, variants: visible }]
+    : [];
   const selectedCount = variants.filter((variant) => (draft[variant.key] ?? 0) > 0).length;
 
-  function jumpTo(group: VariantGroup) {
-    const heading = document.getElementById(`${group.sectionId}-heading`);
-    document.getElementById(group.sectionId)?.scrollIntoView({ block: "start" });
-    requestAnimationFrame(() => heading?.focus({ preventScroll: true }));
+  function chooseCategory(group: VariantGroup) {
+    setSelectedCategoryName(group.categoryName);
+    requestAnimationFrame(() => {
+      document.getElementById(group.sectionId)?.scrollIntoView({ block: "start" });
+    });
   }
 
   return (
@@ -101,20 +117,24 @@ export function OrderMenuDiscovery({
         </button>
       </section>
 
-      {groups.length > 1 ? (
-        <nav aria-label="메뉴 카테고리" className="sticky top-0 z-[5] -mx-4 overflow-x-auto border-y border-[var(--brand-divider)] bg-[var(--brand-surface-glass)] px-4 py-2">
+      {categories.length > 1 ? (
+        <nav aria-label="메뉴 카테고리" className="brand-mobile-scrollbar-hidden sticky top-0 z-[5] -mx-4 overflow-x-auto border-y border-[var(--brand-divider)] bg-[var(--brand-surface-glass)] px-4 py-2">
           <div className="flex w-max gap-2">
-            {groups.map((group) => (
-              <button
-                aria-controls={group.sectionId}
-                className="brand-button-secondary min-h-11 rounded-full px-3 text-xs font-bold"
-                key={group.sectionId}
-                onClick={() => jumpTo(group)}
-                type="button"
-              >
-                {group.categoryName} {group.variants.length}
-              </button>
-            ))}
+            {categories.map((group) => {
+              const selected = group.categoryName === selectedCategory?.categoryName;
+              return (
+                <button
+                  aria-controls={group.sectionId}
+                  aria-pressed={selected}
+                  className={`min-h-11 rounded-full px-3 text-xs font-bold ${selected ? "brand-toggle-active" : "brand-button-secondary"}`}
+                  key={group.sectionId}
+                  onClick={() => chooseCategory(group)}
+                  type="button"
+                >
+                  {group.categoryName} {group.variants.length}
+                </button>
+              );
+            })}
           </div>
         </nav>
       ) : null}

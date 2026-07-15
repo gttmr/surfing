@@ -20,14 +20,23 @@ function meetingDateLabel(dateValue: string): string {
 }
 
 function MeetingRow({ meeting }: { readonly meeting: AdminMeetingListItem }) {
+  const dateLabel = meetingDateLabel(meeting.date);
+
   return (
-    <Link className="brand-list-item brand-list-item-hover block rounded-2xl p-4 transition-colors" href={`/admin/meetings/${meeting.id}`}>
+    <Link
+      aria-label={`${dateLabel} ${meeting.location} 모임 운영`}
+      className="brand-list-item brand-list-item-hover block rounded-2xl p-4 transition-colors"
+      href={`/admin/meetings/${meeting.id}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-[var(--brand-text)]">{meetingDateLabel(meeting.date)}</p>
+          <p className="text-sm font-extrabold text-[var(--brand-text)]">{dateLabel}</p>
           <p className="brand-text-muted mt-1 break-keep text-xs">{meeting.startTime}–{meeting.endTime} · {meeting.location}</p>
         </div>
-        <Icon className="mt-0.5 shrink-0 text-[20px]" name="chevron_right" />
+        <span className="brand-button-primary inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold">
+          모임 운영
+          <Icon className="text-[16px]" name="arrow_forward" />
+        </span>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
         <span className="brand-chip-soft rounded-full px-2 py-1 font-semibold">{meeting.meetingType}</span>

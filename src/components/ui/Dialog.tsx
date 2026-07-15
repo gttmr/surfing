@@ -108,7 +108,7 @@ export function Dialog({
           sheet
             ? footer
               ? "brand-panel-white flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-3xl"
-              : "brand-panel-white max-h-[85dvh] w-full overflow-y-auto rounded-t-3xl pb-[calc(var(--brand-safe-bottom)+1rem)]"
+              : "brand-mobile-scrollbar-hidden brand-panel-white max-h-[85dvh] w-full overflow-y-auto rounded-t-3xl pb-[calc(var(--brand-safe-bottom)+1rem)]"
             : "brand-card-soft mx-auto mt-16 max-h-[calc(100dvh-7rem)] w-full max-w-[390px] overflow-y-auto rounded-3xl p-5 shadow-avatar"
         } ${className}`}
         ref={panelRef}
@@ -132,7 +132,7 @@ export function Dialog({
             </button>
           </div>
         </div>
-        <div className={sheet ? footer ? "min-h-0 flex-1 overflow-y-auto px-4" : "px-4" : ""}>{children}</div>
+        <div className={sheet ? footer ? "brand-mobile-scrollbar-hidden min-h-0 flex-1 overflow-y-auto px-4" : "px-4" : ""}>{children}</div>
         {sheet && footer ? (
           <div className="shrink-0 border-t border-[var(--brand-divider)] bg-[var(--brand-surface-glass)] px-4 pb-[calc(var(--brand-safe-bottom)+0.75rem)] pt-3">
             {footer}

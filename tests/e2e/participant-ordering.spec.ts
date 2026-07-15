@@ -21,7 +21,7 @@ test.afterAll(async () => {
 
 test.setTimeout(90_000);
 
-test("R01-O-01 searches 60 variants, jumps categories, reviews, and adds a submission", async ({ page }, testInfo) => {
+test("R01-O-01 keeps one category selected, filters its variants, reviews, and adds a submission", async ({ page }, testInfo) => {
   const sheet = await openMemberOrders(page);
   await expect(sheet.getByText("1번째 주문", { exact: true })).toBeVisible();
   await expect(sheet.getByText("2번째 주문", { exact: true })).toBeVisible();
@@ -31,14 +31,22 @@ test("R01-O-01 searches 60 variants, jumps categories, reviews, and adds a submi
 
   const categoryNav = sheet.getByRole("navigation", { name: "메뉴 카테고리" });
   await expect(categoryNav).toBeVisible();
-  const categoryButton = categoryNav.getByRole("button").nth(1);
-  const sectionId = await categoryButton.getAttribute("aria-controls");
-  await categoryButton.click();
-  await expect(sheet.locator(`#${sectionId}-heading`)).toBeFocused();
+  const firstCategory = categoryNav.getByRole("button").nth(0);
+  const secondCategory = categoryNav.getByRole("button").nth(1);
+  await expect(firstCategory).toHaveAttribute("aria-pressed", "true");
+  await expect(secondCategory).toHaveAttribute("aria-pressed", "false");
+  await expect(categoryNav).toHaveCSS("scrollbar-width", "none");
+  await expect(sheet.getByRole("button", { name: /수량 늘리기/ })).toHaveCount(10);
+  await secondCategory.click();
+  await expect(firstCategory).toHaveAttribute("aria-pressed", "false");
+  await expect(secondCategory).toHaveAttribute("aria-pressed", "true");
+  await expect(sheet.getByRole("button", { name: /수량 늘리기/ })).toHaveCount(10);
 
   const search = sheet.getByRole("searchbox", { name: "메뉴 검색" });
   await search.fill("푸짐하게");
-  await expect(sheet.getByRole("button", { name: /푸짐하게 수량 늘리기/ })).toHaveCount(12);
+  await expect(sheet.getByRole("button", { name: /푸짐하게 수량 늘리기/ })).toHaveCount(2);
+  await firstCategory.click();
+  await expect(firstCategory).toHaveAttribute("aria-pressed", "true");
   await search.fill("합성 메뉴 13");
   await sheet.getByRole("button", { name: "합성 메뉴 13 수량 늘리기" }).click();
   await expect(sheet.getByText("담은 메뉴 1개")).toBeVisible();

@@ -15,6 +15,9 @@ test("R09 filters upcoming and past meetings and distinguishes empty search resu
   // Given a mixed upcoming and past meeting list
   await page.goto("/admin/meetings", { waitUntil: "networkidle" });
   await expect(page.getByText("합성 서핑 해변 A")).toBeVisible();
+  const meetingOperationsLink = page.getByRole("link", { name: /합성 서핑 해변 A 모임 운영/ });
+  await expect(meetingOperationsLink).toHaveAttribute("href", "/admin/meetings/8101");
+  await expect(meetingOperationsLink.locator("span").filter({ hasText: "모임 운영" }).first()).toBeVisible();
   await capture(page, "list-upcoming", testInfo.project.name);
 
   // When the admin selects the past workspace

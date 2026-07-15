@@ -538,6 +538,17 @@ body {
   background-color: var(--brand-surface-elevated);
 }
 
+@media (max-width: 767px) {
+  .brand-mobile-scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .brand-mobile-scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .brand-list-item {
   border: 1px solid var(--brand-divider);
   background-color: var(--brand-surface-elevated);

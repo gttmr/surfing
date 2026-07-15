@@ -57,9 +57,9 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
   const status = participantStatus(participant.status);
   const companion = participant.companionId !== null;
   return (
-    <article className={`brand-card-soft rounded-2xl p-4 ${companion ? "ml-5 border-l-2 border-l-[var(--brand-primary-border-strong)]" : ""}`}>
+    <article className={`brand-card-soft relative rounded-2xl p-3 ${companion ? "ml-5 border-l-2 border-l-[var(--brand-primary-border-strong)]" : ""}`}>
       <details>
-        <summary className="brand-touch-target flex cursor-pointer list-none items-start justify-between gap-3">
+        <summary className={`brand-touch-target flex cursor-pointer list-none items-start justify-between gap-2 pr-20 ${participant.status === "WAITLISTED" ? "min-h-[92px]" : ""}`}>
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
               <span className="w-full text-balance font-extrabold text-[var(--brand-text)]">{participant.name}</span>
@@ -84,7 +84,7 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
           {participant.cancelledAt ? <p className="brand-text-subtle">취소 {new Date(participant.cancelledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p> : null}
         </div>
       </details>
-      <div className="mt-3 flex justify-end gap-2">
+      <div className="absolute right-3 top-3 flex flex-col items-stretch gap-1.5">
         {participant.status === "WAITLISTED" ? <button aria-label={`${participant.name} 참가 확정`} className="brand-button-confirm rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "approve", participant })} type="button">참가 확정</button> : null}
         {participant.status !== "CANCELLED" ? <button aria-label={`${participant.name} 참가 취소`} className="brand-button-danger rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "cancel", participant })} type="button">참가 취소</button> : null}
         {participant.status === "CANCELLED" ? <button aria-label={`${participant.name} 참가 복구`} className="brand-button-confirm rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "approve", participant })} type="button">참가 복구</button> : null}
