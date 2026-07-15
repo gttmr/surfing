@@ -67,7 +67,9 @@ type ParticipantOrderItem =
 type ParticipantOrderPerson = ParticipantMeetingFoodOrdersData["participants"][number];
 
 function getOrderItemName(item: ParticipantOrderItem) {
-  return item.optionChoiceLabel ? `${item.menuName} · ${item.optionChoiceLabel}` : item.menuName;
+  return item.optionChoiceLabelSnapshot
+    ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
+    : item.menuNameSnapshot;
 }
 
 function getParticipantOrderRows(participant: ParticipantOrderPerson) {
@@ -78,9 +80,9 @@ function getParticipantOrderRows(participant: ParticipantOrderPerson) {
 
   for (const order of participant.orders ?? []) {
     for (const item of order.items) {
-      const key = `${item.cancelledAt ? "cancelled" : "active"}:${item.menuItemId ?? item.menuName}:${item.menuOptionChoiceId ?? item.optionChoiceLabel ?? "none"}`;
+      const key = `${item.cancelledAt ? "cancelled" : "active"}:${item.menuItemId ?? item.menuNameSnapshot}:${item.menuOptionChoiceId ?? item.optionChoiceLabelSnapshot ?? "none"}`;
       const existing = totals.get(key);
-      const itemTotal = item.unitPrice * item.quantity;
+      const itemTotal = item.unitPriceSnapshot * item.quantity;
       if (existing) {
         existing.quantity += item.quantity;
         existing.total += itemTotal;
@@ -152,7 +154,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { meetingId: number }) {
     return orderableParticipants.reduce((total, p) => {
       for (const order of (p.orders ?? [])) {
         for (const item of order.items) {
-          if (!item.cancelledAt) total += item.unitPrice * item.quantity;
+          if (!item.cancelledAt) total += item.unitPriceSnapshot * item.quantity;
         }
       }
       return total;

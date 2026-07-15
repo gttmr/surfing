@@ -38,6 +38,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   }
 
+  const actor = await prisma.user.findUnique({
+    where: { kakaoId: session.kakaoId },
+    select: { role: true },
+  });
+  if (actor?.role === "BANNED") {
+    return NextResponse.json(
+      { error: "이 주문을 변경할 수 없습니다.", code: "ORDER_FORBIDDEN" },
+      { status: 403 },
+    );
+  }
+
   const { id } = await params;
   const meetingId = Number(id);
 

@@ -116,6 +116,31 @@ export async function getFoodMenus() {
   );
 }
 
+export type ParticipantFoodOrderItemData = {
+  id: number;
+  menuItemId: number | null;
+  menuOptionChoiceId: number | null;
+  menuNameSnapshot: string;
+  optionGroupNameSnapshot: string | null;
+  optionChoiceLabelSnapshot: string | null;
+  unitPriceSnapshot: number;
+  quantity: number;
+  preparingQuantity: number;
+  servedQuantity: number;
+  cancelledAt: string | null;
+  cancelledReasonCode: string | null;
+  cancelledReasonText: string | null;
+  cancelledByKakaoId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ParticipantFoodOrderData = {
+  orderId: number;
+  createdAt: string;
+  items: ParticipantFoodOrderItemData[];
+};
+
 export type ParticipantMeetingFoodOrdersData = {
   meeting: {
     id: number;
@@ -128,21 +153,7 @@ export type ParticipantMeetingFoodOrdersData = {
     participantId: number;
     name: string;
     companionId: number | null;
-    orders: Array<{
-      orderId: number;
-      createdAt: string;
-      items: Array<{
-        menuItemId: number | null;
-        menuOptionChoiceId: number | null;
-        menuName: string;
-        optionChoiceLabel: string | null;
-        unitPrice: number;
-        quantity: number;
-        cancelledAt: string | null;
-        cancelledReasonCode: string | null;
-        cancelledReasonText: string | null;
-      }>;
-    }>;
+    orders: ParticipantFoodOrderData[];
     canOrder: boolean;
     orderRole: "self" | "owner_proxy" | "linked_companion_locked";
     roleLabel: string;
@@ -182,21 +193,29 @@ export async function getParticipantMeetingFoodOrdersData(
               },
             },
             foodOrders: {
-              orderBy: { createdAt: "asc" },
+              orderBy: [{ createdAt: "asc" }, { id: "asc" }],
               select: {
                 id: true,
                 createdAt: true,
                 items: {
+                  orderBy: [{ createdAt: "asc" }, { id: "asc" }],
                   select: {
+                    id: true,
                     menuItemId: true,
                     menuOptionChoiceId: true,
                     menuNameSnapshot: true,
+                    optionGroupNameSnapshot: true,
                     optionChoiceLabelSnapshot: true,
                     unitPriceSnapshot: true,
                     quantity: true,
+                    preparingQuantity: true,
+                    servedQuantity: true,
                     cancelledAt: true,
                     cancelledReasonCode: true,
                     cancelledReasonText: true,
+                    cancelledByKakaoId: true,
+                    createdAt: true,
+                    updatedAt: true,
                   },
                 },
               },
@@ -236,15 +255,22 @@ export async function getParticipantMeetingFoodOrdersData(
         orderId: order.id,
         createdAt: order.createdAt.toISOString(),
         items: order.items.map((item) => ({
+          id: item.id,
           menuItemId: item.menuItemId,
           menuOptionChoiceId: item.menuOptionChoiceId,
-          menuName: item.menuNameSnapshot,
-          optionChoiceLabel: item.optionChoiceLabelSnapshot,
-          unitPrice: item.unitPriceSnapshot,
+          menuNameSnapshot: item.menuNameSnapshot,
+          optionGroupNameSnapshot: item.optionGroupNameSnapshot,
+          optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
+          unitPriceSnapshot: item.unitPriceSnapshot,
           quantity: item.quantity,
+          preparingQuantity: item.preparingQuantity,
+          servedQuantity: item.servedQuantity,
           cancelledAt: item.cancelledAt?.toISOString() ?? null,
           cancelledReasonCode: item.cancelledReasonCode,
           cancelledReasonText: item.cancelledReasonText,
+          cancelledByKakaoId: item.cancelledByKakaoId,
+          createdAt: item.createdAt.toISOString(),
+          updatedAt: item.updatedAt.toISOString(),
         })),
       })),
     })),
