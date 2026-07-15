@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { shouldApplyPenalty, DEFAULT_PENALTY_MESSAGE } from "@/lib/penalty";
+import { CANCELLATION_PENALTY_MESSAGE_KEY } from "@/lib/settings";
 import {
   InvalidParticipantOptionsError,
   normalizeParticipantOptions,
@@ -41,7 +42,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // 패널티 메시지 조회
   let penaltyMessage: string | null = null;
   if (hasPenalty) {
-    const msgSetting = await prisma.setting.findUnique({ where: { key: "cancellation_penalty_message" } });
+    const msgSetting = await prisma.setting.findUnique({ where: { key: CANCELLATION_PENALTY_MESSAGE_KEY } });
     penaltyMessage = msgSetting?.value ?? DEFAULT_PENALTY_MESSAGE;
   }
 

@@ -176,6 +176,8 @@ test("QA registry environment lock and egress refusal", async (t) => {
 
     const ignore = readFileSync(`${ROOT}/.gitignore`, "utf8");
     for (const literal of [
+      "/.omo/drafts/",
+      "/.omo/plans/",
       "/.omo/evidence/ui-ux-audit/private/",
       "/.omo/evidence/ui-ux-overhaul/**",
       "!/.omo/evidence/ui-ux-overhaul/reports/",

@@ -10,10 +10,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma db push --accept-data-loss && next start -p ${PORT:-3000}",
+    "start": "next start -p ${PORT:-3000}",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "postinstall": "prisma generate",
+    "recovery:config": "tsx scripts/recovery/restore-configuration.ts",
     "qa:browsers:install": "tsx scripts/qa/run.ts qa:browsers:install",
     "qa:run": "tsx scripts/qa/run.ts qa:run",
     "test:unit": "tsx scripts/qa/run.ts test:unit",

@@ -2,9 +2,13 @@ import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { resolveProfileImage } from "@/lib/profile-image";
 import { getParticipantChargeBreakdown, getSettlementPricingBundle, groupParticipantsForSettlement } from "@/lib/pricing";
+import { DEFAULT_PENALTY_MESSAGE } from "@/lib/penalty";
 import { getConfirmedSurfUsageBillingByParticipant } from "@/lib/surf-usage-data";
 import type { AdminSettlementStatusSummary } from "@/lib/landing-types";
 import {
+  CANCELLATION_PENALTY_DAYS_KEY,
+  CANCELLATION_PENALTY_MESSAGE_KEY,
+  DEFAULT_CANCELLATION_PENALTY_DAYS,
   DEFAULT_FOOD_ORDER_SUPPORT_CAP,
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   DEFAULT_PRICING_SETTINGS,
@@ -30,8 +34,8 @@ export type AdminNoticeItem = {
 };
 
 export type AdminMessageSettings = Record<string, string | undefined> & {
-  cancellation_penalty_message?: string;
-  cancellation_penalty_days?: string;
+  [CANCELLATION_PENALTY_MESSAGE_KEY]?: string;
+  [CANCELLATION_PENALTY_DAYS_KEY]?: string;
   [PARTICIPANT_OPTION_PRICING_GUIDE_KEY]?: string;
   [SETTLEMENT_BANK_NAME_KEY]?: string;
   [SETTLEMENT_ACCOUNT_NUMBER_KEY]?: string;
@@ -187,9 +191,6 @@ export type AdminSettlementData = {
   confirmedRecipientCount: number;
   recipients: AdminSettlementRecipient[];
 };
-
-const DEFAULT_PENALTY_MESSAGE =
-  "일정 2일 이내 취소로 패널티가 부과됩니다. 잦은 직전 취소는 다른 회원들에게 피해를 줄 수 있으니 신중하게 결정해 주세요.";
 
 export async function getAdminSettingsMap(): Promise<AdminMessageSettings> {
   const settings = await prisma.setting.findMany();
@@ -543,8 +544,8 @@ export async function getAdminSettingsFormData(): Promise<AdminSettingsFormData>
   const settings = await getAdminSettingsMap();
 
   return {
-    penaltyMessage: settings.cancellation_penalty_message ?? DEFAULT_PENALTY_MESSAGE,
-    penaltyDays: settings.cancellation_penalty_days ?? "2",
+    penaltyMessage: settings[CANCELLATION_PENALTY_MESSAGE_KEY] ?? DEFAULT_PENALTY_MESSAGE,
+    penaltyDays: settings[CANCELLATION_PENALTY_DAYS_KEY] ?? DEFAULT_CANCELLATION_PENALTY_DAYS,
     participantOptionPricingGuide:
       settings[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
     settlementBankName: settings[SETTLEMENT_BANK_NAME_KEY] ?? DEFAULT_SETTLEMENT_BANK_NAME,

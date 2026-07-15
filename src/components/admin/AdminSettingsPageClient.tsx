@@ -16,6 +16,8 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { validateSettingsDraft, type SettingsInputErrors } from "@/lib/admin-pricing-settings";
 import type { AdminSettingsFormData } from "@/lib/admin-page-data";
 import {
+  CANCELLATION_PENALTY_DAYS_KEY,
+  CANCELLATION_PENALTY_MESSAGE_KEY,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
   SETTLEMENT_ACCOUNT_HOLDER_KEY,
   SETTLEMENT_ACCOUNT_NUMBER_KEY,
@@ -94,8 +96,8 @@ export function AdminSettingsPageClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           updates: {
-            cancellation_penalty_message: nextSnapshot.penaltyMessage,
-            cancellation_penalty_days: nextSnapshot.penaltyDays,
+            [CANCELLATION_PENALTY_MESSAGE_KEY]: nextSnapshot.penaltyMessage,
+            [CANCELLATION_PENALTY_DAYS_KEY]: nextSnapshot.penaltyDays,
             [PARTICIPANT_OPTION_PRICING_GUIDE_KEY]: nextSnapshot.participantOptionPricingGuide,
             [SETTLEMENT_BANK_NAME_KEY]: nextSnapshot.settlementBankName,
             [SETTLEMENT_ACCOUNT_NUMBER_KEY]: nextSnapshot.settlementAccountNumber,

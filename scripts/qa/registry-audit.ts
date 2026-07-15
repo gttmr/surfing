@@ -10,7 +10,7 @@ const QA_SCRIPT_PATTERN = /^(qa:|test:|build:qa$|start:qa$|gate:)/;
 const PRODUCT_SCRIPTS = {
   dev: "next dev",
   build: "prisma generate && next build",
-  start: "prisma db push --accept-data-loss && next start -p ${PORT:-3000}",
+  start: "next start -p ${PORT:-3000}",
   postinstall: "prisma generate",
 } as const;
 

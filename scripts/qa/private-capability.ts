@@ -77,6 +77,13 @@ export function installGuardCapability(): void {
   }
 }
 
+export function verifyTransitiveGuardCapability(): void {
+  const inherited = process.env.SURFING_QA_TRANSITIVE_GUARD ?? "";
+  if (!installedGuardCapability || inherited !== installedGuardCapability) {
+    throw new QaPrivateCapabilityError("transitive QA guard capability is not installed");
+  }
+}
+
 export function verifyInternalCapability(): void {
   const received = readCapability(AUTH_FD);
   if (!installedGuardCapability || received !== installedGuardCapability) {

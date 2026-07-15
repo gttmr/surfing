@@ -163,12 +163,9 @@ export function useSignupFormState({
   const [signedUpCompanionData, setSignedUpCompanionData] = useState<Record<number, SignedUpCompanionData>>(
     initialData?.signedUpCompanionData ?? initialRegularState?.signedUpCompanionData ?? {}
   );
-  const [companionActionLoading, setCompanionActionLoading] = useState<number | null>(null);
   const [selectedCompanionIdsForMeeting, setSelectedCompanionIdsForMeeting] = useState<Set<number>>(
     new Set(Object.keys(initialData?.signedUpCompanionData ?? initialRegularState?.signedUpCompanionData ?? {}).map(Number))
   );
-  const [newProfileCompanionInput, setNewProfileCompanionInput] = useState("");
-  const [addingCompanionToProfile, setAddingCompanionToProfile] = useState(false);
 
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -469,59 +466,6 @@ export function useSignupFormState({
     }
   }
 
-  async function handleAddCompanionToMeeting(companionId: number) {
-    setCompanionActionLoading(companionId);
-    const options = companionOptions[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false };
-    try {
-      const res = await fetch("/api/participants/companions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, companionId, ...options }),
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setSignedUpCompanionData((prev) => ({
-          ...prev,
-          [companionId]: { participantId: created.id, hasLesson: created.hasLesson, hasBus: created.hasBus, hasRental: created.hasRental },
-        }));
-        await syncFromUpdatedMeeting();
-      } else {
-        const data = await res.json();
-        setServerError(data.error ?? "동반인 추가 중 오류가 발생했습니다.");
-      }
-    } catch {
-      setServerError("네트워크 오류가 발생했습니다.");
-    } finally {
-      setCompanionActionLoading(null);
-    }
-  }
-
-  async function handleCancelCompanion(companionId: number) {
-    setCompanionActionLoading(companionId);
-    try {
-      const res = await fetch("/api/participants/companions", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id, companionId }),
-      });
-      if (res.ok) {
-        setSignedUpCompanionData((prev) => {
-          const next = { ...prev };
-          delete next[companionId];
-          return next;
-        });
-        await syncFromUpdatedMeeting();
-      } else {
-        const data = await res.json();
-        setServerError(data.error ?? "동반인 취소 중 오류가 발생했습니다.");
-      }
-    } catch {
-      setServerError("네트워크 오류가 발생했습니다.");
-    } finally {
-      setCompanionActionLoading(null);
-    }
-  }
-
   async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
     const companionData = signedUpCompanionData[companionId];
     if (!companionData) return;
@@ -601,32 +545,6 @@ export function useSignupFormState({
       setServerError("네트워크 오류가 발생했습니다.");
     } finally {
       setSubmittingLinked(false);
-    }
-  }
-
-  async function handleAddCompanionToProfile() {
-    const trimmed = newProfileCompanionInput.trim();
-    if (!trimmed) return;
-    setAddingCompanionToProfile(true);
-    setServerError("");
-    try {
-      const res = await fetch("/api/companions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setServerError(data.error ?? "동반인 추가 중 오류가 발생했습니다.");
-        return;
-      }
-      setCompanions((prev) => [...prev, data as CompanionItem]);
-      setSelectedCompanionIdsForMeeting((prev) => new Set([...prev, (data as CompanionItem).id]));
-      setNewProfileCompanionInput("");
-    } catch {
-      setServerError("네트워크 오류가 발생했습니다.");
-    } finally {
-      setAddingCompanionToProfile(false);
     }
   }
 
@@ -777,10 +695,7 @@ export function useSignupFormState({
       newCompanionInput,
       newCompanions,
       signedUpCompanionData,
-      companionActionLoading,
       selectedCompanionIdsForMeeting,
-      newProfileCompanionInput,
-      addingCompanionToProfile,
       cancelling,
       showCancelConfirm,
       cancelResult,
@@ -807,15 +722,11 @@ export function useSignupFormState({
       setMySignupBusChoice,
       setMySignupShopOption,
       setSelectedCompanionIdsForMeeting,
-      setNewProfileCompanionInput,
       setCompanionOpt,
       handleAddNewCompanion,
       updateNewCompanion,
       closeMySignupDetails,
       handleSubmit,
-      handleAddCompanionToMeeting,
-      handleCancelCompanion,
-      handleAddCompanionToProfile,
       handleUpdateCompanionOption,
       handleUpdateLinkedOption,
       handleApplyLinkedCompanion,

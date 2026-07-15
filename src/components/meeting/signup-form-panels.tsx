@@ -224,7 +224,6 @@ type ExistingSignupPanelProps = {
   signedUpCompanionData: Record<number, SignedUpCompanionData>;
   companionOptions: Record<number, CompanionOption>;
   expandedManagedCompanions: Set<number>;
-  companionActionLoading: number | null;
   selectedCompanionIdsForMeeting: Set<number>;
   savingMySignup: boolean;
   showCancelConfirm: boolean;
@@ -262,7 +261,6 @@ export function ExistingSignupPanel({
   signedUpCompanionData,
   companionOptions,
   expandedManagedCompanions,
-  companionActionLoading,
   selectedCompanionIdsForMeeting,
   savingMySignup,
   showCancelConfirm,

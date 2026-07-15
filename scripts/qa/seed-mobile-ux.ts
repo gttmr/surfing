@@ -2,7 +2,9 @@ import { join } from "node:path";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { getTodayInSeoul } from "../../src/lib/date";
 import { buildMobileUxFixture, type FixtureOrderItem } from "../../tests/fixtures/mobile-ux";
+import { assertFixedDatabaseEnvironment } from "./assert-local-test-db";
 import { writeJsonEvidence } from "./evidence";
+import { verifyTransitiveGuardCapability } from "./private-capability";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CREATED_AT = new Date("2026-01-01T00:00:00.000Z");
@@ -213,6 +215,8 @@ export async function inspectMobileUxSeed(client: PrismaClient): Promise<SeedIns
 }
 
 export async function seedMobileUx(client: PrismaClient, generation: string, evidenceDirectory: string): Promise<SeedInspection> {
+  assertFixedDatabaseEnvironment(process.env);
+  verifyTransitiveGuardCapability();
   if (!UUID_PATTERN.test(generation)) {
     throw new MobileUxSeedError("seed generation must be a UUID");
   }

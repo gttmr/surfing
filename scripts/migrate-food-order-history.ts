@@ -7,9 +7,6 @@
  * 실행 (기존 데이터 보존):
  *   npx tsx scripts/migrate-food-order-history.ts
  *   npx prisma generate
- *
- * 데이터가 없거나 초기화해도 된다면:
- *   npx prisma db push --force-reset && npx prisma generate
  */
 
 import { PrismaClient } from "@prisma/client";

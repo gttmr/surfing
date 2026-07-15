@@ -3,6 +3,8 @@ import { mkdirSync, rmSync } from "node:fs";
 import net from "node:net";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import type { PrismaClient } from "@prisma/client";
+import { seedMobileUx } from "./seed-mobile-ux";
 
 const ROOT = process.cwd();
 const INTERNAL = "scripts/qa/internal-target.ts";
@@ -43,6 +45,33 @@ async function closeServer(server: net.Server): Promise<void> {
 }
 
 test("QA registry environment lock and egress refusal: security regressions", async (t) => {
+  await t.test("destructive fixture seed refuses a non-local database before client access", async () => {
+    const previousDatabaseUrl = process.env.DATABASE_URL;
+    const previousDirectUrl = process.env.DIRECT_URL;
+    let clientTouched = false;
+    const client = new Proxy({}, {
+      get() {
+        clientTouched = true;
+        throw new Error("database client must not be touched");
+      },
+    }) as PrismaClient;
+
+    process.env.DATABASE_URL = "postgresql://example:example@db.example.invalid:5432/production";
+    process.env.DIRECT_URL = process.env.DATABASE_URL;
+    try {
+      await assert.rejects(
+        seedMobileUx(client, "00000000-0000-4000-8000-000000000001", EVIDENCE_DIR),
+        /refused database candidate/i,
+      );
+      assert.equal(clientTouched, false);
+    } finally {
+      if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previousDatabaseUrl;
+      if (previousDirectUrl === undefined) delete process.env.DIRECT_URL;
+      else process.env.DIRECT_URL = previousDirectUrl;
+    }
+  });
+
   await t.test("matching forged environment capabilities cannot invoke an internal target", () => {
     const result = spawnSync("./node_modules/.bin/tsx", [INTERNAL, "qa:run"], {
       cwd: ROOT,

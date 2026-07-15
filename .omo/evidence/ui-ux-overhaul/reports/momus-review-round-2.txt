@@ -1,3 +1,0 @@
-REJECT
-
-Native Momus round 2 found six remaining planning blockers: exhaustive wrapper refusal, atomic participant cases, admin-login criterion wording, strict non-empty/menu-option replacement validation and precedence, external-font dependency in F3, and executable adjustment rollback injection. All were folded into round-3 planning artifacts.
