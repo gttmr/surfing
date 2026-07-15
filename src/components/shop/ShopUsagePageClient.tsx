@@ -31,7 +31,7 @@ function ShopRevenueSummaryPanel({
     [foodData, usageData]
   );
   const usageStatus = [
-    summary.surfUsageReviewCount > 0 ? `검수 ${summary.surfUsageReviewCount}명` : null,
+    summary.surfUsageReviewCount > 0 ? `확인 ${summary.surfUsageReviewCount}명` : null,
     summary.surfUsageMissingCount > 0 ? `미제출 ${summary.surfUsageMissingCount}명` : null,
     `확정 ${summary.surfUsageConfirmedCount}명`,
   ].filter(Boolean).join(" · ");
@@ -102,18 +102,12 @@ export function ShopUsagePageClient({
         <div className="space-y-8">
           <ShopRevenueSummaryPanel foodData={foodData} usageData={usageData} />
 
-          <section className="space-y-3">
-            <div className="px-1">
-              <h1 className="text-lg font-extrabold text-[var(--brand-text)]">이용 체크</h1>
-              <p className="brand-text-subtle mt-1 text-xs">실제 강습, 장비, 샤워 이용 내역과 샵 청구 금액만 관리합니다.</p>
-            </div>
-            <ShopSurfUsageWorkspace
-              initialData={usageData}
-              usageEndpoint={`/api/shop/meetings/${usageData.meeting.id}/usage`}
-              catalogEndpoint={`/api/shop/meetings/${usageData.meeting.id}/usage/items`}
-              onDataChange={setUsageData}
-            />
-          </section>
+          <ShopSurfUsageWorkspace
+            initialData={usageData}
+            usageEndpoint={`/api/shop/meetings/${usageData.meeting.id}/usage`}
+            catalogEndpoint={`/api/shop/meetings/${usageData.meeting.id}/usage/items`}
+            onDataChange={setUsageData}
+          />
         </div>
       ) : (
         <div className="brand-card-soft rounded-3xl px-5 py-12 text-center">
