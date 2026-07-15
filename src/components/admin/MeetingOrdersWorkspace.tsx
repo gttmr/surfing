@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
+import type { FulfillmentOrderRow } from "@/lib/fulfillment-order-types";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 
 type OrderAction = "prepare" | "serve" | "undo_prepare" | "undo_serve" | "cancel";
 type OrderActionOptions = {
-  cancelReasonCode?: string;
-  cancelReasonText?: string;
+  reasonCode?: string;
+  reasonText?: string;
 };
 type ActionHandler = (
-  participantId: number,
-  orderItemIds: number[],
+  row: FulfillmentOrderRow,
   action: OrderAction,
   options?: OrderActionOptions
 ) => Promise<void>;
 type CancelTarget = {
-  participantId: number;
-  orderItemIds: number[];
+  row: FulfillmentOrderRow;
   label: string;
 } | null;
 type CancelRequestHandler = (target: NonNullable<CancelTarget>) => void;
@@ -30,6 +29,25 @@ const CANCEL_REASONS = [
   { code: "customer_request", label: "고객 요청" },
   { code: "other", label: "기타" },
 ];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isOrdersData(value: unknown): value is AdminMeetingFoodOrdersData {
+  return isRecord(value)
+    && isRecord(value.meeting)
+    && isRecord(value.summary)
+    && Array.isArray(value.orderRows)
+    && Array.isArray(value.menuRows)
+    && Array.isArray(value.participantRows);
+}
+
+function responseError(value: unknown): string {
+  return isRecord(value) && typeof value.error === "string"
+    ? value.error
+    : "주문 상태를 바꾸지 못했습니다.";
+}
 
 function ShopSummaryBar({ data }: { data: AdminMeetingFoodOrdersData }) {
   const preparingQuantity = data.menuRows.reduce((sum, menu) => sum + menu.preparingQuantity, 0);
@@ -103,12 +121,12 @@ function ShopMenuSalesTable({ data }: { data: AdminMeetingFoodOrdersData }) {
 
 function ShopMenuBoard({
   data,
-  submittingKey,
+  submittingRows,
   onAction,
   onRequestCancel,
 }: {
   data: AdminMeetingFoodOrdersData;
-  submittingKey: string | null;
+  submittingRows: ReadonlySet<string>;
   onAction: ActionHandler;
   onRequestCancel: CancelRequestHandler;
 }) {
@@ -147,15 +165,13 @@ function ShopMenuBoard({
 
           <div className="brand-panel-white overflow-hidden rounded-[1.7rem]">
             {menu.participantOrders.map((order, index) => {
-              const key = `${order.participantId}:${menu.rowId}`;
-              const submitBase = `${order.participantId}:${order.orderItemIds.join("-")}`;
-              const relativeTime = order.orderedAt ? formatRelativeTimeKo(order.orderedAt) : "";
+              const relativeTime = formatRelativeTimeKo(order.orderCreatedAt);
               const isPreparing = order.preparingQuantity > 0;
               const prepareAction: OrderAction = isPreparing ? "undo_prepare" : "prepare";
 
               return (
                 <div
-                  key={key}
+                  key={order.rowId}
                   className={index > 0 ? "border-t border-[var(--brand-divider)]" : ""}
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
@@ -179,11 +195,8 @@ function ShopMenuBoard({
                       {/* 준비 시작 ↔ 준비 중 토글 */}
                       <button
                         type="button"
-                        onClick={() => void onAction(order.participantId, order.orderItemIds, prepareAction)}
-                        disabled={
-                          submittingKey === `${submitBase}:prepare` ||
-                          submittingKey === `${submitBase}:undo_prepare`
-                        }
+                        onClick={() => void onAction(order, prepareAction)}
+                        disabled={submittingRows.has(order.rowId)}
                         className={`min-w-[76px] rounded-2xl px-3 py-3.5 text-[13px] font-bold transition-colors ${
                           isPreparing ? "brand-chip-preparing" : "brand-button-secondary"
                         }`}
@@ -193,9 +206,9 @@ function ShopMenuBoard({
                       {/* 완료 */}
                       <button
                         type="button"
-                        onClick={() => void onAction(order.participantId, order.orderItemIds, "serve")}
+                        onClick={() => void onAction(order, "serve")}
                         disabled={
-                          submittingKey === `${submitBase}:serve` ||
+                          submittingRows.has(order.rowId) ||
                           order.remainingQuantity <= 0
                         }
                         className="brand-button-primary min-w-[76px] rounded-2xl px-3 py-3.5 text-[13px] font-bold"
@@ -205,12 +218,11 @@ function ShopMenuBoard({
                       <button
                         type="button"
                         onClick={() => onRequestCancel({
-                          participantId: order.participantId,
-                          orderItemIds: order.orderItemIds,
+                          row: order,
                           label: `${order.participantName} · ${menu.menuName}`,
                         })}
                         disabled={
-                          submittingKey === `${submitBase}:cancel` ||
+                          submittingRows.has(order.rowId) ||
                           !order.canCancel
                         }
                         className="brand-button-danger min-w-[76px] rounded-2xl px-3 py-3.5 text-[13px] font-bold"
@@ -235,14 +247,13 @@ function ShopMenuBoard({
 
           <div className="brand-panel-white overflow-hidden rounded-[1.7rem]">
             {completedOrders.map((order, index) => {
-              const key = `${order.participantId}:${order.orderItemIds.join("-")}`;
-              const meta = [order.menuName, order.quantity > 1 ? `${order.quantity}개` : null, order.orderedAt ? formatRelativeTimeKo(order.orderedAt) : null]
+              const meta = [order.menuName, order.quantity > 1 ? `${order.quantity}개` : null, formatRelativeTimeKo(order.orderCreatedAt)]
                 .filter(Boolean)
                 .join(" · ");
 
               return (
                 <div
-                  key={`completed-${key}`}
+                  key={`completed-${order.rowId}`}
                   className={index > 0 ? "border-t border-[var(--brand-divider)]" : ""}
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
@@ -254,8 +265,8 @@ function ShopMenuBoard({
                     </div>
                     <button
                       type="button"
-                      onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_serve")}
-                      disabled={submittingKey === `${key}:undo_serve`}
+                      onClick={() => void onAction(order, "undo_serve")}
+                      disabled={submittingRows.has(order.rowId)}
                       className="brand-button-secondary min-w-[100px] rounded-2xl px-4 py-3.5 text-[13px] font-bold"
                     >
                       완료 취소
@@ -275,7 +286,7 @@ function AdminOrdersWorkspace({
   data,
   expandedMenuIds,
   participantQuery,
-  submittingKey,
+  submittingRows,
   onParticipantQueryChange,
   onToggleMenu,
   onAction,
@@ -284,7 +295,7 @@ function AdminOrdersWorkspace({
   data: AdminMeetingFoodOrdersData;
   expandedMenuIds: Set<string>;
   participantQuery: string;
-  submittingKey: string | null;
+  submittingRows: ReadonlySet<string>;
   onParticipantQueryChange: (value: string) => void;
   onToggleMenu: (rowId: string) => void;
   onAction: ActionHandler;
@@ -367,11 +378,9 @@ function AdminOrdersWorkspace({
                       </div>
                     ) : (
                       menu.participantOrders.map((order) => {
-                        const key = `${order.participantId}:${menu.rowId}`;
-                        const submitBase = `${order.participantId}:${order.orderItemIds.join("-")}`;
                         const companionLabel = order.companionId ? "동반" : "정회원";
                         return (
-                          <div key={key} className="brand-list-item rounded-2xl p-4">
+                          <div key={order.rowId} className="brand-list-item rounded-2xl p-4">
                             <div className="flex items-start justify-between gap-3">
                               <div>
                                 <p className="text-sm font-bold text-[var(--brand-text)]">{order.participantName}</p>
@@ -382,9 +391,9 @@ function AdminOrdersWorkspace({
                               <div className="grid grid-cols-2 gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "prepare")}
+                                  onClick={() => void onAction(order, "prepare")}
                                   disabled={
-                                    submittingKey === `${submitBase}:prepare` ||
+                                    submittingRows.has(order.rowId) ||
                                     order.remainingQuantity <= order.preparingQuantity
                                   }
                                   className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold"
@@ -393,9 +402,9 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "serve")}
+                                  onClick={() => void onAction(order, "serve")}
                                   disabled={
-                                    submittingKey === `${submitBase}:serve` ||
+                                    submittingRows.has(order.rowId) ||
                                     order.preparingQuantity <= 0
                                   }
                                   className="brand-button-primary rounded-xl px-3 py-2 text-xs font-bold"
@@ -404,9 +413,9 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_prepare")}
+                                  onClick={() => void onAction(order, "undo_prepare")}
                                   disabled={
-                                    submittingKey === `${submitBase}:undo_prepare` ||
+                                    submittingRows.has(order.rowId) ||
                                     order.preparingQuantity <= 0
                                   }
                                   className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold"
@@ -415,9 +424,9 @@ function AdminOrdersWorkspace({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void onAction(order.participantId, order.orderItemIds, "undo_serve")}
+                                  onClick={() => void onAction(order, "undo_serve")}
                                   disabled={
-                                    submittingKey === `${submitBase}:undo_serve` ||
+                                    submittingRows.has(order.rowId) ||
                                     order.servedQuantity <= 0
                                   }
                                   className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold"
@@ -427,12 +436,11 @@ function AdminOrdersWorkspace({
                                 <button
                                   type="button"
                                   onClick={() => onRequestCancel({
-                                    participantId: order.participantId,
-                                    orderItemIds: order.orderItemIds,
+                                    row: order,
                                     label: `${order.participantName} · ${menu.menuName}`,
                                   })}
                                   disabled={
-                                    submittingKey === `${submitBase}:cancel` ||
+                                    submittingRows.has(order.rowId) ||
                                     !order.canCancel
                                   }
                                   className="brand-button-danger col-span-2 rounded-xl px-3 py-2 text-xs font-bold"
@@ -556,7 +564,7 @@ function CancelOrderDialog({
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(target, { cancelReasonCode: reasonCode, cancelReasonText: reasonText })}
+            onClick={() => onConfirm(target, { reasonCode, reasonText })}
             disabled={submitting}
             className="brand-button-danger-solid rounded-2xl px-4 py-3 text-sm font-bold disabled:cursor-not-allowed"
           >
@@ -583,7 +591,8 @@ export function MeetingOrdersWorkspace({
   const [data, setData] = useState(initialData);
   const [expandedMenuIds, setExpandedMenuIds] = useState<Set<string>>(new Set());
   const [participantQuery, setParticipantQuery] = useState("");
-  const [submittingKey, setSubmittingKey] = useState<string | null>(null);
+  const inFlightRows = useRef(new Set<string>());
+  const [submittingRows, setSubmittingRows] = useState<Set<string>>(new Set());
   const [cancelTarget, setCancelTarget] = useState<CancelTarget>(null);
   const { toasts, addToast, removeToast } = useToast();
 
@@ -591,27 +600,40 @@ export function MeetingOrdersWorkspace({
     setData(initialData);
     setExpandedMenuIds(new Set());
     setParticipantQuery("");
-    setSubmittingKey(null);
+    inFlightRows.current.clear();
+    setSubmittingRows(new Set());
     setCancelTarget(null);
   }, [initialData]);
 
   async function handleAction(
-    participantId: number,
-    orderItemIds: number[],
+    row: FulfillmentOrderRow,
     action: OrderAction,
     options: OrderActionOptions = {}
   ) {
-    const key = `${participantId}:${orderItemIds.join("-")}:${action}`;
-    setSubmittingKey(key);
+    if (inFlightRows.current.has(row.rowId)) return;
+    inFlightRows.current.add(row.rowId);
+    setSubmittingRows(new Set(inFlightRows.current));
     try {
       const res = await fetch(ordersEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participantId, orderItemIds, action, ...options }),
+        body: JSON.stringify({
+          action,
+          orderItemIds: row.orderItemIds,
+          expectedItems: row.expectedItems,
+          ...options,
+        }),
       });
-      const next = await res.json();
-      if (!res.ok) throw new Error(next.error || "주문 상태를 바꾸지 못했습니다.");
-      const nextData = next as AdminMeetingFoodOrdersData;
+      const next: unknown = await res.json();
+      if (!res.ok) {
+        if (res.status === 409 && isRecord(next) && isOrdersData(next.current)) {
+          setData(next.current);
+          onDataChange?.(next.current);
+        }
+        throw new Error(responseError(next));
+      }
+      if (!isRecord(next) || !isOrdersData(next.data)) throw new Error("주문 응답을 확인하지 못했습니다.");
+      const nextData = next.data;
       setData(nextData);
       onDataChange?.(nextData);
       if (action === "cancel") {
@@ -621,7 +643,8 @@ export function MeetingOrdersWorkspace({
     } catch (error) {
       addToast(error instanceof Error ? error.message : "주문 상태를 바꾸지 못했습니다.", "error");
     } finally {
-      setSubmittingKey(null);
+      inFlightRows.current.delete(row.rowId);
+      setSubmittingRows(new Set(inFlightRows.current));
     }
   }
 
@@ -633,7 +656,7 @@ export function MeetingOrdersWorkspace({
           <ShopMenuSalesTable data={data} />
           <ShopMenuBoard
             data={data}
-            submittingKey={submittingKey}
+            submittingRows={submittingRows}
             onAction={handleAction}
             onRequestCancel={setCancelTarget}
           />
@@ -643,7 +666,7 @@ export function MeetingOrdersWorkspace({
           data={data}
           expandedMenuIds={expandedMenuIds}
           participantQuery={participantQuery}
-          submittingKey={submittingKey}
+          submittingRows={submittingRows}
           onParticipantQueryChange={setParticipantQuery}
           onToggleMenu={(rowId) =>
             setExpandedMenuIds((prev) => {
@@ -658,12 +681,12 @@ export function MeetingOrdersWorkspace({
         />
       )}
       <CancelOrderDialog
-        key={cancelTarget ? cancelTarget.orderItemIds.join("-") : "closed"}
+        key={cancelTarget ? cancelTarget.row.rowId : "closed"}
         target={cancelTarget}
-        submitting={submittingKey?.endsWith(":cancel") ?? false}
+        submitting={cancelTarget ? submittingRows.has(cancelTarget.row.rowId) : false}
         onClose={() => setCancelTarget(null)}
         onConfirm={(target, options) => {
-          void handleAction(target.participantId, target.orderItemIds, "cancel", options);
+          void handleAction(target.row, "cancel", options);
         }}
       />
       {toasts.map((toast) => (
