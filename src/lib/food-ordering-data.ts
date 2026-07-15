@@ -165,7 +165,7 @@ export async function getParticipantMeetingFoodOrdersData(
   meetingId: number,
   kakaoId: string
 ): Promise<ParticipantMeetingFoodOrdersData | null> {
-  const [meeting, supportCap, menus] = await Promise.all([
+  const [meeting, supportCap, menus, actor] = await Promise.all([
     prisma.meeting.findUnique({
       where: { id: meetingId },
       select: {
@@ -226,6 +226,7 @@ export async function getParticipantMeetingFoodOrdersData(
     }),
     getFoodOrderSupportCap(),
     getFoodMenus(),
+    prisma.user.findUnique({ where: { kakaoId }, select: { role: true } }),
   ]);
 
   if (!meeting) {
@@ -240,40 +241,46 @@ export async function getParticipantMeetingFoodOrdersData(
     },
     supportCap,
     menus,
-    participants: meeting.participants.map((participant) => ({
-      participantId: participant.id,
-      name: participant.name,
-      companionId: participant.companionId,
-      ...getFoodOrderParticipantAccess({
+    participants: meeting.participants.map((participant) => {
+      const access = getFoodOrderParticipantAccess({
         sessionKakaoId: kakaoId,
         participantKakaoId: participant.kakaoId,
         companionId: participant.companionId,
         companionOwnerKakaoId: participant.companion?.ownerKakaoId ?? null,
         companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
-      }),
-      orders: participant.foodOrders.map((order) => ({
-        orderId: order.id,
-        createdAt: order.createdAt.toISOString(),
-        items: order.items.map((item) => ({
-          id: item.id,
-          menuItemId: item.menuItemId,
-          menuOptionChoiceId: item.menuOptionChoiceId,
-          menuNameSnapshot: item.menuNameSnapshot,
-          optionGroupNameSnapshot: item.optionGroupNameSnapshot,
-          optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
-          unitPriceSnapshot: item.unitPriceSnapshot,
-          quantity: item.quantity,
-          preparingQuantity: item.preparingQuantity,
-          servedQuantity: item.servedQuantity,
-          cancelledAt: item.cancelledAt?.toISOString() ?? null,
-          cancelledReasonCode: item.cancelledReasonCode,
-          cancelledReasonText: item.cancelledReasonText,
-          cancelledByKakaoId: item.cancelledByKakaoId,
-          createdAt: item.createdAt.toISOString(),
-          updatedAt: item.updatedAt.toISOString(),
+      });
+      const participantAccess = actor?.role === "BANNED"
+        ? { ...access, canOrder: false, roleLabel: "읽기 전용", lockedReason: "이 계정에서는 주문 내역만 확인할 수 있습니다." }
+        : access;
+      return {
+        participantId: participant.id,
+        name: participant.name,
+        companionId: participant.companionId,
+        ...participantAccess,
+        orders: participant.foodOrders.map((order) => ({
+          orderId: order.id,
+          createdAt: order.createdAt.toISOString(),
+          items: order.items.map((item) => ({
+            id: item.id,
+            menuItemId: item.menuItemId,
+            menuOptionChoiceId: item.menuOptionChoiceId,
+            menuNameSnapshot: item.menuNameSnapshot,
+            optionGroupNameSnapshot: item.optionGroupNameSnapshot,
+            optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
+            unitPriceSnapshot: item.unitPriceSnapshot,
+            quantity: item.quantity,
+            preparingQuantity: item.preparingQuantity,
+            servedQuantity: item.servedQuantity,
+            cancelledAt: item.cancelledAt?.toISOString() ?? null,
+            cancelledReasonCode: item.cancelledReasonCode,
+            cancelledReasonText: item.cancelledReasonText,
+            cancelledByKakaoId: item.cancelledByKakaoId,
+            createdAt: item.createdAt.toISOString(),
+            updatedAt: item.updatedAt.toISOString(),
+          })),
         })),
-      })),
-    })),
+      };
+    }),
   };
 }
 

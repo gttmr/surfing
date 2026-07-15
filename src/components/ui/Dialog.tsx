@@ -21,6 +21,7 @@ type DialogProps = {
   variant?: "dialog" | "sheet";
   closeLabel?: string;
   className?: string;
+  footer?: ReactNode;
 };
 
 export function Dialog({
@@ -32,6 +33,7 @@ export function Dialog({
   variant = "dialog",
   closeLabel = "닫기",
   className = "",
+  footer,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -104,14 +106,16 @@ export function Dialog({
         aria-modal="true"
         className={`${
           sheet
-            ? "brand-panel-white max-h-[85dvh] w-full overflow-y-auto rounded-t-3xl pb-[calc(var(--brand-safe-bottom)+1rem)]"
+            ? footer
+              ? "brand-panel-white flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-3xl"
+              : "brand-panel-white max-h-[85dvh] w-full overflow-y-auto rounded-t-3xl pb-[calc(var(--brand-safe-bottom)+1rem)]"
             : "brand-card-soft mx-auto mt-16 max-h-[calc(100dvh-7rem)] w-full max-w-[390px] overflow-y-auto rounded-3xl p-5 shadow-avatar"
         } ${className}`}
         ref={panelRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className={sheet ? "sticky top-0 z-10 bg-[var(--brand-surface-elevated)] px-4 pb-3 pt-4" : "mb-4"}>
+        <div className={sheet ? `${footer ? "shrink-0" : "sticky top-0 z-10"} bg-[var(--brand-surface-elevated)] px-4 pb-3 pt-4` : "mb-4"}>
           {sheet ? <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--brand-divider-strong)]" /> : null}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -128,7 +132,12 @@ export function Dialog({
             </button>
           </div>
         </div>
-        <div className={sheet ? "px-4" : ""}>{children}</div>
+        <div className={sheet ? footer ? "min-h-0 flex-1 overflow-y-auto px-4" : "px-4" : ""}>{children}</div>
+        {sheet && footer ? (
+          <div className="shrink-0 border-t border-[var(--brand-divider)] bg-[var(--brand-surface-glass)] px-4 pb-[calc(var(--brand-safe-bottom)+0.75rem)] pt-3">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

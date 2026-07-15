@@ -76,7 +76,8 @@ test("home tabs and both member overlays preserve keyboard focus", async ({ cont
   const orderSheet = page.getByRole("dialog", { name: "점심 메뉴 주문" });
   await expect(orderSheet).toBeVisible();
   expect(await orderSheet.evaluate((node) => node.contains(document.activeElement))).toBe(true);
-  const incrementButton = orderSheet.getByRole("button", { name: "+", exact: true }).first();
+  await orderSheet.getByRole("button", { name: "새 주문 추가" }).click();
+  const incrementButton = orderSheet.getByRole("button", { name: /수량 늘리기/ }).first();
   await incrementButton.click();
   await expect(incrementButton).toBeFocused();
   await capture(page, "home-order-sheet", testInfo.project.name);
@@ -164,7 +165,7 @@ test("invalid admin meeting keeps role navigation and a useful exit", async ({ c
   await authenticate(context, "password-admin");
   await page.goto("/admin/meetings/999999", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "관리 항목을 찾을 수 없어요" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "관리자 메뉴" }).getByRole("link", { name: /모임관리/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "관리자 메뉴" }).getByRole("link", { name: "모임", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("link", { name: "모임 관리로 이동" })).toHaveAttribute("href", "/admin/meetings");
   await capture(page, "admin-not-found", testInfo.project.name);
   await assertNoSeriousAxeViolations(page);
