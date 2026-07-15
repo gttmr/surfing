@@ -56,17 +56,24 @@ export async function verifyDelayedSaveLocksEditorAndShell(
   const field = page.getByLabel(delayedSave.field);
   const original = await field.inputValue();
   await field.fill(delayedSave.path.endsWith("pricing") ? String(Number(original) + 1) : `${original}\n지연 저장 잠금 초안`);
-  await page.getByRole("button", { name: "변경사항 저장" }).click();
+  const portalLink = page.getByRole("link", { name: "회원 화면", exact: true });
+  const dockLink = page.getByRole("link", { name: delayedSave.dockDestination, exact: true });
+  const logoutButton = page.getByRole("button", { name: "로그아웃" });
+  const leaveDialog = page.getByRole("dialog", { name: "변경 내용을 버릴까요?" });
+  await portalLink.click();
+  await expect(leaveDialog).toBeVisible();
+  await page.locator("form").evaluate((form) => {
+    if (!(form instanceof HTMLFormElement)) throw new Error("settings form is required");
+    form.requestSubmit();
+  });
   await putStarted.promise;
+  await expect(leaveDialog).toHaveCount(0);
 
   await expect(field).toBeDisabled();
   await expect(page.getByRole("button", { name: "변경 취소" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "저장 중" })).toBeDisabled();
   await expect(page.getByRole("button", { name: /편집$|편집 접기$/ }).first()).toBeDisabled();
 
-  const portalLink = page.getByRole("link", { name: "회원 화면", exact: true });
-  const dockLink = page.getByRole("link", { name: delayedSave.dockDestination, exact: true });
-  const logoutButton = page.getByRole("button", { name: "로그아웃" });
   await expect(portalLink).toHaveAttribute("aria-disabled", "true");
   await expect(portalLink).toHaveAttribute("tabindex", "-1");
   await expect(dockLink).toHaveAttribute("aria-disabled", "true");
@@ -76,12 +83,14 @@ export async function verifyDelayedSaveLocksEditorAndShell(
   await portalLink.dispatchEvent("click");
   await dockLink.dispatchEvent("click");
   await logoutButton.dispatchEvent("click");
-  await expect(page.getByRole("dialog", { name: "변경 내용을 버릴까요?" })).toHaveCount(0);
+  await expect(leaveDialog).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp(`${delayedSave.path}$`));
   expect(logoutRequestCount).toBe(0);
 
   releasePut.resolve();
   await expect(page.getByText("모든 변경사항 저장됨")).toBeVisible();
+  await expect(leaveDialog).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`${delayedSave.path}$`));
   await expect(portalLink).not.toHaveAttribute("aria-disabled", "true");
   await expect(portalLink).not.toHaveAttribute("tabindex", "-1");
   await expect(dockLink).not.toHaveAttribute("aria-disabled", "true");

@@ -37,6 +37,13 @@
 - 비용 미리보기는 기본 참가비/강습비/장비 대여비의 저장 component를 정회원·동반인별로 보여 준다. base+lesson+rental 합계를 회원 청구액처럼 표시하지 않고, 확정된 강습·장비 대여 이용 여부에 따라 해당 항목만 반영된다고 명시한다.
 - 확장된 참가 옵션 미리보기에서 `brand-text-muted`가 sky strong 표면과 4.24:1로 Axe serious를 발생시킨 것을 실제 390 브라우저에서 재현했다. 패널의 고대비 의미 전경을 상속하도록 한 클래스 제거 1줄로 수정했다.
 
+### 저장 완료 뒤 stale 이탈 의도 교정 (2026-07-15)
+
+- 독립 검토가 delayed PUT 회귀를 한 단계 더 강화했다. dirty 상태에서 먼저 `변경 내용을 버릴까요?` dialog를 연 뒤 form을 programmatic submit하고, 저장 중 dialog가 닫혀 있으며 저장 완료 뒤에도 다시 열리지 않고 현재 URL을 유지해야 한다.
+- 교정 전 current source는 두 delayed-save 시나리오만 실패해 mobile-390에서 11/13이었다. `pendingLeave`는 저장 중 숨겨질 뿐 제거되지 않아, PUT 완료로 `isSaveInFlight=false`가 되면 clean 화면 위에 이전 dialog가 다시 열리는 것이 직접 재현됐다.
+- guard가 저장 시작 또는 dirty 해소를 관찰하면 다음 animation frame에서 `pendingLeave`와 원래 trigger를 함께 비우도록 했다. dialog의 open 조건에도 `isDirty`를 포함해 clean snapshot에는 stale 이탈 의도가 표시되지 않는다. effect 안 동기 state update를 피하면서 연속 focus/event 전환에도 cleanup 가능한 최소 교정이다.
+- 같은 회귀 시나리오를 포함한 최종 focused Playwright는 mobile-390 13/13, fixture reset 뒤 mobile-430 13/13을 통과했다. 두 폭 모두 저장 중 dialog 0개, shell 잠금, navigation/logout 무반응, 저장 완료 뒤 dialog 0개와 원래 URL 유지까지 관찰했다.
+
 ## 정적 검증
 
 - `npx tsx --test src/lib/admin-pricing-settings.test.ts` — RED: 2 pass/2 fail when normalized account value was absent; GREEN: PASS, 4/4.
@@ -56,6 +63,13 @@
 - `git diff --check` — PASS.
 - 파일 크기 점검 — 변경 TypeScript 8개 모두 250 pure LOC 이하이며 실행 spec은 234 pure LOC다.
 - `npm run build -- --webpack` — PASS, Next.js 16.2.1 production compile·TypeScript·32 static pages 완료.
+
+### stale 이탈 의도 교정 최종 재검증 (2026-07-15)
+
+- mobile-390 RED — 11/13, pricing/settings의 delayed-save 두 시나리오가 저장 완료 뒤 dialog 1개를 관찰해 실패했다.
+- mobile-390 GREEN — PASS, 13/13.
+- fixture reset 뒤 mobile-430 GREEN — PASS, 13/13.
+- `node --import tsx --test src/lib/admin-pricing-settings.test.ts`, `npx tsc --noEmit --incremental false`, correction changed-file ESLint, TypeScript no-excuse, `git diff --check`를 current correction에서 다시 실행했다.
 
 ## 교정 후 런타임·시각 검증
 

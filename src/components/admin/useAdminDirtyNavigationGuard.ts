@@ -38,6 +38,15 @@ export function useAdminDirtyNavigationGuard({
     return () => window.removeEventListener("beforeunload", warnBeforeBrowserExit);
   }, [isDirty]);
 
+  useEffect(() => {
+    if ((!isSaveInFlight && isDirty) || pendingLeave === null) return;
+    const frame = window.requestAnimationFrame(() => {
+      setPendingLeave(null);
+      triggerRef.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isDirty, isSaveInFlight, pendingLeave]);
+
   const onNavigate = useCallback<MouseEventHandler<HTMLAnchorElement>>((event) => {
     if (isSaveInFlight) {
       event.preventDefault();
@@ -91,7 +100,7 @@ export function useAdminDirtyNavigationGuard({
   }, [discardDraft, isSaveInFlight, logout, pendingLeave, push]);
 
   return {
-    dialogOpen: !isSaveInFlight && pendingLeave !== null,
+    dialogOpen: isDirty && !isSaveInFlight && pendingLeave !== null,
     discardAndContinue,
     onNavigate,
     requestLogout,
