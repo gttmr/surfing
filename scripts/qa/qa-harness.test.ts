@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
+import { guardedNodeArguments, QA_GUARD_BOOTSTRAP } from "./child-process-egress";
 
 const ROOT = process.cwd();
 const RUNNER = "scripts/qa/run.ts";
@@ -66,6 +67,12 @@ async function waitForReady(child: ReturnType<typeof spawn>): Promise<void> {
 }
 
 test("QA registry environment lock and egress refusal", async (t) => {
+  await t.test("transitive guard uses one Next-compatible preload", () => {
+    const guarded = guardedNodeArguments(["worker.js"]);
+    assert.deepEqual(guarded, ["--import", QA_GUARD_BOOTSTRAP, "worker.js"]);
+    assert.deepEqual(guardedNodeArguments(guarded), guarded);
+  });
+
   await t.test("registry owns every QA package script", () => {
     assert.equal(existsSync(`${ROOT}/scripts/qa/targets.ts`), true, "target registry behavior is missing");
     const scripts = packageJson().scripts;

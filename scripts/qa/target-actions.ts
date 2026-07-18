@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { guardedNodeArguments } from "./child-process-egress";
 import { db } from "./local-db";
 import { probeEgress, probeEnvironment, holdOwnerLock } from "./probes";
 import { auditQaRegistry } from "./registry-audit";
@@ -35,16 +36,12 @@ function testFiles(directory: string): readonly string[] {
 }
 
 function runTests(files: readonly string[], passthrough: readonly string[]): void {
-  runNode([
-    "--import",
-    "tsx",
-    "--import",
-    resolve("scripts/qa/process-egress-guard.ts"),
+  runNode(guardedNodeArguments([
     "--test",
     "--test-concurrency=1",
     ...passthrough.filter((value) => value !== "--test-concurrency=1"),
     ...files,
-  ]);
+  ]));
 }
 
 function ownerToken(): string {
@@ -104,7 +101,7 @@ export async function executeTarget(target: QaTarget, passthrough: readonly stri
       return 0;
     case "build":
       runNode(["node_modules/prisma/build/index.js", "generate"]);
-      runNode(["--import", "tsx", "--import", resolve("scripts/qa/process-egress-guard.ts"), "node_modules/next/dist/bin/next", "build"]);
+      runNode(guardedNodeArguments(["node_modules/next/dist/bin/next", "build", "--webpack"]));
       return 0;
     case "start":
       return runQaServer();

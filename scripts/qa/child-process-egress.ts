@@ -55,12 +55,13 @@ function stdioWithCapability(value: unknown, authDescriptor: number, guardDescri
   return [standard, standard, standard, authDescriptor, guardDescriptor];
 }
 
-function guardedNodeArguments(args: readonly string[]): readonly string[] {
-  const guard = resolve("scripts/qa/process-egress-guard.ts");
-  if (args.includes(guard)) {
+export const QA_GUARD_BOOTSTRAP = resolve("scripts/qa/process-egress-bootstrap.mjs");
+
+export function guardedNodeArguments(args: readonly string[]): readonly string[] {
+  if (args.includes(QA_GUARD_BOOTSTRAP)) {
     return args;
   }
-  return ["--import", "tsx", "--import", guard, ...args];
+  return ["--import", QA_GUARD_BOOTSTRAP, ...args];
 }
 
 function guardedNodeCall(rest: readonly unknown[]): {

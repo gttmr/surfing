@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { resolve } from "node:path";
+import { QA_HOST } from "./assert-local-test-db";
+import { guardedNodeArguments } from "./child-process-egress";
 import { registerTaskProcess } from "./process-registry";
 
 export class QaServerError extends Error {
@@ -30,17 +31,14 @@ async function waitForReady(child: ChildProcess): Promise<void> {
 }
 
 export async function runQaServer(): Promise<number> {
-  const guard = resolve("scripts/qa/process-egress-guard.ts");
-  const child = spawn(process.execPath, [
-    "--import",
-    "tsx",
-    "--import",
-    guard,
+  const child = spawn(process.execPath, guardedNodeArguments([
     "node_modules/next/dist/bin/next",
     "start",
+    "-H",
+    QA_HOST,
     "-p",
     "3100",
-  ], { cwd: process.cwd(), env: process.env, shell: false, stdio: "inherit" });
+  ]), { cwd: process.cwd(), env: process.env, shell: false, stdio: "inherit" });
   if (child.pid === undefined) {
     throw new QaServerError("QA server process did not expose a pid");
   }

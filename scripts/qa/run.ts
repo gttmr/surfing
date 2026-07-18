@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { assertLocalTestDatabaseUrl } from "./assert-local-test-db";
+import { guardedNodeArguments } from "./child-process-egress";
 import { buildChildEnvironment } from "./environment";
 import { finalizeCleanupReceipt } from "./cleanup";
 import { parseEvidenceDirectory } from "./evidence";
@@ -41,10 +42,9 @@ function parseCommand(args: readonly string[]): ParsedCommand {
 }
 
 async function spawnInternal(args: readonly string[], env: NodeJS.ProcessEnv): Promise<number> {
-  const guard = resolve("scripts/qa/process-egress-guard.ts");
   const internal = resolve("scripts/qa/internal-target.ts");
   const capability = createPrivateCapability();
-  const child = spawn(process.execPath, ["--import", "tsx", "--import", guard, internal, ...args], {
+  const child = spawn(process.execPath, guardedNodeArguments([internal, ...args]), {
     cwd: process.cwd(),
     env,
     shell: false,

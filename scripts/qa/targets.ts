@@ -47,7 +47,7 @@ export const QA_TARGETS = {
   "qa:db:seed": { name: "qa:db:seed", action: "db-seed", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:reset": { name: "qa:db:reset", action: "db-reset", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
   "qa:db:down": { name: "qa:db:down", action: "db-down", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
-  "build:qa": { name: "build:qa", action: "build", nodeEnvironment: "production", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_AND_DOCKER, passthrough: "none" },
+  "build:qa": { name: "build:qa", action: "build", nodeEnvironment: "production", ownerLifecycle: true, implemented: true, allowedExecutables: [...NODE_AND_DOCKER, "getconf"], passthrough: "none" },
   "start:qa": { name: "start:qa", action: "start", nodeEnvironment: "production", ownerLifecycle: true, implemented: true, allowedExecutables: NODE_ONLY, passthrough: "none" },
   "test:e2e:mobile": { name: "test:e2e:mobile", action: "test-e2e", nodeEnvironment: "test", ownerLifecycle: true, implemented: true, allowedExecutables: ["node", "chromium", "chrome", "chrome-headless-shell", "chrome_crashpad_handler"], passthrough: "playwright" },
   "qa:visual": { name: "qa:visual", action: "not-implemented", nodeEnvironment: "test", ownerLifecycle: true, implemented: false, allowedExecutables: NODE_ONLY, passthrough: "visual" },
