@@ -38,4 +38,4 @@ export function shouldApplyPenalty(meetingDate: string): boolean {
 }
 
 export const DEFAULT_PENALTY_MESSAGE =
-  "화요일 18시 이후 취소로 패널티가 부과됩니다. 잦은 직전 취소는 다른 회원들에게 피해를 줄 수 있으니 신중하게 결정해 주세요.";
+  "트립이 있는 주 화요일 18시 이후 취소시 취소수수료 1만원이 부과 됩니다. 잦은 직전 취소는 다른 회원들에게 피해를 줄 수 있으니 신중하게 결정해 주세요.";

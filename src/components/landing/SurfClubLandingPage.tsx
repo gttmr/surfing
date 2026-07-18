@@ -186,6 +186,12 @@ export default function SurfClubLandingPage({
   const monthMeetings = sortedMeetings.filter((meeting) => meeting.date.startsWith(monthKey));
   const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
   const hasSelectedMeetings = selectedMeetings.length > 0;
+  const selectedMeeting = selectedMeetings[0];
+  const selectedMeetingDateLabel = selectedMeeting
+    ? new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", weekday: "short" }).format(new Date(`${selectedMeeting.date}T12:00:00`))
+    : "";
+  const selectedSignup = selectedMeeting ? initialSignupDataByMeetingId[selectedMeeting.id] : null;
+  const selectedParticipation = selectedSignup?.myParticipant;
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
   const selectedParticipantCount = selectedMeetings.reduce(
     (sum, meeting) => sum + (meetingParticipantCountOverrides[meeting.id] ?? meeting.approvedCount),
@@ -198,7 +204,7 @@ export default function SurfClubLandingPage({
         return sum + (status?.summary.pendingCount ?? 0);
       }, 0)
     : 0;
-  const selectedSettlementBadge = String(Math.min(selectedSettlementPendingCount, 99));
+  const selectedSettlementBadge = isAdmin ? String(Math.min(selectedSettlementPendingCount, 99)) : undefined;
   const calendarCells = buildCalendarCells(year, month);
   const canCreateMeetingOnSelectedDate = Boolean(
     user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable
@@ -264,6 +270,13 @@ export default function SurfClubLandingPage({
     setSelectedDate(findDefaultDateForMonth(meetings, nextYear, nextMonth, today));
   }
 
+  function selectCalendarDate(date: string) {
+    const next = new Date(`${date}T12:00:00`);
+    setYear(next.getFullYear());
+    setMonth(next.getMonth());
+    setSelectedDate(date);
+  }
+
   function handleOpenAlertCenter() {
     setIsAlertCenterOpen(true);
   }
@@ -312,7 +325,7 @@ export default function SurfClubLandingPage({
         }}
       />
 
-      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-6 px-4 pb-12 pt-24">
+      <main className="mx-auto flex w-full max-w-[430px] flex-col gap-6 px-4 pb-12 pt-24">
         <CalendarSection
           year={year}
           monthLabel={MONTH_NAMES_KO[month]}
@@ -321,17 +334,89 @@ export default function SurfClubLandingPage({
           today={today}
           meetingsByDate={meetingsByDate}
           onMoveMonth={moveMonth}
-          onSelectDate={setSelectedDate}
+          onSelectDate={selectCalendarDate}
         />
+
+        {selectedDate && selectedMeeting && !dbUnavailable ? (
+          <section aria-labelledby="selected-meeting-title" className="brand-card rounded-3xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="brand-text-subtle text-xs font-bold">선택한 모임</p>
+                <h2 className="mt-1 font-headline text-xl font-extrabold tracking-[-0.04em]" id="selected-meeting-title">
+                  {selectedMeetingDateLabel}
+                </h2>
+                <p className="brand-text-muted mt-2 text-sm leading-6">
+                  {selectedMeeting.startTime}–{selectedMeeting.endTime} · {selectedMeeting.location}
+                </p>
+              </div>
+              <span className="brand-chip-dark shrink-0 rounded-full px-3 py-1.5 text-xs font-bold">{selectedMeeting.meetingType}</span>
+            </div>
+            <div className="brand-panel-white mt-4 flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
+              <div className="min-w-0">
+                <p className="brand-text-subtle text-xs font-semibold">지금 할 일</p>
+                <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                  {!user
+                    ? "로그인하고 참가 여부 확인"
+                    : !selectedParticipation
+                      ? "참가 신청하기"
+                      : selectedParticipation.status === "WAITLISTED"
+                        ? `대기 ${selectedParticipation.waitlistPosition ?? ""}번 확인`
+                        : "신청 내용 확인·변경"}
+                </p>
+              </div>
+              {user ? (
+                <Link className="brand-button-secondary shrink-0 rounded-xl px-3 py-2 text-sm font-bold" href="/settlement">
+                  내 정산
+                </Link>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
           <MeetingTabs
             activeTab={activeMeetingTab}
             participantBadge={selectedParticipantBadge}
             settlementBadge={selectedSettlementBadge}
-            showSettlementTab={isAdmin}
+            settlementLabel={isAdmin ? "정산 현황" : "내 정산"}
+            showSettlementTab
             onChange={setActiveMeetingTab}
-          />
+          >
+            <section id="meeting-details">
+              {activeMeetingTab === "settlement" && !isAdmin ? (
+                <div className="brand-card-soft rounded-2xl p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="payments" /></span>
+                    <div>
+                      <h3 className="text-base font-extrabold text-[var(--brand-text)]">내 정산 확인</h3>
+                      <p className="brand-text-muted mt-1 text-sm leading-6">내 참가비와 연결된 동반인의 정산 내역을 한곳에서 확인합니다.</p>
+                    </div>
+                  </div>
+                  <Link className="brand-button-primary mt-4 flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold" href="/settlement">
+                    내 정산으로 이동
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {selectedMeetings.map((meeting) => (
+                  <EmbeddedMeetingDetail
+                    activeTab={activeMeetingTab}
+                    currentUser={user}
+                    initialMeeting={initialMeetingDetailsById[meeting.id]}
+                    initialSettlementStatus={initialSettlementStatusByMeetingId[meeting.id]}
+                    initialSignupData={initialSignupDataByMeetingId[meeting.id]}
+                    isAdmin={isAdmin}
+                    key={meeting.id}
+                    meetingId={meeting.id}
+                    onMeetingSummaryChange={handleMeetingSummaryChange}
+                    onSettlementStatusChange={handleSettlementStatusChange}
+                    participantOptionPricingGuide={participantOptionPricingGuide}
+                  />
+                  ))}
+                </div>
+              )}
+            </section>
+          </MeetingTabs>
         ) : null}
 
         {!user ? (
@@ -346,37 +431,26 @@ export default function SurfClubLandingPage({
           </section>
         ) : null}
 
-        {selectedDate && user && (dbUnavailable || hasSelectedMeetings) ? (
+        {dbUnavailable ? (
           <section id="meeting-details">
-            {!hasSelectedMeetings || dbUnavailable ? (
-              <div className="mb-3">
+            <div className="mb-3">
               <h2 className="font-headline text-[1.35rem] font-bold tracking-[-0.04em]">모임상세</h2>
-              </div>
-            ) : null}
+            </div>
+            <div className="brand-alert-info rounded-2xl px-5 py-6 text-center">
+              <p className="text-sm font-bold">일정 정보를 불러오지 못했습니다.</p>
+              <p className="brand-text-muted mt-1 text-xs">연결을 확인한 뒤 다시 시도해 주세요.</p>
+              <button className="brand-button-secondary mt-4 rounded-xl px-4 py-2 text-sm font-bold" onClick={() => window.location.reload()} type="button">
+                다시 시도
+              </button>
+            </div>
+          </section>
+        ) : null}
 
-            {dbUnavailable ? (
-              <div className="brand-alert-info rounded-2xl px-5 py-6 text-sm font-medium">
-                현재 데이터베이스 연결을 확인할 수 없어 일정 정보를 불러오지 못했습니다.
-              </div>
-            ) : user && selectedMeetings.length > 0 ? (
-              <div className="space-y-4">
-                {selectedMeetings.map((meeting) => (
-                  <EmbeddedMeetingDetail
-                    activeTab={activeMeetingTab}
-                    currentUser={user}
-                    initialMeeting={initialMeetingDetailsById[meeting.id]}
-                    initialSettlementStatus={initialSettlementStatusByMeetingId[meeting.id]}
-                    initialSignupData={initialSignupDataByMeetingId[meeting.id]}
-                    isAdmin={isAdmin}
-                    key={meeting.id}
-                    meetingId={meeting.id}
-                    onMeetingSummaryChange={handleMeetingSummaryChange}
-                    onSettlementStatusChange={handleSettlementStatusChange}
-                    participantOptionPricingGuide={participantOptionPricingGuide}
-                  />
-                ))}
-              </div>
-            ) : null}
+        {selectedDate && !hasSelectedMeetings && !dbUnavailable ? (
+          <section className="brand-card-soft rounded-3xl px-5 py-7 text-center" role="status">
+            <span className="brand-chip-soft mx-auto flex h-12 w-12 items-center justify-center rounded-2xl"><Icon name="event_busy" /></span>
+            <h2 className="mt-3 text-base font-extrabold">이 날짜에는 모임이 없습니다.</h2>
+            <p className="brand-text-muted mt-1 text-sm">다른 날짜를 선택하거나 새 비정기 모임을 만들어 보세요.</p>
           </section>
         ) : null}
 

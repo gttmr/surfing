@@ -2,92 +2,124 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useAdminDirtyNavigationGuard } from "@/components/admin/useAdminDirtyNavigationGuard";
+import { Dialog } from "@/components/ui/Dialog";
+import { Icon } from "@/components/ui/Icon";
+import { MobileDock } from "@/components/ui/MobileShell";
 
 interface AdminLayoutProps {
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
+  readonly dirtyNavigation?: {
+    readonly isDirty: boolean;
+    readonly isSaveInFlight: boolean;
+    readonly onDiscard: () => void;
+  };
 }
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "메시지관리", icon: "📢", exact: true },
-  { href: "/admin/meetings", label: "모임관리", icon: "👥", exact: false },
-  { href: "/admin/members", label: "회원관리", icon: "🧑‍💼", exact: false },
-  { href: "/admin/pricing", label: "비용책정", icon: "💳", exact: false },
-  { href: "/admin/menus", label: "메뉴관리", icon: "☕", exact: false },
-  { href: "/admin/settings", label: "설정", icon: "⚙️", exact: false },
-];
+  { href: "/admin", label: "공지", icon: "campaign", exact: true },
+  { href: "/admin/meetings", label: "모임", icon: "groups", exact: false },
+  { href: "/admin/members", label: "회원", icon: "person_search", exact: false },
+  { href: "/admin/pricing", label: "비용", icon: "payments", exact: false },
+  { href: "/admin/menus", label: "메뉴", icon: "restaurant_menu", exact: false },
+  { href: "/admin/settings", label: "설정", icon: "settings", exact: false },
+] as const;
 
-export function AdminLayout({ children }: AdminLayoutProps) {
+export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const isSaveInFlight = dirtyNavigation?.isSaveInFlight ?? false;
 
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.push("/admin/login");
   }
 
-  function isActive(item: (typeof NAV_ITEMS)[0]) {
+  const leaveGuard = useAdminDirtyNavigationGuard({
+    currentPath: pathname,
+    discardDraft: dirtyNavigation?.onDiscard,
+    isDirty: dirtyNavigation?.isDirty ?? false,
+    isSaveInFlight,
+    logout: handleLogout,
+    push: router.push,
+  });
+
+  function isActive(item: (typeof NAV_ITEMS)[number]) {
     if (item.exact) return pathname === item.href;
     return pathname.startsWith(item.href);
   }
 
   return (
     <div className="brand-admin-shell">
-      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)]">
-        <div className="mx-auto flex w-full items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="brand-link text-sm font-semibold transition-colors">&larr; 사이트</Link>
-            <span className="brand-text-subtle">|</span>
-            <span className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</span>
+      <Dialog
+        description="저장하지 않은 관리자 설정 초안은 복구할 수 없습니다."
+        onClose={leaveGuard.stay}
+        open={leaveGuard.dialogOpen}
+        title="변경 내용을 버릴까요?"
+      >
+        <div className="flex gap-3">
+          <button className="brand-button-secondary min-h-11 flex-1 rounded-2xl px-4 text-sm font-bold" onClick={leaveGuard.stay} type="button">
+            계속 편집
+          </button>
+          <button className="brand-button-danger-solid min-h-11 flex-1 rounded-2xl px-4 text-sm font-bold" disabled={isSaveInFlight} onClick={leaveGuard.discardAndContinue} type="button">
+            버리고 이동
+          </button>
+        </div>
+      </Dialog>
+      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)] pt-[var(--brand-safe-top)]">
+        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</p>
+            <nav aria-label="서비스 화면" className="mt-1 flex items-center gap-3 text-xs font-semibold">
+              <Link
+                aria-disabled={isSaveInFlight || undefined}
+                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
+                href="/"
+                onClick={leaveGuard.onNavigate}
+                prefetch={false}
+                tabIndex={isSaveInFlight ? -1 : undefined}
+              >
+                <Icon className="text-[16px]" name="surfing" /> 회원 화면
+              </Link>
+              <Link
+                aria-disabled={isSaveInFlight || undefined}
+                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
+                href="/shop"
+                onClick={leaveGuard.onNavigate}
+                prefetch={false}
+                tabIndex={isSaveInFlight ? -1 : undefined}
+              >
+                <Icon className="text-[16px]" name="storefront" /> 샵 화면
+              </Link>
+            </nav>
           </div>
           <button
-            onClick={handleLogout}
-            className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+            disabled={isSaveInFlight}
+            onClick={leaveGuard.requestLogout}
+            className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             로그아웃
           </button>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full flex-1 flex-col md:flex-row">
-        <aside className="hidden w-56 shrink-0 p-4 md:block md:p-6">
-          <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors
-                  ${isActive(item)
-                    ? "brand-chip-dark"
-                    : "brand-list-item brand-list-item-hover"
-                  }`}
-              >
-                <span>{item.icon}</span>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 px-4 pb-32 pt-5 md:px-6 md:pb-8 md:pt-6">
+      <div className="mx-auto flex w-full flex-1 flex-col">
+        <main className="flex-1 px-4 pb-32 pt-5">
           {children}
         </main>
       </div>
 
-      <nav className="brand-bottom-dock brand-mobile-fixed-bar fixed bottom-0 z-40 md:hidden">
-        <div className="flex w-full pb-[calc(env(safe-area-inset-bottom)+0.2rem)]">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-1 flex-col items-center py-2 text-xs font-semibold transition-colors
-                ${isActive(item) ? "text-[var(--brand-text)]" : "brand-text-subtle"}`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <MobileDock
+        items={NAV_ITEMS.map((item) => ({
+          active: isActive(item),
+          disabled: isSaveInFlight,
+          href: item.href,
+          icon: <Icon className="text-[22px]" name={item.icon} />,
+          label: item.label,
+          onClick: leaveGuard.onNavigate,
+        }))}
+        label="관리자 메뉴"
+      />
     </div>
   );
 }

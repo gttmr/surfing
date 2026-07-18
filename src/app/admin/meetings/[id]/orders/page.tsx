@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AdminMeetingOrdersPageClient } from "@/components/admin/AdminMeetingOrdersPageClient";
 import { getAdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
+import { requireAdminPage } from "@/lib/require-admin-page";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function AdminMeetingOrdersPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminPage();
   const { id } = await params;
   const meetingId = Number(id);
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SignupForm } from "@/components/meeting/SignupForm";
+import { Icon } from "@/components/ui/Icon";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type {
   AdminSettlementStatusSummary,
@@ -12,7 +13,7 @@ import type {
   SignupInitialData,
 } from "@/lib/landing-types";
 
-import { DAY_KO, formatWon } from "@/lib/format";
+import { formatWon } from "@/lib/format";
 
 function sortWithCompanions(participants: MeetingParticipantItem[]) {
   const regulars = participants.filter((participant) => participant.companionId === null);
@@ -90,6 +91,7 @@ export default function EmbeddedMeetingDetail({
   const settlementStatusFetchedRef = useRef(!!initialSettlementStatus);
   const [loadingSettlementStatus, setLoadingSettlementStatus] = useState(false);
   const [settlementStatusError, setSettlementStatusError] = useState(false);
+  const [participantQuery, setParticipantQuery] = useState("");
   const [isDocumentVisible, setIsDocumentVisible] = useState(() => (
     typeof document === "undefined" ? true : document.visibilityState === "visible"
   ));
@@ -211,17 +213,26 @@ export default function EmbeddedMeetingDetail({
 
   if (error || !meeting) {
     return (
-      <div className="brand-card-soft rounded-2xl px-5 py-6 text-sm font-medium brand-text-muted">
-        모임 상세 정보를 불러오지 못했습니다.
+      <div className="brand-card-soft rounded-2xl px-5 py-6 text-center">
+        <p className="text-sm font-bold text-[var(--brand-text)]">모임 정보를 불러오지 못했습니다.</p>
+        <p className="brand-text-subtle mt-1 text-xs">연결을 확인한 뒤 다시 시도해 주세요.</p>
+        <button className="brand-button-secondary mt-4 rounded-xl px-4 py-2 text-sm font-bold" onClick={() => { void fetchMeeting(); }} type="button">
+          다시 시도
+        </button>
       </div>
     );
   }
 
-  const dateObj = new Date(`${meeting.date}T00:00:00`);
-  const dayName = DAY_KO[dateObj.getDay()];
-  const [, month, day] = meeting.date.split("-");
-  const displayDate = `${parseInt(month, 10)}월 ${parseInt(day, 10)}일 (${dayName})`;
   const participants = sortWithCompanions(meeting.participantsList);
+  const normalizedQuery = participantQuery.trim().toLocaleLowerCase("ko-KR");
+  const filteredParticipants = normalizedQuery
+    ? participants.filter((participant) => `${participant.name} ${participant.note ?? ""}`.toLocaleLowerCase("ko-KR").includes(normalizedQuery))
+    : participants;
+  const participantGroups = [
+    { id: "approved", label: "참가 확정", participants: filteredParticipants.filter((participant) => participant.status === "APPROVED") },
+    { id: "waitlisted", label: "대기", participants: filteredParticipants.filter((participant) => participant.status === "WAITLISTED") },
+    { id: "other", label: "기타", participants: filteredParticipants.filter((participant) => !["APPROVED", "WAITLISTED"].includes(participant.status)) },
+  ].filter((group) => group.participants.length > 0);
   const optionSummary = {
     bus: participants.filter((participant) => participant.hasBus).length,
     lesson: participants.filter((participant) => participant.hasLesson).length,
@@ -306,21 +317,9 @@ export default function EmbeddedMeetingDetail({
       {activeTab === "apply" ? (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
           <div className="border-b border-[var(--brand-divider)] pb-4">
-            <div className="mb-3">
-              <h3 className="font-headline text-[1.2rem] font-extrabold tracking-[-0.03em]">{displayDate}</h3>
-            </div>
-            <div className="brand-text-muted space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">location_on</span>
-                <span>{meeting.location}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">schedule</span>
-                <span>{meeting.startTime} - {meeting.endTime}</span>
-              </div>
-            </div>
+            <h3 className="font-headline text-base font-extrabold">참가 신청</h3>
             {meeting.description ? (
-              <p className="brand-panel-strong mt-3 rounded-xl px-3 py-2 text-sm brand-text-muted">
+              <p className="brand-panel-strong mt-2 rounded-xl px-3 py-2 text-sm brand-text-muted">
                 {meeting.description}
               </p>
             ) : null}
@@ -337,33 +336,53 @@ export default function EmbeddedMeetingDetail({
       ) : activeTab === "status" ? (
         <div className="space-y-3">
           {participants.length ? (
-            <div className="brand-card-soft overflow-hidden rounded-2xl">
-              {participants.map((participant) => {
-                const isCompanion = participant.companionId !== null;
-                const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반")
-                  ? null
-                  : participant.note;
-
-                return (
-                  <div
-                    key={participant.id}
-                    className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-10" : ""}`}
-                  >
-                    <ParticipantAvatar participant={participant} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
-                        {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                        {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀 버스</span> : null}
-                        {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습+장비대여</span> : null}
-                        {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여만</span> : null}
-                      </div>
-                      {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
-                    </div>
+            <>
+              <label className="brand-panel-white flex items-center gap-2 rounded-2xl px-3">
+                <Icon className="brand-text-subtle text-[20px]" name="search" />
+                <span className="sr-only">참가자 검색</span>
+                <input
+                  className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none"
+                  onChange={(event) => setParticipantQuery(event.target.value)}
+                  placeholder="이름 또는 메모로 찾기"
+                  type="search"
+                  value={participantQuery}
+                />
+              </label>
+              {participantGroups.length ? participantGroups.map((group) => (
+                <details className="brand-card-soft overflow-hidden rounded-2xl" key={group.id} open={Boolean(normalizedQuery) || participants.length <= 12}>
+                  <summary className="flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-extrabold">
+                    <span>{group.label}</span>
+                    <span className="brand-chip-soft rounded-full px-2 py-1 text-xs">{group.participants.length}</span>
+                  </summary>
+                  <div className="border-t border-[var(--brand-divider)]">
+                    {group.participants.map((participant) => {
+                      const isCompanion = participant.companionId !== null;
+                      const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반") ? null : participant.note;
+                      return (
+                        <div className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-8" : ""}`} key={participant.id}>
+                          <ParticipantAvatar participant={participant} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
+                              {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
+                              {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
+                              {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
+                              {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여</span> : null}
+                            </div>
+                            {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </details>
+              )) : (
+                <div className="brand-inset-panel rounded-2xl px-4 py-6 text-center">
+                  <p className="text-sm font-bold">검색 결과가 없습니다.</p>
+                  <button className="brand-link mt-2 text-sm font-semibold" onClick={() => setParticipantQuery("")} type="button">검색어 지우기</button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="brand-inset-panel rounded-2xl px-4 py-6 text-center text-sm font-medium brand-text-muted">
               아직 참가 신청자가 없습니다.
@@ -374,15 +393,15 @@ export default function EmbeddedMeetingDetail({
             <div className="brand-card-soft rounded-2xl px-4 py-3">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
-                  <p className="brand-text-subtle text-[11px] font-bold">🚌 셔틀 버스</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">셔틀 버스</p>
                   <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.bus}</p>
                 </div>
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
-                  <p className="brand-text-subtle text-[11px] font-bold">🏄‍♂️ 강습+장비</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">강습·장비</p>
                   <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.lesson}</p>
                 </div>
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
-                  <p className="brand-text-subtle text-[11px] font-bold">🩳 장비 대여만</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">장비 대여</p>
                   <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.rentalOnly}</p>
                 </div>
               </div>

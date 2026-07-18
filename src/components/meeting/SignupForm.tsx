@@ -70,10 +70,7 @@ export function SignupForm({
       newCompanionInput,
       newCompanions,
       signedUpCompanionData,
-      companionActionLoading,
       selectedCompanionIdsForMeeting,
-      newProfileCompanionInput,
-      addingCompanionToProfile,
       cancelling,
       showCancelConfirm,
       cancelResult,
@@ -92,7 +89,6 @@ export function SignupForm({
       setExpandedManagedCompanions,
       setSelectedCompanions,
       setSelectedCompanionIdsForMeeting,
-      setNewProfileCompanionInput,
       setNewCompanionInput,
       setNewCompanions,
       setShowCancelConfirm,
@@ -106,9 +102,6 @@ export function SignupForm({
       updateNewCompanion,
       closeMySignupDetails,
       handleSubmit,
-      handleAddCompanionToMeeting,
-      handleCancelCompanion,
-      handleAddCompanionToProfile,
       handleUpdateCompanionOption,
       handleUpdateLinkedOption,
       handleApplyLinkedCompanion,
@@ -218,7 +211,6 @@ export function SignupForm({
         signedUpCompanionData={signedUpCompanionData}
         companionOptions={companionOptions}
         expandedManagedCompanions={expandedManagedCompanions}
-        companionActionLoading={companionActionLoading}
         selectedCompanionIdsForMeeting={selectedCompanionIdsForMeeting}
         savingMySignup={savingMySignup}
         showCancelConfirm={showCancelConfirm}

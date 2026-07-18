@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type { MeetingWithCounts } from "@/lib/types";
 import type {
@@ -13,7 +14,9 @@ import type {
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
-import type { CalendarCell } from "@/lib/home-view";
+import { Dialog } from "@/components/ui/Dialog";
+import { Tabs } from "@/components/ui/Tabs";
+import { formatCalendarDateLabel, moveCalendarDate, type CalendarCell, type CalendarNavigationKey } from "@/lib/home-view";
 
 export type { CalendarCell };
 
@@ -160,29 +163,14 @@ export function AlertCenterModal({
   onCopySettlementAccount,
   onToggleSettlementCompleted,
 }: AlertCenterProps) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[60] bg-[var(--brand-overlay)] px-4 py-6" onClick={onClose}>
-      <div
-        className="brand-card-soft mx-auto mt-20 w-full max-w-[390px] rounded-3xl p-5 shadow-[var(--brand-avatar-shadow)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-extrabold text-[var(--brand-text)]">알림 센터</p>
-            <p className="brand-text-subtle mt-0.5 text-xs">공지사항과 정산 알림을 확인하세요.</p>
-          </div>
-          <button
-            aria-label="알림 센터 닫기"
-            className="brand-button-secondary flex h-9 w-9 items-center justify-center rounded-full"
-            onClick={onClose}
-            type="button"
-          >
-            <Icon className="text-[18px]" name="close" />
-          </button>
-        </div>
-
+    <Dialog
+      closeLabel="알림 센터 닫기"
+      description="공지사항과 정산 알림을 확인하세요."
+      onClose={onClose}
+      open={open}
+      title="알림 센터"
+    >
         <div className="space-y-3">
           {alertItems.length === 0 ? (
             <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
@@ -199,9 +187,10 @@ export function AlertCenterModal({
                     onClick={() => onToggleItem(item)}
                     type="button"
                   >
-                    <span className="shrink-0 text-lg leading-none">
-                      {item.type === "settlement" ? "💸" : item.type === "order_cancelled" ? "!" : "📣"}
-                    </span>
+                    <Icon
+                      className="shrink-0 text-[20px]"
+                      name={item.type === "settlement" ? "payments" : item.type === "order_cancelled" ? "cancel" : "notifications"}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-bold text-[var(--brand-text)]">{item.title}</p>
@@ -316,8 +305,7 @@ export function AlertCenterModal({
             })
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -338,13 +326,29 @@ export function CalendarSection({
   today: string;
   meetingsByDate: Record<string, MeetingWithCounts[]>;
   onMoveMonth: (direction: -1 | 1) => void;
-  onSelectDate: (date: string | null) => void;
+  onSelectDate: (date: string) => void;
 }) {
+  const dateRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const entryDate = selectedDate && calendarCells.some((cell) => cell.date === selectedDate)
+    ? selectedDate
+    : calendarCells.find((cell) => cell.date === today)?.date
+      ?? calendarCells.find((cell) => cell.inCurrentMonth)?.date
+      ?? calendarCells[0]?.date;
+
+  function handleDateKeyDown(event: KeyboardEvent<HTMLButtonElement>, date: string) {
+    const keys: readonly CalendarNavigationKey[] = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"];
+    if (!keys.includes(event.key as CalendarNavigationKey)) return;
+    event.preventDefault();
+    const nextDate = moveCalendarDate(date, event.key as CalendarNavigationKey);
+    onSelectDate(nextDate);
+    requestAnimationFrame(() => dateRefs.current[nextDate]?.focus());
+  }
+
   return (
-    <section>
+    <section aria-labelledby="meeting-calendar-title">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="font-headline text-[2.25rem] font-extrabold leading-none tracking-[-0.06em]">{monthLabel}</h1>
+          <h1 className="font-headline text-[2.25rem] font-extrabold leading-none tracking-[-0.06em]" id="meeting-calendar-title">{monthLabel}</h1>
           <p className="brand-text-subtle mt-1 text-xs font-semibold">{year}</p>
         </div>
         <div className="flex gap-2">
@@ -367,56 +371,47 @@ export function CalendarSection({
         </div>
       </div>
 
-      <div className="brand-card-soft overflow-visible rounded-xl p-5">
-        <div className="grid grid-cols-7 gap-y-4 text-center">
-          {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-            <div
-              key={day + index}
-              className="text-[10px] font-bold uppercase tracking-[0.32em]"
-              style={{ color: index === 0 ? "var(--brand-calendar-sun)" : index === 6 ? "var(--brand-calendar-sat)" : "var(--brand-text-subtle)" }}
-            >
-              {day}
+      <div className="brand-card-soft overflow-visible rounded-2xl p-4">
+        <p className="sr-only" id="meeting-calendar-help">방향키로 하루 또는 한 주 이동하고, Home과 End로 주의 처음과 끝, Page Up과 Page Down으로 달을 이동합니다.</p>
+        <div aria-describedby="meeting-calendar-help" aria-label={`${year}년 ${monthLabel} 모임 달력`} className="grid grid-cols-7 gap-y-2 text-center" role="grid">
+          <div className="col-span-7 grid grid-cols-7" role="row">
+            {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
+              <div className="py-1 text-[11px] font-bold" key={day} role="columnheader" style={{ color: index === 0 ? "var(--brand-calendar-sun)" : index === 6 ? "var(--brand-calendar-sat)" : "var(--brand-text-subtle)" }}>
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {Array.from({ length: Math.ceil(calendarCells.length / 7) }, (_, weekIndex) => (
+            <div className="col-span-7 grid grid-cols-7" key={`week-${weekIndex}`} role="row">
+              {calendarCells.slice(weekIndex * 7, weekIndex * 7 + 7).map((cell) => {
+                const isSelected = cell.date === selectedDate;
+                const isToday = cell.date === today;
+                const hasMeeting = (meetingsByDate[cell.date] ?? []).length > 0;
+                const dow = new Date(`${cell.date}T12:00:00`).getDay();
+                return (
+                  <button
+                    aria-label={formatCalendarDateLabel(cell.date, { selected: isSelected, today: isToday, hasMeeting })}
+                    aria-selected={isSelected}
+                    className="relative flex min-h-10 flex-col items-center justify-center"
+                    data-calendar-date={cell.date}
+                    key={cell.date}
+                    onClick={() => onSelectDate(cell.date)}
+                    onKeyDown={(event) => handleDateKeyDown(event, cell.date)}
+                    ref={(node) => { dateRefs.current[cell.date] = node; }}
+                    role="gridcell"
+                    tabIndex={cell.date === entryDate ? 0 : -1}
+                    type="button"
+                  >
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${isSelected ? "bg-[var(--brand-primary)] font-bold text-[var(--brand-primary-foreground)]" : isToday ? "bg-[var(--brand-primary-soft-strong)] font-bold text-[var(--brand-primary-text)]" : cell.inCurrentMonth ? dow === 0 ? "text-[var(--brand-calendar-sun)]" : dow === 6 ? "text-[var(--brand-calendar-sat)]" : "text-[var(--brand-text)]" : "text-[var(--brand-text-subtle)]"}`}>
+                      {cell.day}
+                    </span>
+                    {hasMeeting ? <span aria-hidden className={`absolute -bottom-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-[var(--brand-primary-text)]" : "bg-[var(--brand-primary-border-strong)]"}`} /> : null}
+                  </button>
+                );
+              })}
             </div>
           ))}
-
-          {calendarCells.map((cell) => {
-            const isSelected = cell.date === selectedDate;
-            const isToday = cell.date === today;
-            const dayMeetings = meetingsByDate[cell.date] ?? [];
-            const hasMeeting = dayMeetings.length > 0;
-            const dateObj = new Date(`${cell.date}T00:00:00`);
-            const dow = dateObj.getDay();
-
-            return (
-              <button
-                key={cell.date}
-                className="relative flex min-h-10 flex-col items-center justify-center"
-                onClick={() => onSelectDate(cell.date === selectedDate ? null : cell.date)}
-                type="button"
-              >
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                    isSelected
-                      ? "bg-[var(--brand-primary)] font-bold text-[var(--brand-primary-foreground)]"
-                      : isToday
-                        ? "bg-[var(--brand-primary-soft-strong)] font-bold text-[var(--brand-primary-text)]"
-                        : cell.inCurrentMonth
-                          ? dow === 0
-                            ? "text-[var(--brand-calendar-sun)]"
-                            : dow === 6
-                              ? "text-[var(--brand-calendar-sat)]"
-                              : "text-[var(--brand-text)]"
-                          : "text-[var(--brand-text-subtle)]"
-                  }`}
-                >
-                  {cell.day}
-                </div>
-                {hasMeeting ? (
-                  <div className={`absolute -bottom-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-[var(--brand-primary-text)]" : "bg-[var(--brand-primary-border-strong)]"}`} />
-                ) : null}
-              </button>
-            );
-          })}
         </div>
       </div>
     </section>
@@ -428,53 +423,54 @@ export function MeetingTabs({
   participantBadge,
   settlementBadge,
   showSettlementTab,
+  settlementLabel = "정산 현황",
   onChange,
+  children,
 }: {
   activeTab: "apply" | "status" | "settlement";
   participantBadge: string;
   settlementBadge?: string;
   showSettlementTab: boolean;
+  settlementLabel?: string;
   onChange: (tab: "apply" | "status" | "settlement") => void;
+  children: ReactNode;
 }) {
-  return (
-    <section>
-      <div className="brand-tab-bar flex items-end">
-        <button
-          className={`flex-1 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-            activeTab === "apply" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("apply")}
-          type="button"
-        >
-          참가하기
-        </button>
-        <button
-          className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-            activeTab === "status" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-          }`}
-          onClick={() => onChange("status")}
-          type="button"
-        >
+  const items = [
+    { id: "apply" as const, label: "참가하기" },
+    {
+      id: "status" as const,
+      label: (
+        <span className="inline-flex items-center gap-2">
           신청 현황
-          <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
-            {participantBadge}
-          </span>
-        </button>
-        {showSettlementTab ? (
-          <button
-            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-0 pb-3 text-base font-extrabold transition-colors ${
-              activeTab === "settlement" ? "brand-tab-underline-active" : "brand-tab-underline-inactive"
-            }`}
-            onClick={() => onChange("settlement")}
-            type="button"
-          >
-            정산 현황
-            <span className="brand-chip-soft flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">
-              {settlementBadge ?? "0"}
+          <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{participantBadge}</span>
+        </span>
+      ),
+    },
+    ...(showSettlementTab
+      ? [{
+          id: "settlement" as const,
+          label: (
+            <span className="inline-flex items-center gap-2">
+              {settlementLabel}
+              {settlementBadge !== undefined ? (
+                <span className="brand-chip-soft flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{settlementBadge}</span>
+              ) : null}
             </span>
-          </button>
-        ) : null}
-      </div>
-    </section>
+          ),
+        }]
+      : []),
+  ];
+
+  return (
+    <Tabs
+      activeId={activeTab}
+      items={items}
+      label="모임 정보"
+      onChange={onChange}
+      panelClassName="pt-6"
+      tabClassName="flex-1 px-0 pb-3 text-base font-extrabold"
+    >
+      {children}
+    </Tabs>
   );
 }

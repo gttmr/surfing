@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
-import { getSession } from "@/lib/session";
+import { getActiveSession } from "@/lib/active-session";
 import { ProfilePageClient } from "@/components/profile/ProfilePageClient";
 import type {
   LinkedCompanionInfo,
@@ -12,7 +12,7 @@ import type {
 export const dynamic = "force-dynamic";
 
 async function getProfileInitialData(isSetup: boolean): Promise<ProfileInitialData> {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session) {
     return { notLoggedIn: true };
   }

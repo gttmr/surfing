@@ -48,3 +48,11 @@ prisma/migrations/
 # local uploads
 /public/uploads/
 .env*.local
+
+# isolated mobile QA
+/.omo/drafts/
+/.omo/plans/
+/.omo/evidence/ui-ux-audit/private/
+/.omo/evidence/ui-ux-overhaul/**
+/tests/.auth/
+/.tmp/qa/

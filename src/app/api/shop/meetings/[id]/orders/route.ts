@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canAccessShopPortalFromRequest } from "@/lib/auth";
-import { getActiveSessionFromRequest } from "@/lib/active-session";
-import {
-  applyMeetingOrderAction,
-  getAdminMeetingFoodOrdersData,
-  type MeetingOrderAction,
-} from "@/lib/food-ordering-data";
+import { getAdminMeetingFoodOrdersData } from "@/lib/food-ordering-data";
+import { handleFulfillmentOrderPatch } from "@/lib/fulfillment-order-route";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await canAccessShopPortalFromRequest(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 });
   }
 
   const { id } = await params;
@@ -28,45 +24,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await canAccessShopPortalFromRequest(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id } = await params;
-  const meetingId = Number(id);
-  const body = await req.json();
-  const participantId = Number(body?.participantId);
-  const orderItemIds: number[] = Array.isArray(body?.orderItemIds) ? body.orderItemIds.map(Number) : [];
-  const action = body?.action as MeetingOrderAction | undefined;
-  const cancelReasonCode = typeof body?.cancelReasonCode === "string" ? body.cancelReasonCode : null;
-  const cancelReasonText = typeof body?.cancelReasonText === "string" ? body.cancelReasonText : null;
-
-  if (
-    !Number.isInteger(meetingId) ||
-    !Number.isInteger(participantId) ||
-    orderItemIds.length === 0 ||
-    orderItemIds.some((orderItemId) => !Number.isInteger(orderItemId)) ||
-    !action
-  ) {
-    return NextResponse.json({ error: "participantId, orderItemIds, action이 필요합니다." }, { status: 400 });
-  }
-
-  try {
-    const session = await getActiveSessionFromRequest(req);
-    const data = await applyMeetingOrderAction(meetingId, participantId, orderItemIds, action, {
-      actorKakaoId: session?.kakaoId ?? null,
-      cancelReasonCode,
-      cancelReasonText,
-    });
-    if (!data) {
-      return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "주문 상태를 바꾸지 못했습니다." },
-      { status: 400 }
-    );
-  }
+  return handleFulfillmentOrderPatch({
+    request: req,
+    meetingId: Number(id),
+    authorized: await canAccessShopPortalFromRequest(req),
+  });
 }

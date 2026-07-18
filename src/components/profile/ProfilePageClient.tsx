@@ -6,6 +6,7 @@ import {
   BasicProfileSection,
   CompanionManagementSection,
   MobileProfileSaveDock,
+  PersonalJourneyLinks,
   ProfileHeaderSection,
   ProfileSetupModal,
   ProfileTabs,
@@ -15,6 +16,8 @@ import {
   useProfilePageState,
 } from "@/components/profile/useProfilePageState";
 import { KakaoIcon } from "@/components/meeting/signup-form-controls";
+import { ProfileLeaveDialog } from "@/components/profile/ProfileLeaveDialog";
+import { useProfileLeaveGuard } from "@/components/profile/useProfileLeaveGuard";
 
 const MEMBER_TYPE_LABELS: Record<string, string> = {
   REGULAR: "정회원",
@@ -39,6 +42,10 @@ export function ProfilePageClient({
       loading,
       saving,
       saved,
+      isEditing,
+      isDirty,
+      saveError,
+      companionError,
       notLoggedIn,
       showSetup,
       activeTab,
@@ -56,11 +63,11 @@ export function ProfilePageClient({
       companions,
       addCompanionName,
       addingCompanion,
+      avatarDraft,
       selectedSetupCompanion,
       selectedProfileCompanion,
     },
     actions: {
-      setUser,
       setActiveTab,
       setName,
       setSetupName,
@@ -69,13 +76,25 @@ export function ProfilePageClient({
       setSelectedOwnerKakaoId,
       setSelectedCompanionId,
       setAddCompanionName,
+      setAvatarDraft,
       handleSetupSave,
       handleSave,
       handleAddCompanion,
       handleRemoveCompanion,
       handleLogout,
+      beginEditing,
+      discardDraft,
     },
   } = useProfilePageState({ isSetup, router, initialData });
+
+  const leaveGuard = useProfileLeaveGuard({
+    activeTab,
+    discardDraft,
+    isDirty,
+    logout: handleLogout,
+    push: router.push,
+    setActiveTab,
+  });
 
   if (loading) {
     return (
@@ -118,6 +137,11 @@ export function ProfilePageClient({
 
   return (
     <div className="min-h-screen bg-[var(--brand-page)] pb-12 text-[var(--brand-text)]">
+      <ProfileLeaveDialog
+        onDiscard={leaveGuard.discardAndContinue}
+        onStay={leaveGuard.stay}
+        open={leaveGuard.dialogOpen}
+      />
       <ProfileSetupModal
         show={showSetup}
         saving={saving}
@@ -145,31 +169,38 @@ export function ProfilePageClient({
         onSave={handleSetupSave}
       />
 
-      <main className="mx-auto flex w-full max-w-[390px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
+      <main className="mx-auto flex w-full max-w-[430px] flex-col gap-4 px-4 pb-28 pt-20 sm:gap-6 sm:pb-12 sm:pt-24">
         <ProfileHeaderSection
           user={user}
-          canAccessAdminPortal={canAccessAdminPortal}
-          canAccessShopPortal={canAccessShopPortal}
           profileDisplayName={profileDisplayName}
           profileFallbackSeed={profileFallbackSeed}
           companionsCount={companions.length}
+          editable={isEditing}
+          avatarDraft={avatarDraft}
           memberTypeLabels={MEMBER_TYPE_LABELS}
           memberTypeColors={MEMBER_TYPE_COLORS}
-          onUserUpdated={setUser}
-          onLogout={handleLogout}
+          onAvatarDraftChange={setAvatarDraft}
+          onLogout={leaveGuard.requestLogout}
+          onNavigate={leaveGuard.onNavigate}
+        />
+
+        <PersonalJourneyLinks
+          canAccessAdminPortal={canAccessAdminPortal}
+          canAccessShopPortal={canAccessShopPortal}
+          onNavigate={leaveGuard.onNavigate}
         />
 
         {isRegular ? (
-          <ProfileTabs activeTab={activeTab} onChange={setActiveTab} />
-        ) : null}
-
-        <div className={isRegular ? "min-h-[23rem] sm:min-h-[27rem]" : ""}>
+          <ProfileTabs activeTab={activeTab} onChange={leaveGuard.requestTab}>
           {(!isRegular || activeTab === "profile") ? (
             <BasicProfileSection
               isRegular={isRegular}
               isCompanionWithoutOwner={isCompanionWithoutOwner}
+              isEditing={isEditing}
+              isDirty={isDirty}
               saving={saving}
               saved={saved}
+              saveError={saveError}
               profileSaveValid={profileSaveValid}
               name={name}
               phoneNumber={phoneNumber}
@@ -187,6 +218,8 @@ export function ProfilePageClient({
               onPhoneNumberChange={setPhoneNumber}
               onSelectOwner={setSelectedOwnerKakaoId}
               onSelectCompanion={setSelectedCompanionId}
+              onBeginEditing={beginEditing}
+              onDiscardDraft={discardDraft}
             />
           ) : null}
 
@@ -195,20 +228,52 @@ export function ProfilePageClient({
               companions={companions}
               addCompanionName={addCompanionName}
               addingCompanion={addingCompanion}
+              error={companionError}
               onNameChange={setAddCompanionName}
               onAddCompanion={handleAddCompanion}
               onRemoveCompanion={handleRemoveCompanion}
             />
           ) : null}
-        </div>
+          </ProfileTabs>
+        ) : (
+          <BasicProfileSection
+            isRegular={isRegular}
+            isCompanionWithoutOwner={isCompanionWithoutOwner}
+            isEditing={isEditing}
+            isDirty={isDirty}
+            saving={saving}
+            saved={saved}
+            saveError={saveError}
+            profileSaveValid={profileSaveValid}
+            name={name}
+            phoneNumber={phoneNumber}
+            userMemberType={user?.memberType ?? "REGULAR"}
+            regularMembers={regularMembers}
+            selectedOwnerKakaoId={selectedOwnerKakaoId}
+            ownerCompanions={ownerCompanions}
+            loadingOwnerCompanions={loadingOwnerCompanions}
+            selectedCompanionId={selectedCompanionId}
+            linkedCompanionInfo={linkedCompanionInfo}
+            selectedProfileCompanion={selectedProfileCompanion}
+            memberTypeLabels={MEMBER_TYPE_LABELS}
+            onSubmit={handleSave}
+            onNameChange={setName}
+            onPhoneNumberChange={setPhoneNumber}
+            onSelectOwner={setSelectedOwnerKakaoId}
+            onSelectCompanion={setSelectedCompanionId}
+            onBeginEditing={beginEditing}
+            onDiscardDraft={discardDraft}
+          />
+        )}
       </main>
 
       <MobileProfileSaveDock
-        visible={!isRegular || activeTab === "profile"}
+        visible={isEditing && (!isRegular || activeTab === "profile")}
         saving={saving}
         saved={saved}
         profileSaveValid={profileSaveValid}
         isCompanionWithoutOwner={isCompanionWithoutOwner}
+        isDirty={isDirty}
       />
     </div>
   );
