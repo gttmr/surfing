@@ -29,7 +29,7 @@ export const PRICING_SETTING_KEYS = {
 export const DEFAULT_PRICING_SETTINGS: Record<(typeof PRICING_SETTING_KEYS)[keyof typeof PRICING_SETTING_KEYS], string> = {
   [PRICING_SETTING_KEYS.regularBaseFee]: "0",
   [PRICING_SETTING_KEYS.companionBaseFee]: "0",
-  [PRICING_SETTING_KEYS.regularLessonFee]: "0",
+  [PRICING_SETTING_KEYS.regularLessonFee]: "10000",
   [PRICING_SETTING_KEYS.companionLessonFee]: "50000",
   [PRICING_SETTING_KEYS.regularRentalFee]: "0",
   [PRICING_SETTING_KEYS.companionRentalFee]: "30000",

@@ -5,7 +5,7 @@ import {
   validateSettingsDraft,
 } from "@/lib/admin-pricing-settings";
 import type { AdminPricingState, AdminSettingsFormData } from "@/lib/admin-page-data";
-import { PRICING_SETTING_KEYS } from "@/lib/settings";
+import { DEFAULT_PRICING_SETTINGS, PRICING_SETTING_KEYS } from "@/lib/settings";
 
 const validPricing = {
   [PRICING_SETTING_KEYS.regularBaseFee]: "0",
@@ -25,6 +25,10 @@ const validSettings = {
   settlementAccountNumber: "000-0000",
   settlementAccountHolder: "합성클럽",
 } satisfies AdminSettingsFormData;
+
+test("default pricing keeps the regular lesson fee at the current policy", () => {
+  assert.equal(DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularLessonFee], "10000");
+});
 
 test("pricing validation rejects empty, non-numeric, negative, and unsafe amounts", () => {
   const cases = [
