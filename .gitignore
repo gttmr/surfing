@@ -54,10 +54,5 @@ prisma/migrations/
 /.omo/plans/
 /.omo/evidence/ui-ux-audit/private/
 /.omo/evidence/ui-ux-overhaul/**
-!/.omo/evidence/ui-ux-overhaul/reports/
-!/.omo/evidence/ui-ux-overhaul/reports/*.md
-!/.omo/evidence/ui-ux-overhaul/reports/*.json
-!/.omo/evidence/ui-ux-overhaul/reports/*.txt
-!/.omo/evidence/ui-ux-overhaul/reports/cleanup.txt
 /tests/.auth/
 /.tmp/qa/
