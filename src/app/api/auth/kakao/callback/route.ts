@@ -1,40 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { encodeSession, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/session";
 import { prisma } from "@/lib/db";
-
-function getKakaoRedirectUri(req: NextRequest) {
-  const configured = process.env.KAKAO_REDIRECT_URI?.trim();
-  if (configured) {
-    return configured;
-  }
-
-  const isLocal =
-    req.nextUrl.hostname === "localhost" ||
-    req.nextUrl.hostname === "127.0.0.1";
-
-  if (isLocal) {
-    return new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
-  }
-
-  return new URL("/api/auth/kakao/callback", req.nextUrl.origin).toString();
-}
-
-function getAuthOrigin(req: NextRequest) {
-  const configured = process.env.KAKAO_REDIRECT_URI?.trim();
-  if (configured) {
-    return new URL(configured).origin;
-  }
-
-  const isLocal =
-    req.nextUrl.hostname === "localhost" ||
-    req.nextUrl.hostname === "127.0.0.1";
-
-  if (isLocal) {
-    return req.nextUrl.origin;
-  }
-
-  return new URL(getKakaoRedirectUri(req)).origin;
-}
+import { resolveKakaoAuthOrigin, resolveKakaoRedirectUri } from "@/lib/kakao-oauth";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -42,8 +9,14 @@ export async function GET(req: NextRequest) {
   const errorParam = req.nextUrl.searchParams.get("error");
   const errorDescription = req.nextUrl.searchParams.get("error_description");
   const returnTo = state ? decodeURIComponent(state) : "/";
-  const redirectUri = getKakaoRedirectUri(req);
-  const authOrigin = getAuthOrigin(req);
+  const redirectUri = resolveKakaoRedirectUri(
+    req.nextUrl.origin,
+    process.env.KAKAO_REDIRECT_URI,
+  );
+  const authOrigin = resolveKakaoAuthOrigin(
+    req.nextUrl.origin,
+    process.env.KAKAO_REDIRECT_URI,
+  );
 
   if (errorParam) {
     if (errorParam === "consent_required" || errorParam === "interaction_required") {
