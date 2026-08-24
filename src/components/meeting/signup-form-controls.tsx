@@ -48,7 +48,7 @@ export function OptionPricingHelp({ guide }: { guide: string }) {
       </button>
       {open ? (
         <div className="brand-card-soft absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl p-3 text-left">
-          <p className="mb-2 text-xs font-bold text-[var(--brand-text)]">가격 안내</p>
+          <p className="mb-2 text-xs font-bold text-brand-text">가격 안내</p>
           <p className="brand-text-muted whitespace-pre-line text-xs leading-5">{guide}</p>
         </div>
       ) : null}
@@ -56,21 +56,13 @@ export function OptionPricingHelp({ guide }: { guide: string }) {
   );
 }
 
-type ChoiceItemProps = {
-  label: string;
-  icon?: string;
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-};
-
 function segmentedButtonClass(active: boolean, disabled?: boolean) {
   return [
     "flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
     active
-      ? "bg-[var(--brand-primary)] text-[var(--brand-primary-foreground)]"
-      : "bg-[var(--brand-surface-elevated)] text-[var(--brand-text)] border border-[var(--brand-divider-strong)]",
-    disabled ? "cursor-not-allowed opacity-50" : active ? "" : "hover:border-[var(--brand-primary-border-strong)]",
+      ? "bg-brand-primary text-brand-primary-foreground"
+      : "bg-brand-surface-elevated text-brand-text border border-brand-divider-strong",
+    disabled ? "cursor-not-allowed opacity-50" : active ? "" : "hover:border-brand-primary-border-strong",
   ].join(" ");
 }
 
@@ -88,7 +80,7 @@ export function ShuttleBusChoice({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-[var(--brand-text)]">셔틀버스</p>
+        <p className="text-sm font-semibold text-brand-text">셔틀버스</p>
         {trailing}
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -131,7 +123,7 @@ export function ShopOptionChoice({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-[var(--brand-text)]">샵 이용</p>
+        <p className="text-sm font-semibold text-brand-text">샵 이용</p>
         {trailing}
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -153,63 +145,5 @@ export function ShopOptionChoice({
         </button>
       </div>
     </div>
-  );
-}
-
-export function RadioOptionItem({
-  label,
-  icon,
-  checked,
-  onChange,
-  disabled,
-}: ChoiceItemProps) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      disabled={disabled}
-      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
-    >
-      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
-        {checked ? (
-          <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        ) : null}
-      </div>
-      <span className="flex items-center gap-1.5">
-        {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
-        <span>{label}</span>
-      </span>
-    </button>
-  );
-}
-
-export function CheckboxOptionItem({
-  label,
-  icon,
-  checked,
-  onChange,
-  disabled,
-}: ChoiceItemProps) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      disabled={disabled}
-      className="brand-choice flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
-    >
-      <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${checked ? "brand-choice-indicator-active" : ""}`}>
-        {checked ? (
-          <svg className="h-2.5 w-2.5 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        ) : null}
-      </div>
-      <span className="flex items-center gap-1.5">
-        {icon ? <span aria-hidden="true" className="text-base leading-none">{icon}</span> : null}
-        <span>{label}</span>
-      </span>
-    </button>
   );
 }

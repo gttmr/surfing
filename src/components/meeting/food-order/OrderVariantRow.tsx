@@ -17,7 +17,7 @@ export function OrderVariantRow({
     <article className={`rounded-2xl border px-3 py-3 ${quantity > 0 ? "brand-list-item-active" : "brand-list-item"}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="break-words text-sm font-bold leading-5 text-[var(--brand-text)]">{variant.label}</p>
+          <p className="break-words text-sm font-bold leading-5 text-brand-text">{variant.label}</p>
           <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(variant.price)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -32,7 +32,7 @@ export function OrderVariantRow({
           </button>
           <output
             aria-label={`${variant.label} 수량`}
-            className="min-w-8 text-center text-sm font-extrabold tabular-nums text-[var(--brand-text)]"
+            className="min-w-8 text-center text-sm font-extrabold tabular-nums text-brand-text"
           >
             {quantity}
           </output>

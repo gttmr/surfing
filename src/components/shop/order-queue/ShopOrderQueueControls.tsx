@@ -7,14 +7,16 @@ import {
 
 type Summary = ReturnType<typeof summarizeShopOrderRows>;
 
+const UPDATED_TIME_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
 function updatedLabel(value: number | null): string {
   if (value === null) return "초기 화면";
-  return `${new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(value)} 갱신`;
+  return `${UPDATED_TIME_FORMATTER.format(value)} 갱신`;
 }
 
 function filterCount(value: ShopOrderFilter, summary: Summary, total: number): number {
@@ -53,11 +55,11 @@ export function ShopOrderQueueControls({
     <section aria-labelledby="shop-order-queue-title" className="space-y-4">
       <div className="flex items-start justify-between gap-3 px-1">
         <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold text-[var(--brand-text-subtle)]">
-            <span aria-hidden className={`h-2 w-2 rounded-full ${refreshError ? "bg-[var(--brand-danger)]" : "bg-[var(--brand-success)]"}`} />
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-bold text-brand-text-subtle">
+            <span aria-hidden className={`h-2 w-2 rounded-full ${refreshError ? "bg-brand-danger" : "bg-brand-success"}`} />
             <span>{refreshError ? "동기화 지연" : "5초마다 자동 갱신"}</span>
           </div>
-          <h1 className="text-[1.65rem] font-extrabold leading-tight tracking-[-0.04em] text-[var(--brand-text)]" id="shop-order-queue-title">
+          <h1 className="text-[1.65rem] font-extrabold leading-tight tracking-[-0.04em] text-brand-text" id="shop-order-queue-title">
             실시간 주문 큐
           </h1>
           <p className="brand-text-subtle mt-1 text-xs">오래 들어온 주문부터 차례로 보여드려요.</p>
@@ -74,7 +76,7 @@ export function ShopOrderQueueControls({
       </div>
 
       <div className="brand-highlight-panel overflow-hidden rounded-[1.75rem]">
-        <div className="grid grid-cols-[1.3fr_1fr_1fr] divide-x divide-[var(--brand-divider-strong)]">
+        <div className="grid grid-cols-[1.3fr_1fr_1fr] divide-x divide-brand-divider-strong">
           <div className="px-4 py-4">
             <p className="text-[11px] font-bold opacity-70">처리할 주문</p>
             <p className="mt-1 text-[1.8rem] font-extrabold leading-none tracking-[-0.04em]">{summary.active}<span className="ml-0.5 text-sm">건</span></p>
@@ -93,7 +95,7 @@ export function ShopOrderQueueControls({
       <div className="space-y-3">
         <label className="relative block">
           <span className="sr-only">주문 검색</span>
-          <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[var(--brand-text-subtle)]" name="search" />
+          <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-brand-text-subtle" name="search" />
           <input
             aria-label="주문 검색"
             className="brand-input w-full rounded-2xl py-3 pl-12 pr-4 text-sm outline-none"
@@ -124,7 +126,7 @@ export function ShopOrderQueueControls({
 
       <div className="flex min-h-5 items-center justify-between gap-3 px-1 text-[11px]">
         <span className="brand-text-subtle">{updatedLabel(lastUpdatedAt)}</span>
-        {refreshing ? <span className="font-bold text-[var(--brand-primary-text)]" role="status">확인 중…</span> : null}
+        {refreshing ? <span className="font-bold text-brand-primary-text" role="status">확인 중…</span> : null}
       </div>
 
       {refreshError ? (

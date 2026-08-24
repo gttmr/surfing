@@ -28,14 +28,14 @@ function ProgressSummary({ dirtyCount, summary }: {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-[var(--brand-text)]">확정 {summary.confirmedCount}/{summary.approvedCount}명</p>
+          <p className="text-sm font-extrabold text-brand-text">확정 {summary.confirmedCount}/{summary.approvedCount}명</p>
           <p className="brand-text-subtle mt-0.5 text-[11px]">미제출 {summary.missingCount} · 확인 필요 {summary.reviewCount}</p>
         </div>
         <span className={dirtyCount > 0 ? "brand-chip-preparing rounded-full px-2.5 py-1 text-[11px] font-bold" : "brand-chip-success rounded-full px-2.5 py-1 text-[11px] font-bold"}>
           {dirtyCount > 0 ? `저장 안 됨 ${dirtyCount}` : `${progress}% 완료`}
         </span>
       </div>
-      <progress aria-label="이용 내역 확정 진행률" className="mt-1.5 h-1 w-full accent-[var(--brand-success)]" max={100} value={progress} />
+      <progress aria-label="이용 내역 확정 진행률" className="mt-1.5 h-1 w-full accent-brand-success" max={100} value={progress} />
     </aside>
   );
 }
@@ -44,15 +44,15 @@ function ItemTotals({ rows }: { readonly rows: readonly UsageItemRow[] }) {
   const usedRows = rows.filter((row) => row.quantity > 0 || row.confirmedQuantity > 0);
   return (
     <details className="brand-panel-white overflow-hidden rounded-2xl">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-extrabold text-[var(--brand-text)]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-extrabold text-brand-text">
         <span>항목별 확정 합계</span>
         <span className="brand-chip-soft rounded-full px-2 py-1 text-[11px]">{usedRows.length}개 항목</span>
       </summary>
-      <div className="border-t border-[var(--brand-divider)]">
+      <div className="border-t border-brand-divider">
         {usedRows.length > 0 ? usedRows.map((row) => (
-          <div className="grid grid-cols-[minmax(0,1fr)_4rem] gap-2 border-b border-[var(--brand-divider)] px-4 py-3 text-sm last:border-b-0" key={row.usageItemId}>
-            <span className="truncate font-semibold text-[var(--brand-text)]">{row.name}</span>
-            <span className="text-right font-extrabold text-[var(--brand-text)]">{row.confirmedQuantity}/{row.quantity}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_4rem] gap-2 border-b border-brand-divider px-4 py-3 text-sm last:border-b-0" key={row.usageItemId}>
+            <span className="truncate font-semibold text-brand-text">{row.name}</span>
+            <span className="text-right font-extrabold text-brand-text">{row.confirmedQuantity}/{row.quantity}</span>
           </div>
         )) : <p className="brand-text-subtle px-4 py-5 text-center text-xs">집계할 이용 내역이 없습니다.</p>}
       </div>
@@ -104,14 +104,14 @@ export function ShopUsageParticipantReview({
   return (
     <section aria-labelledby="usage-review-title" className="space-y-3">
       <div className="px-1">
-        <h1 className="text-base font-extrabold text-[var(--brand-text)]" id="usage-review-title">참가자 이용 확인</h1>
+        <h1 className="text-base font-extrabold text-brand-text" id="usage-review-title">참가자 이용 확인</h1>
       </div>
 
       <ProgressSummary dirtyCount={dirtyParticipantIds.length} summary={summary} />
 
       <label className="relative block">
         <span className="sr-only">참가자 이용 검색</span>
-        <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[var(--brand-text-subtle)]" name="search" />
+        <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-brand-text-subtle" name="search" />
         <input
           aria-label="참가자 이용 검색"
           className="brand-input w-full rounded-2xl py-3 pl-12 pr-4 text-sm outline-none"

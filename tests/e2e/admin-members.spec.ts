@@ -1,8 +1,44 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
 import { installBrowserEgressGuard } from "../../scripts/qa/browser-egress";
 import { MOBILE_UX_FIXTURE_IDS } from "../fixtures/mobile-ux";
 import { qaStorageState } from "../fixtures/playwright-auth";
 import { assertAccessible, capture, evidenceDirectory } from "./admin-pricing-settings.helpers";
+import { encodeSession } from "../../src/lib/session";
+
+const DISPOSABLE_MEMBER = {
+  id: 8299,
+  kakaoId: "qa-disposable-member-delete",
+  name: "삭제 전용 합성 회원",
+} as const;
+
+async function seedDisposableMember(): Promise<void> {
+  const client = new PrismaClient();
+  try {
+    await client.$transaction([
+      client.deletedKakaoId.deleteMany({ where: { kakaoId: DISPOSABLE_MEMBER.kakaoId } }),
+      client.user.upsert({
+        where: { id: DISPOSABLE_MEMBER.id },
+        create: { ...DISPOSABLE_MEMBER, role: "MEMBER", memberType: "REGULAR" },
+        update: { kakaoId: DISPOSABLE_MEMBER.kakaoId, name: DISPOSABLE_MEMBER.name, role: "MEMBER", memberType: "REGULAR", penaltyCount: 0 },
+      }),
+    ]);
+  } finally {
+    await client.$disconnect();
+  }
+}
+
+async function removeDisposableMember(): Promise<void> {
+  const client = new PrismaClient();
+  try {
+    await client.$transaction([
+      client.user.deleteMany({ where: { id: DISPOSABLE_MEMBER.id } }),
+      client.deletedKakaoId.deleteMany({ where: { kakaoId: DISPOSABLE_MEMBER.kakaoId } }),
+    ]);
+  } finally {
+    await client.$disconnect();
+  }
+}
 
 async function authenticate(context: BrowserContext, key: "kakao-admin" | "password-admin") {
   await context.clearCookies();
@@ -19,6 +55,8 @@ test.beforeEach(async ({ context }) => {
   await installBrowserEgressGuard(context, evidenceDirectory);
   await authenticate(context, "password-admin");
 });
+
+test.afterAll(removeDisposableMember);
 
 test("member search and filters open a detail sheet without losing list context", async ({ page }, testInfo) => {
   await page.goto("/admin/members", { waitUntil: "networkidle" });
@@ -107,13 +145,15 @@ test("member edits stay draft-only through validation and server failure", async
 });
 
 test("named member deletion requires confirmation and cancel restores focus", async ({ page }, testInfo) => {
-  const endpoint = `/api/admin/members/${MOBILE_UX_FIXTURE_IDS.disposable.user}`;
+  await seedDisposableMember();
+  const endpoint = `/api/admin/members/${DISPOSABLE_MEMBER.id}`;
+  const staleSessionCookie = `__session=${encodeSession({ kakaoId: DISPOSABLE_MEMBER.kakaoId, nickname: DISPOSABLE_MEMBER.name })}`;
   await page.goto("/admin/members", { waitUntil: "networkidle" });
-  const target = page.getByRole("button", { name: /서른다섯 번째 사용자/ });
+  const target = page.getByRole("button", { name: DISPOSABLE_MEMBER.name });
   await target.click();
   const deleteButton = page.getByRole("button", { name: "회원 삭제", exact: true });
   await deleteButton.click();
-  await expect(page.getByRole("dialog", { name: /서른다섯 번째 사용자님을 삭제할까요/ })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: `${DISPOSABLE_MEMBER.name}님을 삭제할까요?` })).toBeVisible();
   await expect(page.getByText("회원 계정, 참가 기록, 소유한 동반인 정보가 함께 정리됩니다.")).toBeVisible();
   await capture(page, "members-delete-confirm", testInfo.project.name);
   await page.getByRole("button", { name: "취소", exact: true }).click();
@@ -122,9 +162,16 @@ test("named member deletion requires confirmation and cancel restores focus", as
 
   await deleteButton.click();
   await page.getByRole("button", { name: "회원 삭제", exact: true }).last().click();
-  await expect(page.getByRole("button", { name: /서른다섯 번째 사용자/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: DISPOSABLE_MEMBER.name })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /합성 회원 34/ })).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "회원 검색", exact: true })).toBeFocused();
+  expect((await page.request.get(endpoint, { failOnStatusCode: false })).status()).toBe(404);
+
+  const staleProfile = await page.request.get("/api/profile", {
+    failOnStatusCode: false,
+    headers: { cookie: staleSessionCookie },
+  });
+  expect(staleProfile.status()).toBe(401);
   expect((await page.request.get(endpoint, { failOnStatusCode: false })).status()).toBe(404);
 });
 

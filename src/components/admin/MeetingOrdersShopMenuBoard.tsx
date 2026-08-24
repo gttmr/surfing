@@ -29,7 +29,7 @@ export function MeetingOrdersShopMenuBoard({
   if (activeMenuRows.length === 0 && completedOrders.length === 0) {
     return (
       <section className="brand-panel-white rounded-3xl px-5 py-10 text-center">
-        <p className="text-sm font-semibold text-[var(--brand-text)]">들어온 주문이 없습니다.</p>
+        <p className="text-sm font-semibold text-brand-text">들어온 주문이 없습니다.</p>
         <p className="brand-text-subtle mt-1 text-xs">참가자가 주문하면 여기서 바로 처리할 수 있습니다.</p>
       </section>
     );
@@ -40,8 +40,8 @@ export function MeetingOrdersShopMenuBoard({
       {activeMenuRows.map((menu) => (
         <section key={menu.rowId} className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <span className="h-4 w-1 rounded-full bg-[var(--brand-primary)]" />
-            <p className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-[var(--brand-text)]">
+            <span className="h-4 w-1 rounded-full bg-brand-primary" />
+            <p className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-brand-text">
               {menu.menuName}
             </p>
           </div>
@@ -55,12 +55,12 @@ export function MeetingOrdersShopMenuBoard({
               return (
                 <div
                   key={order.rowId}
-                  className={index > 0 ? "border-t border-[var(--brand-divider)]" : ""}
+                  className={index > 0 ? "border-t border-brand-divider" : ""}
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-[15px] font-bold text-[var(--brand-text)]">
+                        <p className="truncate text-[15px] font-bold text-brand-text">
                           {order.participantName}
                         </p>
                         {order.quantity > 1 ? (
@@ -124,8 +124,8 @@ export function MeetingOrdersShopMenuBoard({
       {completedOrders.length > 0 ? (
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <span className="h-4 w-1 rounded-full bg-[var(--brand-primary-soft-strong)]" />
-            <p className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-[var(--brand-text)]">완료</p>
+            <span className="h-4 w-1 rounded-full bg-brand-primary-soft-strong" />
+            <p className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-brand-text">완료</p>
           </div>
 
           <div className="brand-panel-white overflow-hidden rounded-[1.7rem]">
@@ -137,11 +137,11 @@ export function MeetingOrdersShopMenuBoard({
               return (
                 <div
                   key={`completed-${order.rowId}`}
-                  className={index > 0 ? "border-t border-[var(--brand-divider)]" : ""}
+                  className={index > 0 ? "border-t border-brand-divider" : ""}
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-bold text-[var(--brand-text)]">
+                      <p className="truncate text-[15px] font-bold text-brand-text">
                         {order.participantName}
                       </p>
                       <p className="brand-text-subtle mt-1 text-[11px]">{meta}</p>

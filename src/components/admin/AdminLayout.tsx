@@ -66,7 +66,7 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
           </button>
         </div>
       </Dialog>
-      <header className="brand-header-surface sticky top-0 z-20 border-b border-[var(--brand-divider)] pt-[var(--brand-safe-top)]">
+      <header className="brand-header-surface sticky top-0 z-20 border-b border-brand-divider pt-[var(--brand-safe-top)]">
         <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <p className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</p>
@@ -94,6 +94,7 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
             </nav>
           </div>
           <button
+            type="button"
             disabled={isSaveInFlight}
             onClick={leaveGuard.requestLogout}
             className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"

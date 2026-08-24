@@ -59,7 +59,7 @@ export function AdminMeetingsPageClient({
           <p className="brand-text-subtle text-xs font-semibold tracking-[0.12em]">ADMIN WORKSPACE</p>
           <div className="mt-1 flex items-start justify-between gap-3">
             <div>
-              <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">모임 관리</h1>
+              <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">모임 관리</h1>
               <p className="brand-text-muted mt-1 break-keep text-sm">일정과 참가 상태를 필요한 화면에서만 관리합니다.</p>
             </div>
             {!creating ? (
@@ -81,7 +81,7 @@ export function AdminMeetingsPageClient({
         ) : (
           <section className="brand-admin-section overflow-hidden">
             <div className="brand-admin-section-header space-y-3 px-4 py-4">
-              <div className="grid grid-cols-2 gap-1 rounded-2xl bg-[var(--brand-surface)] p-1" aria-label="모임 시기" role="group">
+              <div className="grid grid-cols-2 gap-1 rounded-2xl bg-brand-surface p-1" aria-label="모임 시기" role="group">
                 <button aria-pressed={view === "upcoming"} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${view === "upcoming" ? "brand-filter-tab-active" : "brand-text-subtle"}`} onClick={() => setView("upcoming")} type="button">예정 {upcomingMeetings.length}</button>
                 <button aria-pressed={view === "past"} className={`rounded-xl px-3 py-2.5 text-sm font-bold ${view === "past" ? "brand-filter-tab-active" : "brand-text-subtle"}`} onClick={() => setView("past")} type="button">지난 모임 {pastMeetings.length}</button>
               </div>

@@ -22,7 +22,7 @@ export function OrderCartFooter({
     <section aria-label="주문 장바구니 요약">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p aria-live="polite" className="text-sm font-extrabold text-[var(--brand-text)]">
+          <p aria-live="polite" className="text-sm font-extrabold text-brand-text">
             {editing ? "수정할 메뉴" : "담은 메뉴"} {summary.totalQuantity}개
           </p>
           <p className="brand-text-subtle mt-1 text-xs">
@@ -31,7 +31,7 @@ export function OrderCartFooter({
         </div>
         <div className="shrink-0 text-right">
           <p className="brand-text-subtle text-[10px] font-bold">청구금액</p>
-          <p className={`text-base font-extrabold ${summary.billableAmount > 0 ? "text-[var(--brand-danger)]" : "text-[var(--brand-success-text)]"}`}>
+          <p className={`text-base font-extrabold ${summary.billableAmount > 0 ? "text-brand-danger" : "text-brand-success-text"}`}>
             {summary.billableAmount > 0 ? formatWon(summary.billableAmount) : "없음"}
           </p>
         </div>

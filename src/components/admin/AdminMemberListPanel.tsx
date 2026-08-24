@@ -1,5 +1,6 @@
 import { AsyncState } from "@/components/ui/AsyncState";
 import { Icon } from "@/components/ui/Icon";
+import type { Ref } from "react";
 import type { AdminMemberFilter } from "@/lib/admin-members";
 import type { AdminMemberListItem } from "@/lib/admin-page-data";
 
@@ -52,6 +53,7 @@ type AdminMemberListPanelProps = {
   readonly onFilterChange: (filter: AdminMemberFilter) => void;
   readonly onOpenMember: (member: AdminMemberListItem) => void;
   readonly onResetFilter: () => void;
+  readonly searchInputRef?: Ref<HTMLInputElement>;
 };
 
 export function AdminMemberListPanel({
@@ -61,6 +63,7 @@ export function AdminMemberListPanel({
   onFilterChange,
   onOpenMember,
   onResetFilter,
+  searchInputRef,
 }: AdminMemberListPanelProps) {
   const hasFilter = filter.query.length > 0
     || filter.role !== "ALL"
@@ -72,7 +75,7 @@ export function AdminMemberListPanel({
       <div className="brand-admin-section-header space-y-4 px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-extrabold text-[var(--brand-text)]" id="admin-member-list-title">회원 찾기</h2>
+            <h2 className="text-base font-extrabold text-brand-text" id="admin-member-list-title">회원 찾기</h2>
             <p className="brand-text-subtle mt-1 text-xs">검색하고 조건을 좁힌 뒤 상세 정보를 확인하세요.</p>
           </div>
           <span className="brand-admin-stat shrink-0 rounded-full px-3 py-1.5 text-xs font-bold">
@@ -81,7 +84,7 @@ export function AdminMemberListPanel({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]" htmlFor="admin-member-search">회원 검색</label>
+          <label className="mb-1.5 block text-xs font-bold text-brand-text" htmlFor="admin-member-search">회원 검색</label>
           <div className="relative">
             <Icon className="brand-text-subtle pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px]" name="search" />
             <input
@@ -90,6 +93,7 @@ export function AdminMemberListPanel({
               id="admin-member-search"
               onChange={(event) => onFilterChange({ ...filter, query: event.target.value })}
               placeholder="이름, 카카오 ID, 연락처"
+              ref={searchInputRef}
               type="search"
               value={filter.query}
             />
@@ -97,7 +101,7 @@ export function AdminMemberListPanel({
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          <label className="min-w-0 text-[11px] font-bold text-[var(--brand-text)]">
+          <label className="min-w-0 text-[11px] font-bold text-brand-text">
             <span className="mb-1 block">등급</span>
             <select
               aria-label="회원 등급 필터"
@@ -112,7 +116,7 @@ export function AdminMemberListPanel({
               <option value="BANNED">차단</option>
             </select>
           </label>
-          <label className="min-w-0 text-[11px] font-bold text-[var(--brand-text)]">
+          <label className="min-w-0 text-[11px] font-bold text-brand-text">
             <span className="mb-1 block">유형</span>
             <select
               aria-label="회원 유형 필터"
@@ -125,7 +129,7 @@ export function AdminMemberListPanel({
               <option value="COMPANION">동반인</option>
             </select>
           </label>
-          <label className="min-w-0 text-[11px] font-bold text-[var(--brand-text)]">
+          <label className="min-w-0 text-[11px] font-bold text-brand-text">
             <span className="mb-1 block">상태</span>
             <select
               aria-label="회원 상태 필터"
@@ -164,7 +168,7 @@ export function AdminMemberListPanel({
             <li className="brand-list-row last:border-b-0" key={member.id}>
               <button
                 aria-haspopup="dialog"
-                className="brand-touch-target flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-[var(--brand-primary-soft)]"
+                className="brand-touch-target flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-brand-primary-soft"
                 onClick={() => onOpenMember(member)}
                 type="button"
               >
@@ -177,7 +181,7 @@ export function AdminMemberListPanel({
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-sm font-extrabold leading-5 text-[var(--brand-text)]">
+                  <span className="line-clamp-2 text-sm font-extrabold leading-5 text-brand-text">
                     {member.name ?? "이름 없음"}
                   </span>
                   <span className="mt-1 flex flex-wrap gap-1.5">

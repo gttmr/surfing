@@ -57,12 +57,12 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
   const status = participantStatus(participant.status);
   const companion = participant.companionId !== null;
   return (
-    <article className={`brand-card-soft relative rounded-2xl p-3 ${companion ? "ml-5 border-l-2 border-l-[var(--brand-primary-border-strong)]" : ""}`}>
+    <article className={`brand-card-soft relative rounded-2xl p-3 ${companion ? "ml-5 border-l-2 border-l-brand-primary-border-strong" : ""}`}>
       <details>
         <summary className={`brand-touch-target flex cursor-pointer list-none items-start justify-between gap-2 pr-20 ${participant.status === "WAITLISTED" ? "min-h-[92px]" : ""}`}>
           <span className="min-w-0">
             <span className="flex flex-wrap items-center gap-2">
-              <span className="w-full text-balance font-extrabold text-[var(--brand-text)]">{participant.name}</span>
+              <span className="w-full text-balance font-extrabold text-brand-text">{participant.name}</span>
               {companion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
               {status ? <StatusBadge size="sm" status={status} waitlistPosition={participant.waitlistPosition} /> : <span className="brand-chip-dimmed rounded px-2 py-0.5 text-xs">상태 확인 필요</span>}
             </span>
@@ -71,7 +71,7 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
           <Icon className="brand-text-subtle mt-1 shrink-0 text-[20px]" name="expand_more" />
         </summary>
         <div className="brand-inset-panel mt-3 space-y-2 rounded-xl p-3 text-xs">
-          <p><span className="brand-text-subtle">카카오 닉네임</span><span className="ml-2 font-semibold text-[var(--brand-text)]">{participant.kakaoNickname}</span></p>
+          <p><span className="brand-text-subtle">카카오 닉네임</span><span className="ml-2 font-semibold text-brand-text">{participant.kakaoNickname}</span></p>
           <div className="flex flex-wrap gap-1.5">
             {participant.hasBus ? <span className="brand-chip-soft rounded px-2 py-1 font-bold">셔틀 버스</span> : null}
             {participant.hasLesson ? <span className="brand-chip-dark rounded px-2 py-1 font-bold">강습·장비</span> : null}
@@ -79,7 +79,7 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
             {participant.isPenalized ? <span className="brand-chip-danger rounded px-2 py-1 font-bold">패널티</span> : null}
             {!participant.hasBus && !participant.hasLesson && !participant.hasRental && !participant.isPenalized ? <span className="brand-text-subtle">추가 옵션 없음</span> : null}
           </div>
-          {participant.note ? <p className="break-keep leading-5 text-[var(--brand-text)]">{participant.note}</p> : null}
+          {participant.note ? <p className="break-keep leading-5 text-brand-text">{participant.note}</p> : null}
           <p className="brand-text-subtle">신청 {new Date(participant.submittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
           {participant.cancelledAt ? <p className="brand-text-subtle">취소 {new Date(participant.cancelledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p> : null}
         </div>

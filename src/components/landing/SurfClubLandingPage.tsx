@@ -30,6 +30,12 @@ import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
 import { buildTossTransferUrl } from "@/lib/toss";
 
+const MEETING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
+
 function getSettlementAlertStatus(settlement: SettlementSummary, inProgressMeetingIds: number[]) {
   if (settlement.isCompleted) return "completed";
   if (inProgressMeetingIds.includes(settlement.meeting.id)) return "in_progress";
@@ -188,7 +194,7 @@ export default function SurfClubLandingPage({
   const hasSelectedMeetings = selectedMeetings.length > 0;
   const selectedMeeting = selectedMeetings[0];
   const selectedMeetingDateLabel = selectedMeeting
-    ? new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", weekday: "short" }).format(new Date(`${selectedMeeting.date}T12:00:00`))
+    ? MEETING_DATE_FORMATTER.format(new Date(`${selectedMeeting.date}T12:00:00`))
     : "";
   const selectedSignup = selectedMeeting ? initialSignupDataByMeetingId[selectedMeeting.id] : null;
   const selectedParticipation = selectedSignup?.myParticipant;
@@ -300,7 +306,7 @@ export default function SurfClubLandingPage({
   }
 
   return (
-    <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
+    <div className="min-h-screen bg-brand-page text-brand-text">
       <LandingHeader
         user={user}
         hasAlertCenter={hasAlertCenter}
@@ -354,7 +360,7 @@ export default function SurfClubLandingPage({
             <div className="brand-panel-white mt-4 flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
               <div className="min-w-0">
                 <p className="brand-text-subtle text-xs font-semibold">지금 할 일</p>
-                <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">
+                <p className="mt-1 text-sm font-extrabold text-brand-text">
                   {!user
                     ? "로그인하고 참가 여부 확인"
                     : !selectedParticipation
@@ -388,7 +394,7 @@ export default function SurfClubLandingPage({
                   <div className="flex items-start gap-3">
                     <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="payments" /></span>
                     <div>
-                      <h3 className="text-base font-extrabold text-[var(--brand-text)]">내 정산 확인</h3>
+                      <h3 className="text-base font-extrabold text-brand-text">내 정산 확인</h3>
                       <p className="brand-text-muted mt-1 text-sm leading-6">내 참가비와 연결된 동반인의 정산 내역을 한곳에서 확인합니다.</p>
                     </div>
                   </div>
@@ -459,7 +465,7 @@ export default function SurfClubLandingPage({
             <div className="grid gap-3">
               {canCreateRegularMeeting ? (
                 <Link
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--brand-primary)] bg-[var(--brand-primary)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-foreground)] transition-colors hover:bg-[var(--brand-primary-hover)]"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand-primary bg-brand-primary px-4 py-4 font-headline text-base font-extrabold text-brand-primary-foreground transition-colors hover:bg-brand-primary-hover"
                   href={`/admin/meetings?create=1&date=${encodeURIComponent(selectedDate!)}&type=${encodeURIComponent("정기")}`}
                 >
                   정기 모임 생성
@@ -469,7 +475,7 @@ export default function SurfClubLandingPage({
 
               {canCreateIrregularMeeting ? (
                 <Link
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--brand-primary-border)] bg-[var(--brand-primary-soft)] px-4 py-4 font-headline text-base font-extrabold text-[var(--brand-primary-text)] transition-colors hover:bg-[var(--brand-surface)]"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand-primary-border bg-brand-primary-soft px-4 py-4 font-headline text-base font-extrabold text-brand-primary-text transition-colors hover:bg-brand-surface"
                   href={`/meeting/create?date=${encodeURIComponent(selectedDate!)}`}
                 >
                   비정기 모임 생성

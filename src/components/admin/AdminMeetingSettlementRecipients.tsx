@@ -40,7 +40,7 @@ function RecipientSection({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3 px-1">
-        <h3 className="text-sm font-extrabold text-[var(--brand-text)]">{title}</h3>
+        <h3 className="text-sm font-extrabold text-brand-text">{title}</h3>
         <span className="brand-text-subtle text-xs font-bold">{recipients.length}명</span>
       </div>
       {recipients.map((recipient) => {
@@ -94,7 +94,7 @@ export function AdminMeetingSettlementRecipients({
   if (data.recipients.length === 0) {
     return (
       <div className="brand-panel-white rounded-3xl px-5 py-10 text-center" role="status">
-        <p className="text-sm font-bold text-[var(--brand-text)]">정산 수신자가 없습니다.</p>
+        <p className="text-sm font-bold text-brand-text">정산 수신자가 없습니다.</p>
         <p className="brand-text-subtle mt-1 text-xs">참가자 정산 정보가 준비되면 여기에 표시됩니다.</p>
       </div>
     );

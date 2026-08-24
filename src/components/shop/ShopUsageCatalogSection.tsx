@@ -111,19 +111,19 @@ export function ShopUsageCatalogSection({
     <details className="brand-panel-white overflow-hidden rounded-[1.6rem]">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
         <span className="min-w-0">
-          <span className="block text-sm font-extrabold text-[var(--brand-text)]">이용 항목 설정</span>
+          <span className="block text-sm font-extrabold text-brand-text">이용 항목 설정</span>
           <span className="brand-text-subtle mt-0.5 block text-xs">가격, 항목 추가, 사용 여부 관리</span>
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--brand-primary-text)]">
+        <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-brand-primary-text">
           {drafts.length}개
           <Icon className="text-[20px]" name="settings" />
         </span>
       </summary>
 
-      <div className="space-y-3 border-t border-[var(--brand-divider)] p-4">
+      <div className="space-y-3 border-t border-brand-divider p-4">
         {drafts.map((draft) => (
-          <fieldset className="space-y-2 rounded-2xl border border-[var(--brand-divider)] p-3" key={draft.id}>
-            <legend className="px-1 text-xs font-bold text-[var(--brand-text)]">{draft.name || "이름 없는 항목"}</legend>
+          <fieldset className="space-y-2 rounded-2xl border border-brand-divider p-3" key={draft.id}>
+            <legend className="px-1 text-xs font-bold text-brand-text">{draft.name || "이름 없는 항목"}</legend>
             <label className="block">
               <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">항목 이름</span>
               <input className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none" onChange={(event) => updateDraft(draft.id, { name: event.target.value })} value={draft.name} />
@@ -137,16 +137,16 @@ export function ShopUsageCatalogSection({
                 <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">샵 가격</span>
                 <input className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none" inputMode="numeric" onChange={(event) => updateDraft(draft.id, { shopPrice: digits(event.target.value) })} value={draft.shopPrice} />
               </label>
-              <label className="brand-touch-target flex cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-bold text-[var(--brand-text)]">
-                <input checked={draft.isActive} className="h-4 w-4 accent-[var(--brand-primary)]" onChange={(event) => updateDraft(draft.id, { isActive: event.target.checked })} type="checkbox" />
+              <label className="brand-touch-target flex cursor-pointer items-center gap-2 rounded-xl px-2 text-xs font-bold text-brand-text">
+                <input checked={draft.isActive} className="h-4 w-4 accent-brand-primary" onChange={(event) => updateDraft(draft.id, { isActive: event.target.checked })} type="checkbox" />
                 사용
               </label>
             </div>
           </fieldset>
         ))}
 
-        <fieldset className="space-y-2 rounded-2xl border border-[var(--brand-primary-border)] p-3">
-          <legend className="px-1 text-xs font-bold text-[var(--brand-primary-text)]">새 항목 추가</legend>
+        <fieldset className="space-y-2 rounded-2xl border border-brand-primary-border p-3">
+          <legend className="px-1 text-xs font-bold text-brand-primary-text">새 항목 추가</legend>
           <label className="block">
             <span className="brand-text-subtle mb-1 block text-[11px] font-semibold">항목 이름</span>
             <input className="brand-input w-full rounded-xl px-3 py-2 text-sm outline-none" onChange={(event) => setNewItem((current) => ({ ...current, name: event.target.value }))} placeholder="기타 항목" value={newItem.name} />

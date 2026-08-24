@@ -66,24 +66,24 @@ export function ProfileSetupModal({
       <div className="brand-card-soft max-w-sm w-full rounded-2xl p-6">
         <div className="mb-5 text-center">
           <div className="mb-2 text-4xl">🏄‍♂️</div>
-          <h2 className="text-xl font-extrabold text-[var(--brand-text)]">환영합니다!</h2>
+          <h2 className="text-xl font-extrabold text-brand-text">환영합니다!</h2>
           <p className="brand-text-muted mt-1 text-sm">아래 정보를 입력해주세요</p>
         </div>
 
         <div className="flex min-h-[24rem] flex-col">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-              회원 유형 <span className="text-[var(--brand-error)]">*</span>
+          <fieldset>
+            <legend className="mb-2 block text-sm font-semibold text-brand-text">
+              회원 유형 <span className="text-brand-error">*</span>
               <span className="brand-text-subtle ml-1 text-xs font-normal">(가입 후 변경 불가)</span>
-            </label>
+            </legend>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => onMemberTypeChange("REGULAR")}
                 className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
                   setupMemberType === "REGULAR"
-                    ? "brand-toggle-active border-[var(--brand-primary-border-strong)]"
-                    : "text-[var(--brand-primary-text)]"
+                    ? "brand-toggle-active border-brand-primary-border-strong"
+                    : "text-brand-primary-text"
                 }`}
               >
                 정회원
@@ -93,8 +93,8 @@ export function ProfileSetupModal({
                 onClick={() => onMemberTypeChange("COMPANION")}
                 className={`brand-select-card flex-1 rounded-xl py-3 text-sm font-bold transition-all ${
                   setupMemberType === "COMPANION"
-                    ? "brand-toggle-active border-[var(--brand-primary-border-strong)]"
-                    : "text-[var(--brand-primary-text)]"
+                    ? "brand-toggle-active border-brand-primary-border-strong"
+                    : "text-brand-primary-text"
                 }`}
               >
                 동반인
@@ -105,15 +105,16 @@ export function ProfileSetupModal({
                 ? "직접 모임에 신청하고 동반인을 등록할 수 있습니다."
                 : "정회원에 의해 동반인으로 등록된 경우 선택하세요."}
             </p>
-          </div>
+          </fieldset>
 
           <div className="mt-3 flex-1">
             {setupMemberType === "REGULAR" ? (
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                  이름 <span className="text-[var(--brand-error)]">*</span>
+                <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="profile-setup-name">
+                  이름 <span className="text-brand-error">*</span>
                 </label>
                 <input
+                  id="profile-setup-name"
                   autoFocus
                   type="text"
                   value={setupName}
@@ -124,10 +125,10 @@ export function ProfileSetupModal({
               </div>
             ) : (
               <div className="space-y-3">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                    소속 정회원 선택 <span className="text-[var(--brand-error)]">*</span>
-                  </label>
+                <fieldset>
+                  <legend className="mb-2 block text-sm font-semibold text-brand-text">
+                    소속 정회원 선택 <span className="text-brand-error">*</span>
+                  </legend>
                   {regularMembers.length === 0 ? (
                     <p className="brand-text-subtle py-3 text-center text-xs">동반인을 등록한 정회원이 없습니다</p>
                   ) : (
@@ -139,8 +140,8 @@ export function ProfileSetupModal({
                           onClick={() => onSelectOwner(member.kakaoId)}
                           className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                             selectedOwnerKakaoId === member.kakaoId
-                              ? "bg-[var(--brand-primary-soft)] font-semibold text-[var(--brand-primary-text)]"
-                              : "text-[var(--brand-text)] hover:bg-[var(--brand-surface)]"
+                              ? "bg-brand-primary-soft font-semibold text-brand-primary-text"
+                              : "text-brand-text hover:bg-brand-surface"
                           }`}
                         >
                           {member.name || "이름 없음"}
@@ -148,13 +149,13 @@ export function ProfileSetupModal({
                       ))}
                     </div>
                   )}
-                </div>
+                </fieldset>
 
                 {selectedOwnerKakaoId ? (
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-[var(--brand-text)]">
-                      내 이름 선택 <span className="text-[var(--brand-error)]">*</span>
-                    </label>
+                  <fieldset>
+                    <legend className="mb-2 block text-sm font-semibold text-brand-text">
+                      내 이름 선택 <span className="text-brand-error">*</span>
+                    </legend>
                     {loadingOwnerCompanions ? (
                       <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
                     ) : (
@@ -166,8 +167,8 @@ export function ProfileSetupModal({
                             onClick={() => onSelectCompanion(selectedCompanionId === companion.id ? null : companion.id)}
                             className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
                               selectedCompanionId === companion.id
-                                ? "brand-toggle-active border-[var(--brand-primary-border-strong)] font-semibold"
-                                : "text-[var(--brand-text)]"
+                                ? "brand-toggle-active border-brand-primary-border-strong font-semibold"
+                                : "text-brand-text"
                             }`}
                           >
                             {companion.name}
@@ -178,7 +179,7 @@ export function ProfileSetupModal({
                         ) : null}
                       </div>
                     )}
-                  </div>
+                  </fieldset>
                 ) : (
                   <div className="brand-panel-white rounded-xl px-4 py-4">
                     <p className="brand-text-subtle text-xs">
@@ -190,7 +191,7 @@ export function ProfileSetupModal({
                 {selectedSetupCompanion ? (
                   <div className="brand-panel-white rounded-xl px-4 py-3">
                     <p className="brand-text-subtle text-xs">선택된 이름</p>
-                    <p className="mt-1 text-sm font-semibold text-[var(--brand-text)]">{selectedSetupCompanion.name}</p>
+                    <p className="mt-1 text-sm font-semibold text-brand-text">{selectedSetupCompanion.name}</p>
                     <p className="brand-text-subtle mt-2 text-xs">
                       동반인은 정회원이 등록한 실명 엔트리를 그대로 사용합니다.
                     </p>
@@ -202,11 +203,12 @@ export function ProfileSetupModal({
         </div>
 
         <button
+          type="button"
           onClick={onSave}
           disabled={saving || linking || !companionSetupValid}
           className={`mt-0 w-full rounded-xl py-3 text-sm font-bold transition-all ${
             saving || linking || !companionSetupValid
-              ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
+              ? "bg-brand-primary-soft cursor-not-allowed text-brand-text-subtle"
               : "brand-button-primary active:scale-[0.99]"
           }`}
         >
@@ -271,7 +273,7 @@ export function ProfileHeaderSection({
           fallbackSeed={profileFallbackSeed}
           onDraftChange={onAvatarDraftChange}
         />
-        <h1 className="mt-3 text-xl font-extrabold text-[var(--brand-text)] sm:mt-4">{profileDisplayName}</h1>
+        <h1 className="mt-3 text-xl font-extrabold text-brand-text sm:mt-4">{profileDisplayName}</h1>
         <p className="brand-text-subtle mt-1 text-xs">가입일 {user ? new Date(user.createdAt).toLocaleDateString("ko-KR") : ""}</p>
         <div className="mt-2 flex flex-wrap justify-center gap-2 sm:mt-3">
           {user?.memberType ? (
@@ -279,7 +281,7 @@ export function ProfileHeaderSection({
               {memberTypeLabels[user.memberType] || user.memberType}
             </span>
           ) : null}
-          <span className="rounded-full bg-[var(--brand-primary-soft-strong)] px-2 py-0.5 text-xs font-bold text-[var(--brand-primary-text)]">
+          <span className="rounded-full bg-brand-primary-soft-strong px-2 py-0.5 text-xs font-bold text-brand-primary-text">
             모임 {user?._count?.participants ?? 0}회
           </span>
           {companionsCount > 0 ? (
@@ -328,7 +330,7 @@ export function PersonalJourneyLinks({
               <Icon className="text-[21px]" name={link.icon} />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-extrabold text-[var(--brand-text)]">{link.label}</span>
+              <span className="block text-sm font-extrabold text-brand-text">{link.label}</span>
               <span className="brand-text-subtle mt-0.5 block text-[11px] leading-4">{link.detail}</span>
             </span>
           </Link>
@@ -427,7 +429,7 @@ export function BasicProfileSection({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="brand-text-subtle text-xs font-bold">등록된 정보</p>
-            <h2 className="mt-1 text-lg font-extrabold text-[var(--brand-text)]" id="profile-read-heading">
+            <h2 className="mt-1 text-lg font-extrabold text-brand-text" id="profile-read-heading">
               {name || "이름을 등록해 주세요"}
             </h2>
           </div>
@@ -436,19 +438,19 @@ export function BasicProfileSection({
             편집
           </button>
         </div>
-        <dl className="mt-5 divide-y divide-[var(--brand-divider)] rounded-2xl bg-[var(--brand-surface-elevated)] px-4">
+        <dl className="mt-5 divide-y divide-brand-divider rounded-2xl bg-brand-surface-elevated px-4">
           <div className="flex items-center justify-between gap-4 py-3">
             <dt className="brand-text-subtle text-sm">연락처</dt>
-            <dd className="text-right text-sm font-semibold text-[var(--brand-text)]">{phoneNumber || "등록 안 함"}</dd>
+            <dd className="text-right text-sm font-semibold text-brand-text">{phoneNumber || "등록 안 함"}</dd>
           </div>
           <div className="flex items-center justify-between gap-4 py-3">
             <dt className="brand-text-subtle text-sm">회원 유형</dt>
-            <dd className="text-right text-sm font-semibold text-[var(--brand-text)]">{memberTypeLabels[userMemberType] ?? "정회원"}</dd>
+            <dd className="text-right text-sm font-semibold text-brand-text">{memberTypeLabels[userMemberType] ?? "정회원"}</dd>
           </div>
           {!isRegular ? (
             <div className="flex items-start justify-between gap-4 py-3">
               <dt className="brand-text-subtle text-sm">소속</dt>
-              <dd className="max-w-[65%] text-right text-sm font-semibold text-[var(--brand-text)]">
+              <dd className="max-w-[65%] text-right text-sm font-semibold text-brand-text">
                 {linkedCompanionInfo?.linked && linkedCompanionInfo.companion
                   ? `${linkedCompanionInfo.companion.owner.name || "이름 없음"}님의 동반인`
                   : "연결 필요"}
@@ -470,7 +472,7 @@ export function BasicProfileSection({
     <form id="profile-form" onSubmit={onSubmit} className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-3 px-1">
         <div>
-          <p className="text-base font-extrabold text-[var(--brand-text)]">프로필 편집</p>
+          <p className="text-base font-extrabold text-brand-text">프로필 편집</p>
           <p className="brand-text-subtle mt-0.5 text-xs">저장하기 전에는 등록 정보가 바뀌지 않습니다.</p>
         </div>
         <button className="brand-button-secondary min-h-11 rounded-xl px-3 text-sm font-bold" onClick={onDiscardDraft} type="button">
@@ -483,7 +485,7 @@ export function BasicProfileSection({
       <div className="brand-card-soft rounded-2xl p-5 sm:p-6">
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]" htmlFor="profile-name">이름</label>
+            <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="profile-name">이름</label>
             <input
               id="profile-name"
               type="text"
@@ -503,7 +505,7 @@ export function BasicProfileSection({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]" htmlFor="profile-phone">
+            <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="profile-phone">
               연락처 <span className="brand-text-subtle font-normal">(선택)</span>
             </label>
             <input
@@ -517,20 +519,20 @@ export function BasicProfileSection({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">회원 유형</label>
+            <p className="mb-1.5 block text-sm font-semibold text-brand-text">회원 유형</p>
             <div className="brand-input-dimmed rounded-xl px-4 py-2.5 text-sm font-semibold">
               {memberTypeLabels[userMemberType] ?? "정회원"}
             </div>
           </div>
 
           {!isRegular ? (
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                소속 정회원 <span className="text-[var(--brand-error)]">*</span>
-              </label>
+            <fieldset>
+              <legend className="mb-1.5 block text-sm font-semibold text-brand-text">
+                소속 정회원 <span className="text-brand-error">*</span>
+              </legend>
               {isCompanionWithoutOwner ? (
                 <div className="brand-panel-white mb-2 rounded-xl px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--brand-text)]">소속 정회원을 선택해 연결을 완료하세요.</p>
+                  <p className="text-sm font-semibold text-brand-text">소속 정회원을 선택해 연결을 완료하세요.</p>
                 </div>
               ) : null}
               {regularMembers.length === 0 ? (
@@ -546,11 +548,11 @@ export function BasicProfileSection({
                       onClick={() => onSelectOwner(member.kakaoId)}
                       className={`flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm leading-none transition-colors ${
                         selectedOwnerKakaoId === member.kakaoId
-                          ? "bg-[var(--brand-primary-soft-strong)] font-semibold text-[var(--brand-primary-text)]"
+                          ? "bg-brand-primary-soft-strong font-semibold text-brand-primary-text"
                           : "brand-list-item brand-list-item-hover"
                       }`}
                     >
-                      <span className="block truncate text-[var(--brand-text)]">{member.name || "이름 없음"}</span>
+                      <span className="block truncate text-brand-text">{member.name || "이름 없음"}</span>
                     </button>
                   ))}
                 </div>
@@ -560,14 +562,14 @@ export function BasicProfileSection({
                   현재 연결: {linkedCompanionInfo.companion.owner.name || "이름 없음"}
                 </p>
               ) : null}
-            </div>
+            </fieldset>
           ) : null}
 
           {!isRegular && selectedOwnerKakaoId ? (
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
-                내 이름 선택 <span className="text-[var(--brand-error)]">*</span>
-              </label>
+            <fieldset>
+              <legend className="mb-1.5 block text-sm font-semibold text-brand-text">
+                내 이름 선택 <span className="text-brand-error">*</span>
+              </legend>
               {loadingOwnerCompanions ? (
                 <p className="brand-text-subtle py-2 text-center text-xs">불러오는 중...</p>
               ) : (
@@ -584,8 +586,8 @@ export function BasicProfileSection({
                         }}
                         className={`brand-select-card w-full rounded-xl px-3 py-2.5 text-left text-sm transition-all ${
                           selectedCompanionId === companion.id
-                            ? "brand-toggle-active border-[var(--brand-primary-border-strong)] font-semibold"
-                            : "text-[var(--brand-text)]"
+                            ? "brand-toggle-active border-brand-primary-border-strong font-semibold"
+                            : "text-brand-text"
                         }`}
                       >
                         {companion.name}
@@ -596,7 +598,7 @@ export function BasicProfileSection({
                   ) : null}
                 </div>
               )}
-            </div>
+            </fieldset>
           ) : null}
         </div>
       </div>
@@ -606,7 +608,7 @@ export function BasicProfileSection({
           disabled={saving || !profileSaveValid || !isDirty}
         className={`hidden w-full rounded-xl py-3.5 text-sm font-bold transition-all sm:block ${
           saving || !profileSaveValid || !isDirty
-            ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
+            ? "bg-brand-primary-soft cursor-not-allowed text-brand-text-subtle"
             : saved
               ? "brand-button-confirm"
               : "brand-button-primary active:scale-[0.99]"
@@ -641,7 +643,7 @@ export function CompanionManagementSection({
     <section aria-labelledby="companion-heading" className="brand-card-soft rounded-3xl p-5 sm:p-6">
       <div className="mb-4">
         <p className="brand-text-subtle text-xs font-bold">함께 신청할 사람</p>
-        <h2 className="mt-1 text-lg font-extrabold text-[var(--brand-text)]" id="companion-heading">동반인 관리</h2>
+        <h2 className="mt-1 text-lg font-extrabold text-brand-text" id="companion-heading">동반인 관리</h2>
       </div>
       <div className="mb-4 flex min-w-0 gap-2">
         <input
@@ -664,7 +666,7 @@ export function CompanionManagementSection({
           disabled={addingCompanion || !addCompanionName.trim()}
           className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
             addingCompanion || !addCompanionName.trim()
-              ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
+              ? "bg-brand-primary-soft cursor-not-allowed text-brand-text-subtle"
               : "brand-button-primary active:scale-[0.99]"
           }`}
         >
@@ -676,7 +678,7 @@ export function CompanionManagementSection({
       {companions.length === 0 ? (
         <div className="brand-panel-white rounded-2xl px-5 py-7 text-center">
           <Icon className="brand-text-subtle text-[30px]" name="person_add" />
-          <p className="mt-2 text-sm font-bold text-[var(--brand-text)]">등록된 동반인이 없습니다</p>
+          <p className="mt-2 text-sm font-bold text-brand-text">등록된 동반인이 없습니다</p>
           <p className="brand-text-subtle mt-1 text-xs">위에 이름을 입력하면 모임 신청 때 선택할 수 있어요.</p>
         </div>
       ) : (
@@ -687,8 +689,8 @@ export function CompanionManagementSection({
                 <Icon className="text-[20px]" name={companion.linkedKakaoId ? "link" : "link_off"} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[var(--brand-text)]">{companion.name}</p>
-                <p className={`mt-0.5 text-xs ${companion.linkedKakaoId ? "text-[var(--brand-success-text)]" : "brand-text-subtle"}`}>
+                <p className="text-sm font-semibold text-brand-text">{companion.name}</p>
+                <p className={`mt-0.5 text-xs ${companion.linkedKakaoId ? "text-brand-success-text" : "brand-text-subtle"}`}>
                   {companion.linkedKakaoId ? "본인 계정과 연결됨" : "상대방 연결 대기"}
                 </p>
               </div>
@@ -696,7 +698,7 @@ export function CompanionManagementSection({
                 aria-label={`${companion.name} 삭제`}
                 type="button"
                 onClick={() => onRemoveCompanion(companion.id)}
-                className="brand-text-subtle px-2 py-1 text-xs transition-colors hover:text-[var(--brand-error)]"
+                className="brand-text-subtle px-2 py-1 text-xs transition-colors hover:text-brand-error"
               >
                 <Icon className="text-[19px]" name="delete" />
               </button>
@@ -731,7 +733,7 @@ export function MobileProfileSaveDock({
         <button
           className={`w-full rounded-xl py-3.5 text-sm font-bold transition-all ${
             saving || !profileSaveValid || !isDirty
-              ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
+              ? "bg-brand-primary-soft cursor-not-allowed text-brand-text-subtle"
               : saved
                 ? "brand-button-confirm"
                 : "brand-button-primary active:scale-[0.99]"

@@ -8,7 +8,7 @@ import { seedMobileUx } from "./seed-mobile-ux";
 
 const ROOT = process.cwd();
 const INTERNAL = "scripts/qa/internal-target.ts";
-const EVIDENCE_DIR = ".omo/evidence/ui-ux-overhaul/integration";
+const EVIDENCE_DIR = ".tmp/qa/evidence/integration";
 const FIXED_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:55432/surfing_ux_test";
 
 function inheritedEnvironment(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
@@ -87,7 +87,7 @@ test("QA registry environment lock and egress refusal: security regressions", as
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, /QA_CHILD_SENTINEL/);
   });
 
-  await t.test("allowed Node descendants inherit DNS and fetch refusal", () => {
+  await t.test("allowed Node descendants inherit external egress refusal and retain loopback IPC", () => {
     const dns = runNodeScript(`
       const dns = require("node:dns");
       try {
@@ -120,6 +120,23 @@ test("QA registry environment lock and egress refusal: security regressions", as
     assert.equal(fetch.status, 0, fetch.stderr);
     assert.match(fetch.stderr, /EgressBlockedError/);
     assert.doesNotMatch(fetch.stderr, /ENOTFOUND/);
+
+    const loopback = runNodeScript(`
+      const net = require("node:net");
+      const server = net.createServer((socket) => socket.end());
+      const timer = setTimeout(() => process.exit(4), 2_000);
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        const socket = net.createConnection({ host: "127.0.0.1", port: address.port }, () => {
+          socket.end();
+          server.close(() => {
+            clearTimeout(timer);
+            process.exit(0);
+          });
+        });
+      });
+    `);
+    assert.equal(loopback.status, 0, loopback.stderr);
   });
 
   await t.test("cleanup refuses an occupied application port before an all-clear receipt", async () => {

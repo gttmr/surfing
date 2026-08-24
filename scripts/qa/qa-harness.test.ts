@@ -3,11 +3,12 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
 import { guardedNodeArguments, QA_GUARD_BOOTSTRAP } from "./child-process-egress";
+import { auditQaRegistry } from "./registry-audit";
 
 const ROOT = process.cwd();
 const RUNNER = "scripts/qa/run.ts";
 const INTERNAL = "scripts/qa/internal-target.ts";
-const EVIDENCE_DIR = ".omo/evidence/ui-ux-overhaul/integration";
+const EVIDENCE_DIR = ".tmp/qa/evidence/integration";
 
 const QA_SCRIPTS = [
   "qa:browsers:install",
@@ -23,10 +24,6 @@ const QA_SCRIPTS = [
   "build:qa",
   "start:qa",
   "test:e2e:mobile",
-  "qa:visual",
-  "gate:f1",
-  "gate:f2",
-  "gate:f3",
 ] as const;
 
 type PackageJson = {
@@ -79,8 +76,7 @@ test("QA registry environment lock and egress refusal", async (t) => {
     for (const name of QA_SCRIPTS) {
       assert.match(scripts[name] ?? "", /^tsx scripts\/qa\/run\.ts /, `${name} bypasses the wrapper`);
     }
-    const audit = runTsx([RUNNER, "qa:run"]);
-    assert.equal(audit.status, 0, audit.stderr);
+    assert.doesNotThrow(() => auditQaRegistry());
   });
 
   await t.test("environment wrapper refuses unsafe candidates before child execution", () => {
@@ -176,20 +172,14 @@ test("QA registry environment lock and egress refusal", async (t) => {
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, /QA_CHILD_SENTINEL/);
   });
 
-  await t.test("baseline manifest and literal ignore policy are present", () => {
-    const manifest = readFileSync(`${ROOT}/.omo/evidence/ui-ux-audit/baseline-manifest.md`, "utf8");
-    const rows = manifest.split("\n").filter((line) => /^\| `[^`]+\.png` \|/.test(line));
-    assert.equal(rows.length, 34);
-
+  await t.test("local artifact ignore policy is present", () => {
     const ignore = readFileSync(`${ROOT}/.gitignore`, "utf8");
     for (const literal of [
-      "/.omo/drafts/",
-      "/.omo/plans/",
-      "/.omo/evidence/ui-ux-audit/private/",
-      "/.omo/evidence/ui-ux-overhaul/**",
+      "/.omo/",
       "/tests/.auth/",
       "/public/uploads/",
       "/.tmp/qa/",
+      "/test-results/",
     ]) {
       assert.equal(ignore.split("\n").includes(literal), true, `missing literal ignore rule: ${literal}`);
     }

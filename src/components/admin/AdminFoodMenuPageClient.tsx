@@ -20,7 +20,7 @@ export function AdminFoodMenuPageClient({
             <p className="brand-text-subtle text-xs font-semibold uppercase tracking-[0.12em]">
               Admin Workspace
             </p>
-            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">
               메뉴 카테고리 관리
             </h1>
             <p className="brand-text-muted mt-1 text-sm">

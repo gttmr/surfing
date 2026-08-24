@@ -57,7 +57,7 @@ function ShopOrderCard({
       data-order-id={row.orderId}
       data-row-id={row.rowId}
     >
-      <div className="border-b border-[var(--brand-divider)] px-4 pb-3 pt-4">
+      <div className="border-b border-brand-divider px-4 pb-3 pt-4">
         <div className="flex items-center justify-between gap-3">
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${STATUS_CLASS[row.status]}`}>
             {SHOP_ORDER_STATUS_LABELS[row.status]}
@@ -70,13 +70,13 @@ function ShopOrderCard({
         <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-extrabold tracking-[-0.025em] text-[var(--brand-text)]">{row.participantName}</h2>
+              <h2 className="text-lg font-extrabold tracking-[-0.025em] text-brand-text">{row.participantName}</h2>
               {row.companionId ? <span className="brand-chip-companion rounded-full px-2 py-0.5 text-[10px] font-bold">동반</span> : null}
             </div>
-            <p className="mt-1 text-sm font-semibold text-[var(--brand-text)]">{row.menuName}</p>
+            <p className="mt-1 text-sm font-semibold text-brand-text">{row.menuName}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-base font-extrabold text-[var(--brand-text)]">{quantity}개</p>
+            <p className="text-base font-extrabold text-brand-text">{quantity}개</p>
             <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(row.unitPrice * quantity)}</p>
           </div>
         </div>
@@ -87,7 +87,7 @@ function ShopOrderCard({
           <span>남음 {row.remainingQuantity}</span>
           <span>주문 #{row.orderId}</span>
         </div>
-        {reason ? <p className="mt-2 text-xs font-semibold text-[var(--brand-danger-text)]">취소 사유 · {reason}</p> : null}
+        {reason ? <p className="mt-2 text-xs font-semibold text-brand-danger-text">취소 사유 · {reason}</p> : null}
       </div>
 
       {actions.primary || actions.confirmations.length > 0 ? (
@@ -136,8 +136,8 @@ function EmptyQueue({ filter, hasOrders, onReset, query }: {
   const filtered = hasOrders && (query.trim().length > 0 || filter !== "active");
   return (
     <div className="brand-panel-white rounded-[1.75rem] px-5 py-10 text-center">
-      <Icon className="text-[34px] text-[var(--brand-primary-soft-strong)]" name={filtered ? "search_off" : "room_service"} />
-      <p className="mt-3 text-sm font-extrabold text-[var(--brand-text)]">
+      <Icon className="text-[34px] text-brand-primary-soft-strong" name={filtered ? "search_off" : "room_service"} />
+      <p className="mt-3 text-sm font-extrabold text-brand-text">
         {filtered ? "조건에 맞는 주문이 없습니다." : hasOrders ? "처리할 주문을 모두 마쳤습니다." : "아직 들어온 주문이 없습니다."}
       </p>
       <p className="brand-text-subtle mt-1 text-xs">
@@ -178,14 +178,14 @@ export function ShopOrderQueueList({
 
       {filter === "active" && completedRows.length > 0 ? (
         <details className="group brand-panel-white overflow-hidden rounded-[1.75rem]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-extrabold text-[var(--brand-text)]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-extrabold text-brand-text">
             <span>완료한 주문 {completedRows.length}건</span>
             <span className="brand-chip-success rounded-full px-2.5 py-1 text-[11px]">
               <span className="group-open:hidden">펼쳐보기</span>
               <span className="hidden group-open:inline">접기</span>
             </span>
           </summary>
-          <div className="space-y-3 border-t border-[var(--brand-divider)] p-3">
+          <div className="space-y-3 border-t border-brand-divider p-3">
             {completedRows.map((row, index) => (
               <ShopOrderCard index={index} key={row.rowId} locked={lockedRows.has(row.rowId)} onAction={onAction} onConfirm={onConfirm} row={row} />
             ))}

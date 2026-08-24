@@ -47,25 +47,25 @@ export function AdminLoginPageClient({ shouldAutoLogin }: { shouldAutoLogin: boo
 
   if (autoLogging) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-page)] text-[var(--brand-text)]">
+      <div className="flex min-h-screen items-center justify-center bg-brand-page text-brand-text">
         <p className="brand-text-subtle text-sm">확인 중...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--brand-page)] px-4 text-[var(--brand-text)]">
+    <div className="flex min-h-screen items-center justify-center bg-brand-page px-4 text-brand-text">
       <div className="w-full max-w-sm">
         <div className="brand-card-soft rounded-3xl p-8">
           <div className="mb-6 text-center">
             <Icon className="mb-2 text-[40px]" name="admin_panel_settings" />
-            <h1 className="font-headline text-xl font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">관리자 로그인</h1>
+            <h1 className="font-headline text-xl font-extrabold tracking-[-0.03em] text-brand-text">관리자 로그인</h1>
             <p className="brand-text-subtle mt-1 text-sm">운영 도구에 접근하려면 비밀번호를 입력하세요.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]" htmlFor="admin-password">비밀번호</label>
+              <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="admin-password">비밀번호</label>
               <input
                 id="admin-password"
                 type="password"

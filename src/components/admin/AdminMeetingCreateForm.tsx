@@ -106,7 +106,7 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
       <div className="brand-admin-section-header flex items-start justify-between gap-3 px-5 py-4">
         <div>
           <p className="brand-text-subtle text-xs font-bold">CREATE MEETING</p>
-          <h2 className="mt-1 text-lg font-extrabold text-[var(--brand-text)]">새 모임 만들기</h2>
+          <h2 className="mt-1 text-lg font-extrabold text-brand-text">새 모임 만들기</h2>
           <p className="brand-text-subtle mt-1 text-xs">필수 일정부터 입력하고 등록 전에 바로 확인합니다.</p>
         </div>
         <button className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full" onClick={onCancel} type="button" aria-label="모임 만들기 닫기">
@@ -155,7 +155,7 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
 function FormField({ children, error, id, label }: { readonly children: ReactNode; readonly error?: string; readonly id: string; readonly label: string }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold" htmlFor={id}>{label} <span aria-hidden className="text-[var(--brand-error)]">*</span></label>
+      <label className="mb-1.5 block text-sm font-semibold" htmlFor={id}>{label} <span aria-hidden className="text-brand-error">*</span></label>
       {children}
       {error ? <p className="brand-form-error font-semibold" id={`${id}-error`}>{error}</p> : null}
     </div>

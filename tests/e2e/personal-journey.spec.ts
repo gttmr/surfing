@@ -275,7 +275,7 @@ test("settlement groups multiple meetings and provides an empty return path", as
   await expect(page.getByRole("button", { name: "송금 완료로 표시" })).toBeVisible();
   const openMeeting = page.locator("section").filter({ hasText: "합성 서핑 해변 A" });
   const lineAmounts = await openMeeting.locator("dd").allTextContents();
-  expect(lineAmounts.map((value) => Number(value.replace(/[^\d-]/g, ""))).reduce((sum, value) => sum + value, 0)).toBe(17_750);
+  expect(lineAmounts.map((value) => Number(value.replace(/[^\d-]/g, ""))).reduce((sum, value) => sum + value, 0)).toBe(27_750);
   await openMeeting.getByRole("button", { name: "송금 완료로 표시" }).click();
   await expect(openMeeting.getByText("송금 완료", { exact: true })).toBeVisible();
   await openMeeting.getByRole("button", { name: "완료 표시 취소" }).click();
@@ -290,23 +290,11 @@ test("settlement groups multiple meetings and provides an empty return path", as
   await expect(page.getByRole("link", { name: "프로필로 돌아가기", exact: true }).last()).toHaveAttribute("href", "/profile");
 });
 
-test("confirmation and role-aware portal links remain navigation-only", async ({ context, page }, testInfo) => {
-  const states = [
-    ["approved", "/signup/confirm?status=APPROVED&meetingId=8101&name=합성%20회원%2001", "참가 확정"],
-    ["waitlisted", "/signup/confirm?status=WAITLISTED&waitlist=3", "대기 3번째"],
-    ["cancelled", "/signup/confirm?status=CANCELLED", "취소됨"],
-    ["unknown", "/signup/confirm?status=UNKNOWN", "확인 필요"],
-    ["missing", "/signup/confirm", "확인 필요"],
-  ] as const;
-  for (const [name, url, expected] of states) {
-    await page.goto(url, { waitUntil: "networkidle" });
-    await expect(page.getByText(expected, { exact: true })).toBeVisible();
-    await expect(page).toHaveURL(/\/signup\/confirm$/);
-    if (name === "missing") {
-      await capture(page, "confirmation-missing", testInfo.project.name);
-      await assertNoHorizontalOverflow(page);
-      await assertAccessible(page);
-    }
+test("legacy routes return not-found and role-aware portal links remain navigation-only", async ({ context, page }, testInfo) => {
+  for (const url of ["/meeting/8101", "/signup/confirm?status=APPROVED"]) {
+    const response = await page.goto(url, { waitUntil: "networkidle" });
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeVisible();
   }
 
   await authenticate(context, "shop");

@@ -65,13 +65,13 @@ export function FoodMenuEditorPanel({
         <section className="brand-admin-section px-4 py-4" aria-labelledby="menu-search-title">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-extrabold text-[var(--brand-text)]" id="menu-search-title">카탈로그 찾기</h2>
+              <h2 className="text-base font-extrabold text-brand-text" id="menu-search-title">카탈로그 찾기</h2>
               <p className="brand-text-subtle mt-1 text-xs">카테고리, 메뉴, 옵션 조합을 한 번에 검색합니다.</p>
             </div>
             <span className="brand-chip-strong shrink-0 rounded-full px-2 py-1 text-xs font-bold">카테고리 {editor.results.length}</span>
           </div>
           <div className="relative mt-3">
-            <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-[var(--brand-text-subtle)]" name="search" />
+            <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-brand-text-subtle" name="search" />
             <input
               aria-label="메뉴, 카테고리, 옵션 검색"
               className="brand-input h-11 w-full rounded-2xl py-2 pl-10 pr-12 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
@@ -91,15 +91,15 @@ export function FoodMenuEditorPanel({
 
         {editor.results.length === 0 && searchActive ? (
           <section className="brand-admin-section px-5 py-8 text-center">
-            <Icon className="text-[32px] text-[var(--brand-primary-text)]" name="search_off" />
-            <p className="mt-2 text-sm font-bold text-[var(--brand-text)]">검색 결과가 없습니다.</p>
+            <Icon className="text-[32px] text-brand-primary-text" name="search_off" />
+            <p className="mt-2 text-sm font-bold text-brand-text">검색 결과가 없습니다.</p>
             <p className="brand-text-subtle mt-1 text-xs">다른 이름을 입력하거나 검색을 지워 주세요.</p>
             <button className="brand-button-secondary mt-4 rounded-2xl px-4 py-2 text-sm font-bold" onClick={() => editor.setQuery("")} type="button">검색 지우기</button>
           </section>
         ) : editor.categoryCount === 0 ? (
           <section className="brand-admin-section px-5 py-8 text-center">
-            <Icon className="text-[32px] text-[var(--brand-primary-text)]" name="restaurant_menu" />
-            <p className="mt-2 text-sm font-bold text-[var(--brand-text)]">등록된 카테고리가 없습니다.</p>
+            <Icon className="text-[32px] text-brand-primary-text" name="restaurant_menu" />
+            <p className="mt-2 text-sm font-bold text-brand-text">등록된 카테고리가 없습니다.</p>
             <p className="brand-text-subtle mt-1 text-xs">아래 버튼으로 첫 카테고리를 추가해 주세요.</p>
           </section>
         ) : (
@@ -143,7 +143,7 @@ export function FoodMenuEditorPanel({
           ) : null}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p aria-live="polite" className="text-sm font-extrabold text-[var(--brand-text)]">저장 전 변경 {editor.dirtyCount}개</p>
+              <p aria-live="polite" className="text-sm font-extrabold text-brand-text">저장 전 변경 {editor.dirtyCount}개</p>
               <p className="brand-text-subtle mt-1 text-xs">저장본: 카테고리 {editor.savedSummary.categoryCount} · 메뉴 {editor.savedSummary.menuCount} · 판매 중 {editor.savedSummary.activeMenuCount} · 판매 조합 {editor.savedSummary.activeVariantCount}</p>
             </div>
             <div className="grid w-full grid-cols-2 gap-2">

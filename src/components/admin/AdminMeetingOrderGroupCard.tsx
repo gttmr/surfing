@@ -115,13 +115,13 @@ export function AdminMeetingOrderGroupCard({
         type="button"
         aria-controls={detailsId}
         aria-expanded={expanded}
-        className="w-full p-4 text-left transition-colors hover:bg-[var(--brand-primary-soft)]"
+        className="w-full p-4 text-left transition-colors hover:bg-brand-primary-soft"
         onClick={onToggle}
       >
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-base font-extrabold text-[var(--brand-text)]">{group.participantName}</p>
+              <p className="truncate text-base font-extrabold text-brand-text">{group.participantName}</p>
               {group.companionId ? <span className="brand-chip-companion rounded-full px-2 py-0.5 text-[10px] font-bold">동반</span> : null}
             </div>
             <p className="brand-text-subtle mt-1 text-xs">
@@ -130,24 +130,24 @@ export function AdminMeetingOrderGroupCard({
           </div>
           <div className="flex shrink-0 items-start gap-2">
             <div className="text-right">
-              <p className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(group.totalAmount)}</p>
+              <p className="text-sm font-extrabold text-brand-text">{formatWon(group.totalAmount)}</p>
               <span className={`${groupStatusClass(group.status)} mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold`}>
                 {group.status === "actionable" ? "처리할 일" : group.status === "cancelled" ? "취소" : "완료"}
               </span>
             </div>
-            <Icon className="mt-1 text-[20px] text-[var(--brand-text-subtle)]" name={expanded ? "expand_less" : "expand_more"} />
+            <Icon className="mt-1 text-[20px] text-brand-text-subtle" name={expanded ? "expand_less" : "expand_more"} />
           </div>
         </div>
       </button>
 
       {expanded ? (
-        <div className="border-t border-[var(--brand-divider)] px-4 pb-4 pt-4" id={detailsId}>
+        <div className="border-t border-brand-divider px-4 pb-4 pt-4" id={detailsId}>
           <div className="space-y-3">
             {group.rows.map((row) => (
               <div key={row.rowId} className="brand-list-item rounded-2xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-[var(--brand-text)]">{row.menuName}</p>
+                    <p className="truncate text-sm font-bold text-brand-text">{row.menuName}</p>
                     <p className="brand-text-subtle mt-1 text-xs">
                       주문 {row.originalQuantity} · 남음 {row.remainingQuantity} · 취소 {row.cancelledQuantity}
                     </p>

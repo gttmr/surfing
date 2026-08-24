@@ -48,7 +48,7 @@ export function FoodMenuEditorCategory({
         >
           <Icon className={`shrink-0 text-[22px] transition-transform ${open ? "rotate-180" : ""}`} name="expand_more" />
           <span className="min-w-0 flex-1">
-            <span className="block text-pretty text-sm font-extrabold text-[var(--brand-text)]">{displayName}</span>
+            <span className="block text-pretty text-sm font-extrabold text-brand-text">{displayName}</span>
             <span className="brand-text-subtle mt-1 block text-xs">메뉴 {menus.length}개 · 판매 조합 {variantCount}개</span>
           </span>
         </button>
@@ -80,7 +80,7 @@ export function FoodMenuEditorCategory({
 
           {menus.length === 0 ? (
             <div className="brand-inset-panel rounded-2xl px-4 py-5 text-center">
-              <p className="text-sm font-bold text-[var(--brand-text)]">표시할 메뉴가 없습니다.</p>
+              <p className="text-sm font-bold text-brand-text">표시할 메뉴가 없습니다.</p>
               <p className="brand-text-subtle mt-1 text-xs">검색을 지우거나 새 메뉴를 추가해 주세요.</p>
             </div>
           ) : (

@@ -81,7 +81,7 @@ export function CompanionSignupPanel({
   if (!linkedStatus.linked) {
     return (
       <div className="brand-panel-white rounded-xl p-5 text-sm space-y-2">
-        <p className="font-semibold text-[var(--brand-text)]">동반인 연동 필요</p>
+        <p className="font-semibold text-brand-text">동반인 연동 필요</p>
         <p className="brand-text-muted text-xs">프로필 페이지에서 정회원과 연동해주세요. 연동 후 참가 여부를 확인할 수 있습니다.</p>
         <a href="/profile" className="brand-link inline-block text-xs font-bold hover:underline">프로필로 이동 &rarr;</a>
       </div>
@@ -96,14 +96,14 @@ export function CompanionSignupPanel({
 
       <div className="brand-panel-white rounded-xl p-4 text-sm">
         <p className="brand-text-subtle mb-1 text-xs">정회원: {linkedStatus.companion?.owner.name ?? "알 수 없음"}</p>
-        <p className="font-semibold text-[var(--brand-text)]">{linkedStatus.companion?.name}</p>
+        <p className="font-semibold text-brand-text">{linkedStatus.companion?.name}</p>
       </div>
 
       {linkedStatus.participant ? (
         <div className="space-y-3">
           <div className={`rounded-xl p-4 text-center ${linkedStatus.participant.status === "APPROVED" ? "brand-alert-success" : "brand-panel-white"}`}>
             <div className="mb-1 text-2xl">✓</div>
-            <p className="text-sm font-bold text-[var(--brand-text)]">
+            <p className="text-sm font-bold text-brand-text">
               {linkedStatus.participant.status === "APPROVED" ? "참가 확정" : "대기 중"}
             </p>
           </div>
@@ -190,7 +190,7 @@ export function CancelResultPanel({
     <div className="space-y-4">
       <div className={`rounded-xl p-5 text-center ${cancelResult.penalty ? "brand-alert-error" : "brand-panel-white"}`}>
         <div className="mb-3 text-3xl">{cancelResult.penalty ? "⚠️" : "✓"}</div>
-        <p className="mb-2 font-bold text-[var(--brand-text)]">참가가 취소되었습니다</p>
+        <p className="mb-2 font-bold text-brand-text">참가가 취소되었습니다</p>
         {cancelResult.cancelledCompanions > 0 ? (
           <p className="brand-text-muted mb-2 text-sm">동반인 {cancelResult.cancelledCompanions}명도 함께 취소되었습니다</p>
         ) : null}
@@ -198,7 +198,7 @@ export function CancelResultPanel({
           <div className="brand-alert-error mt-3 rounded-lg p-3 text-sm">{cancelResult.penaltyMessage}</div>
         ) : null}
       </div>
-      <button onClick={onReset} className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-colors">
+      <button type="button" onClick={onReset} className="brand-button-primary w-full rounded-xl py-3 text-sm font-bold transition-colors">
         다시 신청하기
       </button>
     </div>
@@ -289,7 +289,7 @@ export function ExistingSignupPanel({
               <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} />
             </svg>
           </div>
-          <h3 className="mb-1 text-lg font-extrabold text-[var(--brand-text)]">신청이 완료되었습니다!</h3>
+          <h3 className="mb-1 text-lg font-extrabold text-brand-text">신청이 완료되었습니다!</h3>
           <p className="brand-text-muted mb-4 text-sm">
             {submissionResult.status === "APPROVED"
               ? "모임 참가가 확정되었습니다."
@@ -300,16 +300,16 @@ export function ExistingSignupPanel({
           <div className="brand-inset-panel space-y-3 rounded-xl p-4 text-left">
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="brand-text-subtle">이름</span>
-              <span className="font-semibold text-[var(--brand-text)]">{submissionResult.name}</span>
+              <span className="font-semibold text-brand-text">{submissionResult.name}</span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="brand-text-subtle">모임</span>
-              <span className="font-semibold text-[var(--brand-text)]">{meetingDisplay}</span>
+              <span className="font-semibold text-brand-text">{meetingDisplay}</span>
             </div>
             {submissionResult.companions > 0 ? (
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="brand-text-subtle">동반인</span>
-                <span className="font-semibold text-[var(--brand-text)]">{submissionResult.companions}명 함께 신청</span>
+                <span className="font-semibold text-brand-text">{submissionResult.companions}명 함께 신청</span>
               </div>
             ) : null}
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -352,7 +352,7 @@ export function ExistingSignupPanel({
           <div className="brand-panel-white rounded-xl p-4">
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">이름</label>
+                <p className="mb-1.5 block text-sm font-semibold text-brand-text">이름</p>
                 <div className="brand-input-dimmed rounded-lg px-4 py-2.5 text-sm font-semibold">{profileName}</div>
               </div>
 
@@ -375,11 +375,12 @@ export function ExistingSignupPanel({
               ) : null}
 
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+                <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="existing-signup-note">
                   비고 <span className="brand-text-subtle font-normal">(선택)</span>
                 </label>
                 <textarea
-                  className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]"
+                  id="existing-signup-note"
+                  className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-brand-surface disabled:text-brand-text-subtle"
                   disabled={savingMySignup}
                   onChange={(e) => onMySignupNoteChange(e.target.value.slice(0, 100))}
                   placeholder="처음 참가합니다, 주차 문의 등..."
@@ -393,7 +394,7 @@ export function ExistingSignupPanel({
 
           <div className="brand-panel-white rounded-xl p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-brand-text">
                 <span className="text-base">👥</span> 동반인 참가 관리
               </p>
               <a href="/profile" className="brand-button-secondary rounded-lg px-2.5 py-1.5 text-xs font-bold">추가</a>
@@ -418,12 +419,12 @@ export function ExistingSignupPanel({
                         >
                           <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isChecked ? "brand-check-active brand-choice-indicator-active" : ""}`}>
                             {isChecked ? (
-                              <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="h-3 w-3 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : null}
                           </div>
-                          <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{companion.name}</span>
+                          <span className="flex-1 text-sm font-semibold text-brand-text">{companion.name}</span>
                         </button>
                         {isSignedUp && !isIrregularMeeting ? (
                           <button
@@ -436,7 +437,7 @@ export function ExistingSignupPanel({
                         ) : null}
                       </div>
                       {isExpanded && isSignedUp && !isIrregularMeeting ? (
-                        <div className="mt-3 space-y-4 border-t border-[var(--brand-divider)] pt-3 pl-8">
+                        <div className="mt-3 space-y-4 border-t border-brand-divider pt-3 pl-8">
                           <ShuttleBusChoice
                             boarded={companionData.hasBus ?? false}
                             onChange={(next) => onUpdateCompanionOption(companion.id, "hasBus", next)}
@@ -452,7 +453,7 @@ export function ExistingSignupPanel({
                           />
                         </div>
                       ) : isChecked && !isSignedUp && !isIrregularMeeting ? (
-                        <div className="mt-3 space-y-4 border-t border-[var(--brand-divider)] pt-3 pl-8">
+                        <div className="mt-3 space-y-4 border-t border-brand-divider pt-3 pl-8">
                           <ShuttleBusChoice
                             boarded={options.hasBus}
                             onChange={(next) => onSetCompanionOption(companion.id, "hasBus", next)}
@@ -486,13 +487,14 @@ export function ExistingSignupPanel({
               ) : null}
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={onCancel}
                   disabled={cancelling}
-                  className="brand-button-danger-solid flex-1 rounded-lg py-2.5 text-sm font-bold transition-colors hover:opacity-90 disabled:bg-[var(--brand-primary-soft)] disabled:text-[var(--brand-text-subtle)]"
+                  className="brand-button-danger-solid flex-1 rounded-lg py-2.5 text-sm font-bold transition-colors hover:opacity-90 disabled:bg-brand-primary-soft disabled:text-brand-text-subtle"
                 >
                   {cancelling ? "취소 중..." : signedUpCount > 0 ? `전체 취소 (동반 ${signedUpCount}명 포함)` : "취소 확인"}
                 </button>
-                <button onClick={() => onShowCancelConfirm(false)} className="brand-button-secondary rounded-lg px-4 py-2.5 text-sm transition-colors">
+                <button type="button" onClick={() => onShowCancelConfirm(false)} className="brand-button-secondary rounded-lg px-4 py-2.5 text-sm transition-colors">
                   돌아가기
                 </button>
               </div>
@@ -503,7 +505,7 @@ export function ExistingSignupPanel({
             <button
               className={`w-full rounded-xl py-3 text-sm font-bold transition-all ${
                 savingMySignup
-                  ? "bg-[var(--brand-primary-soft)] cursor-not-allowed text-[var(--brand-text-subtle)]"
+                  ? "bg-brand-primary-soft cursor-not-allowed text-brand-text-subtle"
                   : mySignupSaved
                     ? "brand-alert-success"
                     : "brand-button-primary active:scale-[0.99]"
@@ -521,6 +523,7 @@ export function ExistingSignupPanel({
 
           {!showCancelConfirm ? (
             <button
+              type="button"
               onClick={() => onShowCancelConfirm(true)}
               className="brand-alert-error w-full rounded-xl border-2 py-3 text-sm font-bold transition-colors"
             >
@@ -599,14 +602,14 @@ export function RegularSignupPanel({
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {duplicate ? (
-        <div className="brand-panel-white rounded-xl p-4 text-sm text-[var(--brand-text)]">이 모임에 이미 신청하셨습니다.</div>
+        <div className="brand-panel-white rounded-xl p-4 text-sm text-brand-text">이 모임에 이미 신청하셨습니다.</div>
       ) : null}
       {serverError ? (
         <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
       <div>
-        <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+        <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="signup-name">
           이름 <span className="brand-form-error">*</span>
           {profileName ? (
             <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 변경 가능)</span>
@@ -615,6 +618,7 @@ export function RegularSignupPanel({
           )}
         </label>
         <input
+          id="signup-name"
           type="text"
           value={name}
           readOnly={!!profileName}
@@ -623,7 +627,7 @@ export function RegularSignupPanel({
           disabled={submitting}
           className={`w-full rounded-lg px-4 py-2.5 text-sm outline-none ${
             nameError ? "brand-input-error" : profileName ? "brand-input-dimmed" : "brand-input"
-          } disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]`}
+          } disabled:bg-brand-surface disabled:text-brand-text-subtle`}
         />
         {nameError ? <p className="brand-form-error">{nameError}</p> : null}
       </div>
@@ -647,22 +651,23 @@ export function RegularSignupPanel({
       ) : null}
 
       <div>
-        <label className="mb-1.5 block text-sm font-semibold text-[var(--brand-text)]">
+        <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="signup-note">
           비고 <span className="brand-text-subtle font-normal">(선택)</span>
         </label>
         <textarea
+          id="signup-note"
           value={note}
           onChange={(e) => onNoteChange(e.target.value.slice(0, 100))}
           placeholder={isIrregularMeeting ? "합류 시간, 준비물, 전달사항 등..." : "처음 참가합니다, 주차 문의 등..."}
           rows={2}
           disabled={submitting}
-          className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-[var(--brand-surface)] disabled:text-[var(--brand-text-subtle)]"
+          className="brand-input w-full resize-none rounded-lg px-4 py-2.5 text-sm outline-none disabled:bg-brand-surface disabled:text-brand-text-subtle"
         />
         <p className="brand-text-subtle mt-1 text-right text-xs">{note.length}/100</p>
       </div>
 
       <div className="brand-panel-white rounded-xl p-3 space-y-3">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-text)]">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-brand-text">
           <span className="text-base">👥</span> 동반인 함께 신청
         </p>
 
@@ -682,12 +687,12 @@ export function RegularSignupPanel({
                   >
                     <div className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors ${isSelected ? "brand-check-active brand-choice-indicator-active" : ""}`}>
                       {isSelected ? (
-                        <svg className="h-3 w-3 text-[var(--brand-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-3 w-3 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       ) : null}
                     </div>
-                    <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{companion.name}</span>
+                    <span className="flex-1 text-sm font-semibold text-brand-text">{companion.name}</span>
                   </button>
                   {isSelected && !isIrregularMeeting ? (
                     <div className="mt-2 space-y-4 pl-8">
@@ -726,7 +731,7 @@ export function RegularSignupPanel({
               }}
               placeholder="동반인 이름"
               disabled={submitting}
-              className="brand-input min-w-0 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-[var(--brand-surface)]"
+              className="brand-input min-w-0 rounded-lg px-3 py-2 text-sm outline-none disabled:bg-brand-surface"
             />
             <button
               type="button"
@@ -743,12 +748,12 @@ export function RegularSignupPanel({
               {newCompanions.map((newCompanion, index) => (
                 <div key={index} className="brand-panel-strong rounded-lg p-2.5">
                   <div className="mb-2 flex items-center gap-2">
-                    <span className="flex-1 text-sm font-semibold text-[var(--brand-text)]">{newCompanion.name}</span>
-                    <span className="rounded bg-[var(--brand-primary-soft-accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--brand-primary-text)]">신규</span>
+                    <span className="flex-1 text-sm font-semibold text-brand-text">{newCompanion.name}</span>
+                    <span className="rounded bg-brand-primary-soft-accent px-1.5 py-0.5 text-[10px] font-bold text-brand-primary-text">신규</span>
                     <button
                       type="button"
                       onClick={() => onRemoveNewCompanion(index)}
-                      className="brand-text-subtle ml-1 text-xs transition-colors hover:text-[var(--brand-calendar-sun)]"
+                      className="brand-text-subtle ml-1 text-xs transition-colors hover:text-brand-calendar-sun"
                     >
                       ✕
                     </button>

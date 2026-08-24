@@ -30,7 +30,7 @@ function MeetingRow({ meeting }: { readonly meeting: AdminMeetingListItem }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-[var(--brand-text)]">{dateLabel}</p>
+          <p className="text-sm font-extrabold text-brand-text">{dateLabel}</p>
           <p className="brand-text-muted mt-1 break-keep text-xs">{meeting.startTime}–{meeting.endTime} · {meeting.location}</p>
         </div>
         <span className="brand-button-primary inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold">

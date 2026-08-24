@@ -38,8 +38,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="min-h-dvh bg-[var(--brand-page)] font-sans text-[var(--brand-text)]">
-        <div className="brand-mobile-shell mx-auto min-h-dvh w-full max-w-[430px] overflow-x-hidden bg-[var(--brand-page)]">
+      <body className="min-h-dvh bg-brand-page font-sans text-brand-text">
+        <div className="brand-mobile-shell mx-auto min-h-dvh w-full max-w-[430px] overflow-x-hidden bg-brand-page">
           {children}
         </div>
       </body>

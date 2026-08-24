@@ -65,7 +65,7 @@ export function AdminSettlementAccountSection({
               const errorId = `settings-${field.key}-error`;
               return (
                 <label className="block" htmlFor={`settings-${field.key}`} key={field.key}>
-                  <span className="mb-1 block text-sm font-bold text-[var(--brand-text)]">{field.label}</span>
+                  <span className="mb-1 block text-sm font-bold text-brand-text">{field.label}</span>
                   <input
                     aria-describedby={`${descriptionId}${error ? ` ${errorId}` : ""}`}
                     aria-invalid={error ? "true" : undefined}
@@ -85,7 +85,7 @@ export function AdminSettlementAccountSection({
             })}
           </div>
           <div aria-label="정산 계좌 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
-            <p className="text-sm font-bold text-[var(--brand-text)]">회원 화면 미리보기</p>
+            <p className="text-sm font-bold text-brand-text">회원 화면 미리보기</p>
             <p className="brand-text-muted mt-2 text-sm">{accountSummary(draft)}</p>
           </div>
         </div>

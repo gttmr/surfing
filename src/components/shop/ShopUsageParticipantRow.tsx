@@ -30,11 +30,11 @@ function ReadOnlyUsage({ entries }: {
     return <p className="brand-text-subtle px-4 py-5 text-center text-xs">기록된 이용 항목이 없습니다.</p>;
   }
   return (
-    <dl className="divide-y divide-[var(--brand-divider)]">
+    <dl className="divide-y divide-brand-divider">
       {usedEntries.map((entry) => (
         <div className="flex items-center justify-between gap-3 px-4 py-3" key={entry.id}>
-          <dt className="min-w-0 text-sm font-semibold text-[var(--brand-text)]">{entry.usageItemName}</dt>
-          <dd className="shrink-0 text-sm font-extrabold text-[var(--brand-text)]">
+          <dt className="min-w-0 text-sm font-semibold text-brand-text">{entry.usageItemName}</dt>
+          <dd className="shrink-0 text-sm font-extrabold text-brand-text">
             {entry.quantity}개 · {formatWon(entry.amount)}
           </dd>
         </div>
@@ -50,13 +50,13 @@ function UsageEditor({ items, onQuantityChange, participant, values }: {
   readonly values: ShopUsageDrafts[number];
 }) {
   return (
-    <div className="divide-y divide-[var(--brand-divider)]">
+    <div className="divide-y divide-brand-divider">
       {items.map((item) => {
         const quantity = values[item.id] ?? 0;
         return (
           <div className="flex items-center justify-between gap-3 px-4 py-3" key={item.id}>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-[var(--brand-text)]">{item.name}</p>
+              <p className="text-sm font-bold text-brand-text">{item.name}</p>
               <p className="brand-text-subtle mt-0.5 text-[11px]">{formatWon(item.shopPrice)}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -71,7 +71,7 @@ function UsageEditor({ items, onQuantityChange, participant, values }: {
               </button>
               <output
                 aria-label={`${participant.participantName} ${item.name} 수량`}
-                className="w-8 text-center text-sm font-extrabold tabular-nums text-[var(--brand-text)]"
+                className="w-8 text-center text-sm font-extrabold tabular-nums text-brand-text"
               >
                 {quantity}
               </output>
@@ -133,7 +133,7 @@ export function ShopUsageParticipantRow({
         <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${participant.submissionStatus === "confirmed" ? "brand-status-dot-success" : participant.submissionStatus === "submitted" ? "brand-status-dot-info" : "brand-status-dot-dimmed"}`} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-extrabold text-[var(--brand-text)]">{participant.participantName}</span>
+            <span className="text-sm font-extrabold text-brand-text">{participant.participantName}</span>
             <span className={`${STATUS_CLASS[participant.submissionStatus]} rounded-full px-2 py-0.5 text-[10px] font-bold`}>
               {SHOP_USAGE_STATUS_LABELS[participant.submissionStatus]}
             </span>
@@ -144,13 +144,13 @@ export function ShopUsageParticipantRow({
           </span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block text-sm font-extrabold text-[var(--brand-text)]">{formatWon(participant.shopAmount)}</span>
-          <Icon className={`mt-1 text-[20px] text-[var(--brand-text-subtle)] ${open ? "rotate-180" : ""}`} name="expand_more" />
+          <span className="block text-sm font-extrabold text-brand-text">{formatWon(participant.shopAmount)}</span>
+          <Icon className={`mt-1 text-[20px] text-brand-text-subtle ${open ? "rotate-180" : ""}`} name="expand_more" />
         </span>
       </button>
 
       {open ? (
-        <div className="border-t border-[var(--brand-divider)]">
+        <div className="border-t border-brand-divider">
           {confirmed ? (
             <ReadOnlyUsage entries={participant.entries} />
           ) : (
@@ -165,7 +165,7 @@ export function ShopUsageParticipantRow({
           ) : null}
 
           {!confirmed ? (
-            <div className="border-t border-[var(--brand-divider)] px-4 py-3">
+            <div className="border-t border-brand-divider px-4 py-3">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   className="brand-button-secondary rounded-2xl px-3 py-3 text-sm font-bold"
@@ -191,7 +191,7 @@ export function ShopUsageParticipantRow({
               ) : null}
             </div>
           ) : (
-            <p className="brand-chip-dimmed border-t border-[var(--brand-divider)] px-4 py-3 text-center text-xs font-bold">확정된 내역은 읽기 전용입니다.</p>
+            <p className="brand-chip-dimmed border-t border-brand-divider px-4 py-3 text-center text-xs font-bold">확정된 내역은 읽기 전용입니다.</p>
           )}
         </div>
       ) : null}

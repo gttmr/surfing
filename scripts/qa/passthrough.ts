@@ -16,12 +16,6 @@ function isPlaywrightArgument(value: string): boolean {
     || value === "--project=mobile-430";
 }
 
-function isVisualArgument(value: string): boolean {
-  return value === "--compare-existing"
-    || value.startsWith("tests/visual/goldens")
-    || value.startsWith(".omo/evidence/ui-ux-overhaul/visual/");
-}
-
 export function parsePassthrough(target: QaTarget, values: readonly string[]): readonly string[] {
   const valid = values.every((value) => {
     switch (target.passthrough) {
@@ -31,8 +25,6 @@ export function parsePassthrough(target: QaTarget, values: readonly string[]): r
         return isNodeTestArgument(value);
       case "playwright":
         return isPlaywrightArgument(value);
-      case "visual":
-        return isVisualArgument(value);
       default:
         return false;
     }

@@ -31,13 +31,3 @@ export async function createParticipantWithRecoveredSequence(
     return tx.participant.create({ data });
   }
 }
-
-export async function repairParticipantIdSequence(tx: Prisma.TransactionClient) {
-  await tx.$queryRaw`
-    SELECT setval(
-      pg_get_serial_sequence('"Participant"', 'id'),
-      COALESCE((SELECT MAX(id) FROM "Participant"), 0) + 1,
-      false
-    )
-  `;
-}

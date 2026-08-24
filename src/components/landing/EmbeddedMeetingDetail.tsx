@@ -214,7 +214,7 @@ export default function EmbeddedMeetingDetail({
   if (error || !meeting) {
     return (
       <div className="brand-card-soft rounded-2xl px-5 py-6 text-center">
-        <p className="text-sm font-bold text-[var(--brand-text)]">모임 정보를 불러오지 못했습니다.</p>
+        <p className="text-sm font-bold text-brand-text">모임 정보를 불러오지 못했습니다.</p>
         <p className="brand-text-subtle mt-1 text-xs">연결을 확인한 뒤 다시 시도해 주세요.</p>
         <button className="brand-button-secondary mt-4 rounded-xl px-4 py-2 text-sm font-bold" onClick={() => { void fetchMeeting(); }} type="button">
           다시 시도
@@ -281,7 +281,7 @@ export default function EmbeddedMeetingDetail({
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-extrabold text-[var(--brand-text)]">{title}</h4>
+          <h4 className="text-sm font-extrabold text-brand-text">{title}</h4>
           <span className={`${completed ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-[10px] font-bold`}>
             {recipients.length}
           </span>
@@ -296,13 +296,13 @@ export default function EmbeddedMeetingDetail({
               <div key={`${recipient.recipientKakaoId}-${recipient.recipientType}`} className="brand-panel-white rounded-2xl px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-[var(--brand-text)]">{recipient.recipientName}</p>
+                    <p className="text-sm font-bold text-brand-text">{recipient.recipientName}</p>
                     <p className="brand-text-subtle mt-1 text-xs">
                       {recipient.itemCount === 1 ? "1건" : `${recipient.itemCount}건 합산`}
                       {completed && recipient.completedAt ? ` · ${formatConfirmedAt(recipient.completedAt)} 송금완료` : ""}
                     </p>
                   </div>
-                  <span className="text-sm font-extrabold text-[var(--brand-text)]">{formatWon(recipient.totalFee)}</span>
+                  <span className="text-sm font-extrabold text-brand-text">{formatWon(recipient.totalFee)}</span>
                 </div>
               </div>
             ))}
@@ -316,7 +316,7 @@ export default function EmbeddedMeetingDetail({
     <section className={activeTab === "apply" ? "space-y-2" : "space-y-3"}>
       {activeTab === "apply" ? (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
-          <div className="border-b border-[var(--brand-divider)] pb-4">
+          <div className="border-b border-brand-divider pb-4">
             <h3 className="font-headline text-base font-extrabold">참가 신청</h3>
             {meeting.description ? (
               <p className="brand-panel-strong mt-2 rounded-xl px-3 py-2 text-sm brand-text-muted">
@@ -354,7 +354,7 @@ export default function EmbeddedMeetingDetail({
                     <span>{group.label}</span>
                     <span className="brand-chip-soft rounded-full px-2 py-1 text-xs">{group.participants.length}</span>
                   </summary>
-                  <div className="border-t border-[var(--brand-divider)]">
+                  <div className="border-t border-brand-divider">
                     {group.participants.map((participant) => {
                       const isCompanion = participant.companionId !== null;
                       const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반") ? null : participant.note;
@@ -363,7 +363,7 @@ export default function EmbeddedMeetingDetail({
                           <ParticipantAvatar participant={participant} />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <p className="font-semibold text-[var(--brand-text)]">{participant.name}</p>
+                              <p className="font-semibold text-brand-text">{participant.name}</p>
                               {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
                               {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
                               {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
@@ -394,15 +394,15 @@ export default function EmbeddedMeetingDetail({
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
                   <p className="brand-text-subtle text-[11px] font-bold">셔틀 버스</p>
-                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.bus}</p>
+                  <p className="mt-1 text-base font-extrabold text-brand-text">{optionSummary.bus}</p>
                 </div>
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
                   <p className="brand-text-subtle text-[11px] font-bold">강습·장비</p>
-                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.lesson}</p>
+                  <p className="mt-1 text-base font-extrabold text-brand-text">{optionSummary.lesson}</p>
                 </div>
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
                   <p className="brand-text-subtle text-[11px] font-bold">장비 대여</p>
-                  <p className="mt-1 text-base font-extrabold text-[var(--brand-text)]">{optionSummary.rentalOnly}</p>
+                  <p className="mt-1 text-base font-extrabold text-brand-text">{optionSummary.rentalOnly}</p>
                 </div>
               </div>
             </div>
@@ -411,7 +411,7 @@ export default function EmbeddedMeetingDetail({
       ) : (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="text-base font-extrabold text-[var(--brand-text)]">정산 현황</h3>
+            <h3 className="text-base font-extrabold text-brand-text">정산 현황</h3>
             <Link
               href={`/admin/meetings/${meetingId}/settlement`}
               className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
@@ -426,7 +426,7 @@ export default function EmbeddedMeetingDetail({
             </div>
           ) : settlementStatusError && !settlementStatus ? (
             <div className="brand-panel-white rounded-2xl px-4 py-6 text-center">
-              <p className="text-sm font-semibold text-[var(--brand-text)]">정산 현황을 불러오지 못했습니다.</p>
+              <p className="text-sm font-semibold text-brand-text">정산 현황을 불러오지 못했습니다.</p>
               <button
                 type="button"
                 onClick={() => { void fetchSettlementStatus(false); }}
@@ -440,15 +440,15 @@ export default function EmbeddedMeetingDetail({
               <div className="grid grid-cols-3 gap-2">
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
                   <p className="brand-text-subtle text-[11px] font-bold">정산 대기</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(pendingTotalFee)}</p>
+                  <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(pendingTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
                   <p className="brand-text-subtle text-[11px] font-bold">송금완료 금액</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{formatWon(completedTotalFee)}</p>
+                  <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(completedTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
                   <p className="brand-text-subtle text-[11px] font-bold">송금완료 인원</p>
-                  <p className="mt-1 text-sm font-extrabold text-[var(--brand-text)]">{settlementStatus.summary.completedCount}</p>
+                  <p className="mt-1 text-sm font-extrabold text-brand-text">{settlementStatus.summary.completedCount}</p>
                 </div>
               </div>
 

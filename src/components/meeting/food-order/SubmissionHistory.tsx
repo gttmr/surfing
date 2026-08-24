@@ -17,9 +17,9 @@ const ORDER_TONE = {
 
 const ITEM_TONE = {
   received: "brand-text-subtle",
-  preparing: "text-[var(--brand-preparing-text)]",
-  served: "text-[var(--brand-success-text)]",
-  cancelled: "text-[var(--brand-danger-text)]",
+  preparing: "text-brand-preparing-text",
+  served: "text-brand-success-text",
+  cancelled: "text-brand-danger-text",
 } as const;
 
 function itemName(order: ParticipantFoodOrderData, itemIndex: number): string {
@@ -61,7 +61,7 @@ export function SubmissionHistory({
     <section aria-labelledby="submission-history-title" className="space-y-4 pb-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-extrabold text-[var(--brand-text)]" id="submission-history-title">주문 내역</h3>
+          <h3 className="text-sm font-extrabold text-brand-text" id="submission-history-title">주문 내역</h3>
           <p className="brand-text-subtle mt-1 text-xs">{participantName}의 제출을 시간순으로 보관합니다.</p>
         </div>
         <span className="brand-chip-strong shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">{orders.length}건</span>
@@ -80,8 +80,8 @@ export function SubmissionHistory({
 
       {orders.length === 0 ? (
         <div className="brand-panel-white rounded-3xl px-5 py-8 text-center">
-          <Icon className="text-[32px] text-[var(--brand-primary-text)]" name="receipt_long" />
-          <p className="mt-2 text-sm font-extrabold text-[var(--brand-text)]">
+          <Icon className="text-[32px] text-brand-primary-text" name="receipt_long" />
+          <p className="mt-2 text-sm font-extrabold text-brand-text">
             {canOrder && orderOpen ? "아직 주문 내역이 없습니다" : "표시할 주문 내역이 없습니다"}
           </p>
           <p className="brand-text-subtle mt-1 text-xs">
@@ -99,18 +99,18 @@ export function SubmissionHistory({
           <article className="brand-panel-white rounded-3xl p-4" key={order.orderId}>
             <header className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-extrabold text-[var(--brand-text)]">{index + 1}번째 주문</p>
+                <p className="text-sm font-extrabold text-brand-text">{index + 1}번째 주문</p>
                 <p className="brand-text-subtle mt-1 text-xs">{formatOrderTime(order.createdAt)} · {formatWon(orderTotal)}</p>
               </div>
               <span className={`${ORDER_TONE[presentation.tone]} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>{presentation.label}</span>
             </header>
-            <ul aria-label={`${index + 1}번째 주문 메뉴`} className="mt-3 divide-y divide-[var(--brand-divider)]">
+            <ul aria-label={`${index + 1}번째 주문 메뉴`} className="mt-3 divide-y divide-brand-divider">
               {order.items.map((item, itemIndex) => {
                 const itemState = getOrderItemPresentation(item);
                 return (
                   <li className="flex items-start justify-between gap-3 py-2.5" key={item.id}>
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-semibold leading-5 text-[var(--brand-text)]">{itemName(order, itemIndex)}</p>
+                      <p className="break-words text-sm font-semibold leading-5 text-brand-text">{itemName(order, itemIndex)}</p>
                       <p className="brand-text-subtle mt-0.5 text-xs">{formatWon(item.unitPriceSnapshot)} × {item.quantity}</p>
                     </div>
                     <span className={`${ITEM_TONE[itemState.tone]} shrink-0 text-xs font-bold`}>{itemState.label}</span>

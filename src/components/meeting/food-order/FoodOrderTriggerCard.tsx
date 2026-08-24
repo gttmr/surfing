@@ -34,7 +34,7 @@ export function FoodOrderTriggerCard({
         <div className="flex min-w-0 items-center gap-3">
           <span className="brand-chip-dark flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"><Icon className="text-[21px]" name="lunch_dining" /></span>
           <div className="min-w-0">
-            <p className="text-base font-extrabold text-[var(--brand-text)]">점심 메뉴</p>
+            <p className="text-base font-extrabold text-brand-text">점심 메뉴</p>
             <p className="brand-text-subtle mt-0.5 text-xs">제출별 상태와 변경 내역을 확인합니다.</p>
           </div>
         </div>
@@ -47,7 +47,7 @@ export function FoodOrderTriggerCard({
           const latestStatus = latest ? getOrderPresentation(latest).label : "주문 없음";
           return (
             <div className="brand-panel-white flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5" key={participant.participantId}>
-              <p className="min-w-0 break-words text-sm font-bold leading-5 text-[var(--brand-text)]">{participant.name}</p>
+              <p className="min-w-0 break-words text-sm font-bold leading-5 text-brand-text">{participant.name}</p>
               <p className="brand-text-subtle shrink-0 text-xs">{participant.orders.length}건 · {latestStatus}</p>
             </div>
           );
@@ -55,9 +55,9 @@ export function FoodOrderTriggerCard({
       </div>
 
       {subtotal > 0 ? (
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--brand-divider)] pt-3 text-xs">
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-brand-divider pt-3 text-xs">
           <span className="brand-text-subtle">지원 {supportApplied > 0 ? `-${formatWon(supportApplied)}` : formatWon(0)}</span>
-          <span className={`font-extrabold ${billable > 0 ? "text-[var(--brand-danger)]" : "text-[var(--brand-success-text)]"}`}>청구 {billable > 0 ? formatWon(billable) : "없음"}</span>
+          <span className={`font-extrabold ${billable > 0 ? "text-brand-danger" : "text-brand-success-text"}`}>청구 {billable > 0 ? formatWon(billable) : "없음"}</span>
         </div>
       ) : null}
     </button>

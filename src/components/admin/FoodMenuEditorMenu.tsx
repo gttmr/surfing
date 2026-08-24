@@ -56,13 +56,13 @@ export function FoodMenuEditorMenu({
 
   return (
     <article aria-label={`${displayName} 메뉴 편집`} className="brand-panel-white overflow-hidden rounded-3xl">
-      <div className="border-b border-[var(--brand-divider)] px-4 py-4">
+      <div className="border-b border-brand-divider px-4 py-4">
         <div className="flex items-start gap-3">
-          <label className="flex min-h-11 shrink-0 items-center gap-2 text-xs font-bold text-[var(--brand-text)]">
+          <label className="flex min-h-11 shrink-0 items-center gap-2 text-xs font-bold text-brand-text">
             <input
               aria-label={`${displayName} 판매 중`}
               checked={menu.isActive}
-              className="h-5 w-5 accent-[var(--brand-primary)]"
+              className="h-5 w-5 accent-brand-primary"
               onChange={(event) => actions.changeMenu(location, { isActive: event.target.checked })}
               type="checkbox"
             />
@@ -122,7 +122,7 @@ export function FoodMenuEditorMenu({
       {menu.options.length > 0 ? (
         <div className="space-y-3 px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-extrabold text-[var(--brand-text)]">옵션 조합 {menu.options.length}개</h3>
+            <h3 className="text-sm font-extrabold text-brand-text">옵션 조합 {menu.options.length}개</h3>
             {visibleOptions.length !== menu.options.length ? (
               <span className="brand-chip-strong rounded-full px-2 py-1 text-xs font-bold">검색 결과 {visibleOptions.length}</span>
             ) : null}
@@ -136,7 +136,7 @@ export function FoodMenuEditorMenu({
             return (
               <section className="brand-inset-panel rounded-2xl p-3" key={option.key}>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 text-pretty text-xs font-extrabold text-[var(--brand-text)]">{displayLabel}</p>
+                  <p className="min-w-0 text-pretty text-xs font-extrabold text-brand-text">{displayLabel}</p>
                   <button
                     aria-label={`${displayLabel} 옵션 삭제`}
                     className="brand-button-danger flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
@@ -179,7 +179,7 @@ export function FoodMenuEditorMenu({
         </div>
       ) : null}
 
-      <div className="border-t border-[var(--brand-divider)] px-4 py-3">
+      <div className="border-t border-brand-divider px-4 py-3">
         {searchActive ? (
           <p className="brand-text-subtle text-xs">옵션 추가는 검색을 지운 뒤 사용할 수 있습니다.</p>
         ) : (

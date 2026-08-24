@@ -5,7 +5,6 @@ import {
 } from "@/lib/food-ordering";
 import {
   DEFAULT_SURF_USAGE_ITEMS,
-  calculateUsageBillingForParticipant,
   getSurfUsageLineShopAmount,
   summarizeUsageBilling,
   type SurfUsageBillingLine,
@@ -889,8 +888,4 @@ export async function getConfirmedSurfUsageBillingByParticipant(meetingId: numbe
     confirmedParticipantIds,
     summary: summarizeUsageBilling(allLines),
   };
-}
-
-export function calculateConfirmedUsageBilling(lines: SurfUsageBillingLine[]) {
-  return calculateUsageBillingForParticipant(lines);
 }

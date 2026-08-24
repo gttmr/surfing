@@ -30,7 +30,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--brand-page)] text-[var(--brand-text)]">
+    <div className="min-h-screen bg-brand-page text-brand-text">
       <header className="brand-header-surface sticky top-0 z-20">
         <div className="mx-auto flex w-full max-w-[430px] items-center justify-between px-4 py-3 md:max-w-5xl md:px-6">
           <div className="flex items-center gap-3">
@@ -39,6 +39,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
             <span className="font-headline text-sm font-extrabold tracking-[-0.02em]">샵 포털</span>
           </div>
           <button
+            type="button"
             onClick={handleLogout}
             className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
           >

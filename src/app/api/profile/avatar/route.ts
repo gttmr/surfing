@@ -5,13 +5,6 @@ import { del, put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
-import {
-  buildProfileImageObjectName,
-  deleteGcsProfileImageByUrl,
-  hasGcsProfileImageBucket,
-  isGcsProfileImageUrl,
-  saveGcsProfileImage,
-} from "@/lib/profile-image-storage";
 
 export const runtime = "nodejs";
 
@@ -103,12 +96,7 @@ export async function POST(req: NextRequest) {
     });
 
     let uploaded: BlobUploadResult;
-    if (hasGcsProfileImageBucket()) {
-      uploaded = await saveGcsProfileImage(
-        buildProfileImageObjectName(session.kakaoId, extensionFor(file.type)),
-        file,
-      );
-    } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
       uploaded = await put(`profiles/${session.kakaoId}/${Date.now()}.${extensionFor(file.type)}`, file, {
         access: "public",
         addRandomSuffix: false,
@@ -141,11 +129,7 @@ export async function POST(req: NextRequest) {
         void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
           console.error("Failed to delete previous local profile image", error);
         });
-      } else if (isGcsProfileImageUrl(existing.customProfileImageUrl)) {
-        void deleteGcsProfileImageByUrl(existing.customProfileImageUrl).catch((error) => {
-          console.error("Failed to delete previous GCS profile image", error);
-        });
-      } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+      } else if (process.env.BLOB_READ_WRITE_TOKEN && existingImageUrl.startsWith("https://")) {
         void del(existingImageUrl).catch((error) => {
           console.error("Failed to delete previous custom profile image", error);
         });
@@ -196,11 +180,7 @@ export async function DELETE(req: NextRequest) {
       void deleteLocalUpload(existing.customProfileImageUrl).catch((error) => {
         console.error("Failed to delete local profile image", error);
       });
-    } else if (isGcsProfileImageUrl(existing.customProfileImageUrl)) {
-      void deleteGcsProfileImageByUrl(existing.customProfileImageUrl).catch((error) => {
-        console.error("Failed to delete GCS profile image", error);
-      });
-    } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+    } else if (process.env.BLOB_READ_WRITE_TOKEN && existingImageUrl.startsWith("https://")) {
       void del(existingImageUrl).catch((error) => {
         console.error("Failed to delete custom profile image", error);
       });

@@ -122,7 +122,7 @@ export function MeetingOrdersAdminWorkspace({
       <section className="brand-card-soft rounded-3xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-extrabold text-[var(--brand-text)]">제출 단위 주문</h2>
+            <h2 className="text-base font-extrabold text-brand-text">제출 단위 주문</h2>
             <p className="brand-text-muted mt-1 text-xs">반복 제출도 주문 번호별로 따로 확인하고 처리합니다.</p>
           </div>
           <span className="brand-chip-soft shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">{visibleGroups.length}건</span>
@@ -130,7 +130,7 @@ export function MeetingOrdersAdminWorkspace({
 
         <label className="relative mt-4 block">
           <span className="sr-only">참가자 또는 메뉴 검색</span>
-          <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[var(--brand-text-subtle)]" name="search" />
+          <Icon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-brand-text-subtle" name="search" />
           <input
             aria-label="참가자 또는 메뉴 검색"
             value={query}
@@ -154,7 +154,7 @@ export function MeetingOrdersAdminWorkspace({
       >
         {visibleGroups.length === 0 ? (
           <div aria-live="polite" className="brand-panel-white rounded-3xl px-5 py-10 text-center" role="status">
-            <p className="text-sm font-bold text-[var(--brand-text)]">
+            <p className="text-sm font-bold text-brand-text">
               {query.trim() ? "검색 조건에 맞는 주문이 없습니다." : filter === "actionable" ? "처리할 주문이 없습니다." : "주문 내역이 없습니다."}
             </p>
             <p className="brand-text-subtle mt-1 text-xs">다른 상태 필터나 검색어를 확인해 보세요.</p>

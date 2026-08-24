@@ -33,13 +33,12 @@ export function ProfilePageClient({
   initialData,
 }: {
   isSetup: boolean;
-  initialData?: ProfileInitialData;
+  initialData: ProfileInitialData;
 }) {
   const router = useRouter();
   const {
     state: {
       user,
-      loading,
       saving,
       saved,
       isEditing,
@@ -96,22 +95,15 @@ export function ProfilePageClient({
     setActiveTab,
   });
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--brand-page)]">
-        <p className="brand-text-subtle text-sm">불러오는 중...</p>
-      </div>
-    );
-  }
-
   if (notLoggedIn) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--brand-page)] px-6">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-brand-page px-6">
         <div className="brand-card-soft w-full max-w-sm rounded-2xl p-8 text-center">
           <div className="mb-4 text-5xl">🏄</div>
-          <h1 className="mb-2 text-xl font-extrabold text-[var(--brand-text)]">로그인이 필요합니다</h1>
+          <h1 className="mb-2 text-xl font-extrabold text-brand-text">로그인이 필요합니다</h1>
           <p className="brand-text-muted mb-6 text-sm">카카오 로그인 후 나의 프로필을 관리할 수 있습니다.</p>
           <button
+            type="button"
             onClick={() => { window.location.href = "/api/auth/kakao?returnTo=/profile"; }}
             className="brand-button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors"
           >
@@ -136,7 +128,7 @@ export function ProfilePageClient({
   const companionSetupValid = setupMemberType === "REGULAR" || (!!selectedOwnerKakaoId && !!selectedCompanionId);
 
   return (
-    <div className="min-h-screen bg-[var(--brand-page)] pb-12 text-[var(--brand-text)]">
+    <div className="min-h-screen bg-brand-page pb-12 text-brand-text">
       <ProfileLeaveDialog
         onDiscard={leaveGuard.discardAndContinue}
         onStay={leaveGuard.stay}

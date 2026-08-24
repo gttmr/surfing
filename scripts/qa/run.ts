@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { assertLocalTestDatabaseUrl } from "./assert-local-test-db";
 import { guardedNodeArguments } from "./child-process-egress";
 import { buildChildEnvironment } from "./environment";
@@ -9,6 +9,7 @@ import { parseEvidenceDirectory } from "./evidence";
 import { acquireQaLock } from "./lock";
 import { parsePassthrough } from "./passthrough";
 import { createPrivateCapability } from "./private-capability";
+import { auditQaRegistry } from "./registry-audit";
 import { isQaTargetName, QA_TARGETS } from "./targets";
 
 type ParsedCommand = {
@@ -67,6 +68,36 @@ async function spawnInternal(args: readonly string[], env: NodeJS.ProcessEnv): P
   return result;
 }
 
+async function spawnPublicTarget(targetName: string, evidenceDirectory: string): Promise<number> {
+  const env: NodeJS.ProcessEnv = { ...process.env, EVIDENCE_DIR: evidenceDirectory };
+  delete env.SURFING_QA_CHILD_TOKEN;
+  delete env.SURFING_QA_EXPECTED_CHILD_TOKEN;
+  delete env.SURFING_QA_OWNER_TOKEN;
+  const child = spawn("./node_modules/.bin/tsx", ["scripts/qa/run.ts", targetName], {
+    cwd: process.cwd(),
+    env,
+    shell: false,
+    stdio: "inherit",
+  });
+  return new Promise<number>((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code) => resolveExit(code ?? 1));
+  });
+}
+
+async function runAllQa(evidenceRoot: string): Promise<void> {
+  auditQaRegistry();
+  for (const targetName of ["test:unit", "test:integration", "test:e2e:mobile"] as const) {
+    const exitCode = await spawnPublicTarget(
+      targetName,
+      join(evidenceRoot, targetName.replaceAll(":", "-")),
+    );
+    if (exitCode !== 0) {
+      throw new QaInvocationError(`QA target ${targetName} exited ${exitCode}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   if (process.env.SURFING_QA_OWNER_TOKEN || process.env.SURFING_QA_CHILD_TOKEN) {
     throw new QaInvocationError("nested public QA launcher refused: live owner or child capability present");
@@ -80,7 +111,11 @@ async function main(): Promise<void> {
     assertLocalTestDatabaseUrl(command.candidateDatabaseUrl);
   }
   const passthrough = parsePassthrough(target, command.passthrough);
-  const evidenceDirectory = parseEvidenceDirectory(process.env.EVIDENCE_DIR);
+  const evidenceDirectory = parseEvidenceDirectory(process.env.EVIDENCE_DIR, target.name);
+  if (target.action === "qa-all") {
+    await runAllQa(evidenceDirectory);
+    return;
+  }
   const ownerToken = target.ownerLifecycle ? randomUUID() : null;
   const release = target.ownerLifecycle ? acquireQaLock() : () => undefined;
   let exitCode = 1;
@@ -91,7 +126,7 @@ async function main(): Promise<void> {
   } finally {
     release();
   }
-  if (target.action === "db-down" && exitCode === 0) {
+  if (["db-down", "test-integration", "test-e2e"].includes(target.action)) {
     await finalizeCleanupReceipt(evidenceDirectory);
   }
 }

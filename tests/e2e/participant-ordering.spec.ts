@@ -8,6 +8,7 @@ import {
   closeOrderTestClient,
   openMemberOrders,
   prepareOrderTest,
+  restoreOrderFixture,
 } from "./participant-ordering.support";
 
 test.beforeEach(async ({ context }) => {
@@ -16,6 +17,7 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.afterAll(async () => {
+  await restoreOrderFixture();
   await closeOrderTestClient();
 });
 

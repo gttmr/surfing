@@ -29,7 +29,6 @@ type SeedInspection = {
   readonly orderStates: readonly string[];
   readonly usageStates: readonly string[];
   readonly repeatedSubmissionCount: number;
-  readonly disposableIds: { readonly user: number; readonly meeting: number; readonly menu: number };
 };
 
 function orderState(item: FixtureOrderItem): {
@@ -210,7 +209,6 @@ export async function inspectMobileUxSeed(client: PrismaClient): Promise<SeedIns
     orderStates: [...orderStates].sort(),
     usageStates: [...usageStates].sort(),
     repeatedSubmissionCount: orders.filter((order) => order.participantId === 8801).length,
-    disposableIds: { user: 8235, meeting: 8104, menu: 8437 },
   };
 }
 

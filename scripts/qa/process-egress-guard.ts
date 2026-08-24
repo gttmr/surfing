@@ -7,7 +7,6 @@ import { syncBuiltinESMExports } from "node:module";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { appendJsonEvidence } from "./evidence";
-import { QA_APP_PORT, QA_DATABASE_PORT } from "./assert-local-test-db";
 import { installChildProcessGuard } from "./child-process-egress";
 import { installGuardCapability } from "./private-capability";
 import { EgressBlockedError } from "./egress-error";
@@ -23,7 +22,6 @@ type LedgerRow = {
 };
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-const LOOPBACK_PORTS = new Set([QA_APP_PORT, QA_DATABASE_PORT]);
 const evidenceDirectory = process.env.EVIDENCE_DIR ?? "";
 const ledgerPath = join(evidenceDirectory, "server-egress-ledger.jsonl");
 const allowedExecutables = new Set((process.env.SURFING_QA_ALLOWED_EXECUTABLES ?? "").split(",").filter(Boolean));
@@ -35,7 +33,7 @@ function record(row: LedgerRow): void {
 }
 
 function networkAllowed(host: string, port: number): boolean {
-  return LOOPBACK_HOSTS.has(host) && LOOPBACK_PORTS.has(port);
+  return LOOPBACK_HOSTS.has(host) && Number.isInteger(port) && port > 0 && port <= 65_535;
 }
 
 function guardNetwork(protocol: string, host: string, port: number): void {

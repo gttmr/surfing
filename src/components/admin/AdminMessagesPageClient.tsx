@@ -198,7 +198,7 @@ export function AdminMessagesPageClient({
       <div className="space-y-4">
         <header>
           <p className="brand-text-subtle text-xs font-semibold tracking-[0.12em]">ADMIN WORKSPACE</p>
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">공지 관리</h1>
+          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">공지 관리</h1>
           <p className="brand-text-muted mt-1 text-sm">목록에서 공지를 읽고, 필요한 경우에만 작성이나 수정 화면으로 이동합니다.</p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
             <span className="brand-admin-stat rounded-full px-3 py-1.5">전체 {notices.length}</span>
@@ -213,16 +213,16 @@ export function AdminMessagesPageClient({
         {mode.kind === "list" ? (
           <section className="brand-admin-section overflow-hidden">
             <div className="brand-admin-section-header px-5 py-4">
-              <h2 className="text-base font-bold text-[var(--brand-text)]">운영 설정 바로가기</h2>
+              <h2 className="text-base font-bold text-brand-text">운영 설정 바로가기</h2>
               <p className="brand-text-subtle mt-1 text-xs">공지와 함께 자주 확인하는 문구와 비용을 관리합니다.</p>
             </div>
             <div className="grid gap-2 px-5 py-4">
               <Link className="brand-list-item brand-list-item-hover flex items-center justify-between rounded-2xl p-3" href="/admin/settings">
-                <span className="min-w-0"><span className="block text-sm font-bold text-[var(--brand-text)]">취소·참가비 안내 문구</span><span className="brand-text-subtle mt-1 line-clamp-1 block text-xs">{initialSettings[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] || "안내 문구를 설정하세요."}</span></span>
+                <span className="min-w-0"><span className="block text-sm font-bold text-brand-text">취소·참가비 안내 문구</span><span className="brand-text-subtle mt-1 line-clamp-1 block text-xs">{initialSettings[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] || "안내 문구를 설정하세요."}</span></span>
                 <Icon className="shrink-0 text-[20px]" name="chevron_right" />
               </Link>
               <Link className="brand-list-item brand-list-item-hover flex items-center justify-between rounded-2xl p-3" href="/admin/pricing">
-                <span><span className="block text-sm font-bold text-[var(--brand-text)]">비용 책정</span><span className="brand-text-subtle mt-1 block text-xs">참가비와 대여비를 관리합니다.</span></span>
+                <span><span className="block text-sm font-bold text-brand-text">비용 책정</span><span className="brand-text-subtle mt-1 block text-xs">참가비와 대여비를 관리합니다.</span></span>
                 <Icon className="shrink-0 text-[20px]" name="chevron_right" />
               </Link>
             </div>

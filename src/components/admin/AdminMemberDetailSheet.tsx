@@ -10,6 +10,8 @@ import type { AdminMemberDetail } from "@/lib/admin-member-response";
 import type { AdminMemberDraft } from "@/lib/admin-members";
 import type { AdminMemberListItem } from "@/lib/admin-page-data";
 
+const MEMBER_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR");
+
 type DetailMode = "view" | "edit";
 
 type AdminMemberDetailSheetProps = {
@@ -54,7 +56,7 @@ function activityClass(status: string): string {
 
 function displayDate(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("ko-KR").format(date);
+  return Number.isNaN(date.getTime()) ? value : MEMBER_DATE_FORMATTER.format(date);
 }
 
 export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
@@ -115,7 +117,7 @@ export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
                 )}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-base font-extrabold text-[var(--brand-text)]">{props.detail.name ?? "이름 없음"}</p>
+                <p className="line-clamp-2 text-base font-extrabold text-brand-text">{props.detail.name ?? "이름 없음"}</p>
                 <p className="mt-1 break-all text-xs">{props.detail.kakaoId}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span className="brand-chip-soft rounded px-2 py-1 text-[11px] font-bold">{adminMemberRoleLabel(props.detail.role)}</span>
@@ -155,7 +157,7 @@ export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
 
               <section aria-labelledby="admin-member-info-title" className="brand-admin-section overflow-hidden">
                 <div className="brand-admin-section-header flex items-center justify-between gap-3 px-4 py-3">
-                  <h3 className="text-sm font-extrabold text-[var(--brand-text)]" id="admin-member-info-title">기본 정보</h3>
+                  <h3 className="text-sm font-extrabold text-brand-text" id="admin-member-info-title">기본 정보</h3>
                   <button className="brand-button-secondary inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-xs font-bold" onClick={props.onEdit} type="button">
                     <Icon className="text-[18px]" name="edit" /> 편집
                   </button>
@@ -163,19 +165,19 @@ export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-4 p-4 text-sm">
                   <div>
                     <dt className="brand-text-subtle text-xs">연락처</dt>
-                    <dd className="mt-1 break-words font-bold text-[var(--brand-text)]">{props.detail.phoneNumber ?? "등록 안 됨"}</dd>
+                    <dd className="mt-1 break-words font-bold text-brand-text">{props.detail.phoneNumber ?? "등록 안 됨"}</dd>
                   </div>
                   <div>
                     <dt className="brand-text-subtle text-xs">가입일</dt>
-                    <dd className="mt-1 font-bold text-[var(--brand-text)]">{displayDate(props.detail.createdAt)}</dd>
+                    <dd className="mt-1 font-bold text-brand-text">{displayDate(props.detail.createdAt)}</dd>
                   </div>
                   <div>
                     <dt className="brand-text-subtle text-xs">참여 기록</dt>
-                    <dd className="mt-1 font-bold text-[var(--brand-text)]">{props.detail.participants.length}회</dd>
+                    <dd className="mt-1 font-bold text-brand-text">{props.detail.participants.length}회</dd>
                   </div>
                   <div>
                     <dt className="brand-text-subtle text-xs">패널티</dt>
-                    <dd className={`mt-1 font-bold ${props.detail.penaltyCount > 0 ? "text-[var(--brand-danger-text)]" : "text-[var(--brand-text)]"}`}>
+                    <dd className={`mt-1 font-bold ${props.detail.penaltyCount > 0 ? "text-brand-danger-text" : "text-brand-text"}`}>
                       {props.detail.penaltyCount}회
                     </dd>
                   </div>
@@ -184,7 +186,7 @@ export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
 
               <section aria-labelledby="admin-member-activity-title" className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-extrabold text-[var(--brand-text)]" id="admin-member-activity-title">최근 활동</h3>
+                  <h3 className="text-sm font-extrabold text-brand-text" id="admin-member-activity-title">최근 활동</h3>
                   <span className="brand-text-subtle text-xs">{props.detail.participants.length}건</span>
                 </div>
                 {props.detail.participants.length === 0 ? (
@@ -194,11 +196,11 @@ export function AdminMemberDetailSheet(props: AdminMemberDetailSheetProps) {
                     {props.detail.participants.map((activity) => (
                       <li className="brand-list-item rounded-2xl p-3" key={activity.id}>
                         <div className="flex items-start justify-between gap-3">
-                          <p className="min-w-0 text-sm font-bold text-[var(--brand-text)]">{activity.meeting.date} · {activity.meeting.startTime}</p>
+                          <p className="min-w-0 text-sm font-bold text-brand-text">{activity.meeting.date} · {activity.meeting.startTime}</p>
                           <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold ${activityClass(activity.status)}`}>{activityLabel(activity.status)}</span>
                         </div>
                         <p className="brand-text-muted mt-1 text-xs">{activity.meeting.location}</p>
-                        {activity.isPenalized ? <p className="mt-2 text-xs font-bold text-[var(--brand-danger-text)]">패널티 적용</p> : null}
+                        {activity.isPenalized ? <p className="mt-2 text-xs font-bold text-brand-danger-text">패널티 적용</p> : null}
                       </li>
                     ))}
                   </ul>

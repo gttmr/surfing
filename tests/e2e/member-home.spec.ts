@@ -69,7 +69,7 @@ test("R01 member finds dense participants, settlement, empty state, and drives c
     await alertTrigger.click();
     const alertDialog = page.getByRole("dialog", { name: "알림 센터" });
     await expect(alertDialog).toBeVisible();
-    expect(await alertDialog.evaluate((node) => node.clientHeight < window.innerHeight)).toBe(true);
+    expect(await alertDialog.locator("[data-dialog-panel]").evaluate((node) => node.clientHeight < window.innerHeight)).toBe(true);
     await page.keyboard.press("Escape");
     await expect(alertTrigger).toBeFocused();
   }
@@ -96,9 +96,10 @@ test("R01 member finds dense participants, settlement, empty state, and drives c
   await capture(page, "home-member-empty", testInfo.project.name);
 });
 
-test("R02 meeting detail remains a compatibility redirect and invalid IDs stay not found", async ({ page }) => {
-  await page.goto("/meeting/8101");
-  await expect(page).toHaveURL(/\/\?date=\d{4}-\d{2}-\d{2}$/);
-  await page.goto("/meeting/8999");
-  await expect(page.getByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeVisible();
+test("R02 legacy meeting detail routes stay not found", async ({ page }) => {
+  for (const url of ["/meeting/8101", "/meeting/8999"]) {
+    const response = await page.goto(url);
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeVisible();
+  }
 });

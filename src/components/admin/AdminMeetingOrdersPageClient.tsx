@@ -19,7 +19,7 @@ export function AdminMeetingOrdersPageClient({
           &larr;
         </Link>
         <div className="flex-1">
-          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+          <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">
             주문 관리
           </h1>
           <p className="brand-text-muted mt-0.5 text-sm">

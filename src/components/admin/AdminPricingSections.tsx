@@ -48,7 +48,7 @@ function PricingInput({ description, disabled, error, label, name, onChange, val
   const errorId = `pricing-${name}-error`;
   return (
     <label className="block" htmlFor={`pricing-${name}`}>
-      <span className="mb-1 block text-xs font-bold text-[var(--brand-text)]">{label}</span>
+      <span className="mb-1 block text-xs font-bold text-brand-text">{label}</span>
       <input
         aria-describedby={`${descriptionId}${error ? ` ${errorId}` : ""}`}
         aria-invalid={error ? "true" : undefined}
@@ -110,7 +110,7 @@ export function AdminMemberFeesSection({
         <div className="space-y-4 px-4 py-5" id="member-fees-editor">
           {PRICING_FIELDS.map((field) => (
             <fieldset className="brand-list-item rounded-2xl p-4" key={field.title}>
-              <legend className="text-sm font-extrabold text-[var(--brand-text)]">{field.title}</legend>
+              <legend className="text-sm font-extrabold text-brand-text">{field.title}</legend>
               <p className="brand-text-subtle mt-1 text-xs">{field.description}</p>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <PricingInput description="정회원 기준" disabled={disabled} error={errors[field.regularKey]} label="정회원" name={field.regularKey} onChange={onChange} value={draft[field.regularKey]} />
@@ -119,7 +119,7 @@ export function AdminMemberFeesSection({
             </fieldset>
           ))}
           <div aria-label="저장 비용 항목 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
-            <p className="text-xs font-bold text-[var(--brand-text)]">저장되는 비용 항목</p>
+            <p className="text-xs font-bold text-brand-text">저장되는 비용 항목</p>
             <div className="mt-3 space-y-3 text-sm">
               {PRICING_FIELDS.map((field) => (
                 <p className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3" key={field.title}>
@@ -167,8 +167,8 @@ export function AdminFoodSupportSection({
         <div className="space-y-4 px-4 py-5" id="food-support-editor">
           <PricingInput description="참가자별 식음료 주문에서 차감되는 최대 금액" disabled={disabled} error={error} label="1인당 지원 한도" name="foodOrderSupportCap" onChange={onChange} value={draft.foodOrderSupportCap} />
           <div aria-label="식음료 지원 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
-            <p className="text-xs font-bold text-[var(--brand-text)]">정산 반영 미리보기</p>
-            <p className="brand-text-muted mt-2 text-sm">참가자별 식음료 주문 금액에서 최대 <strong className="text-[var(--brand-text)]">{formatWon(draft.foodOrderSupportCap)}</strong>까지 지원됩니다.</p>
+            <p className="text-xs font-bold text-brand-text">정산 반영 미리보기</p>
+            <p className="brand-text-muted mt-2 text-sm">참가자별 식음료 주문 금액에서 최대 <strong className="text-brand-text">{formatWon(draft.foodOrderSupportCap)}</strong>까지 지원됩니다.</p>
           </div>
         </div>
       ) : null}

@@ -97,7 +97,6 @@ test("reset idempotence preserves keyed fixture data with a fresh generation", a
     assert.deepEqual(second.orderStates, ["ACTIVE", "CANCELLED", "MIXED", "PREPARING", "SERVED"]);
     assert.deepEqual(second.usageStates, ["CONFIRMED", "MISSING", "SUBMITTED"]);
     assert.equal(second.repeatedSubmissionCount, 2);
-    assert.deepEqual(second.disposableIds, MOBILE_UX_FIXTURE_IDS.disposable);
     assert.equal(second.generation, secondGeneration);
     assert.equal(readFileSync(".tmp/qa/generation", "utf8").trim(), secondGeneration);
     assert.equal(await db.assertHealthy(ownerToken), secondGeneration);

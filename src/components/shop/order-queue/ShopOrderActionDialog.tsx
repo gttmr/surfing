@@ -76,7 +76,7 @@ export function ShopOrderActionDialog({
           {cancel ? (
             <div className="space-y-3">
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">취소 사유</span>
+                <span className="mb-1.5 block text-xs font-bold text-brand-text">취소 사유</span>
                 <select
                   className="brand-input w-full rounded-2xl px-4 py-3 text-sm outline-none"
                   onChange={(event) => {
@@ -88,7 +88,7 @@ export function ShopOrderActionDialog({
                 </select>
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">추가 설명</span>
+                <span className="mb-1.5 block text-xs font-bold text-brand-text">추가 설명</span>
                 <textarea
                   aria-invalid={missingOtherReason}
                   className={`${missingOtherReason ? "brand-input-error" : "brand-input"} min-h-24 w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none`}

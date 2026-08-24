@@ -41,7 +41,7 @@ export function AdminCancellationPolicySection({
       {editing ? (
         <div className="space-y-4 px-4 py-5" id="cancellation-settings-editor">
           <label className="block" htmlFor="settings-penaltyDays">
-            <span className="mb-1 block text-sm font-bold text-[var(--brand-text)]">패널티 기준 일수</span>
+            <span className="mb-1 block text-sm font-bold text-brand-text">패널티 기준 일수</span>
             <input
               aria-describedby={`settings-penaltyDays-description${errors.penaltyDays ? " settings-penaltyDays-error" : ""}`}
               aria-invalid={errors.penaltyDays ? "true" : undefined}
@@ -62,7 +62,7 @@ export function AdminCancellationPolicySection({
           </label>
 
           <label className="block" htmlFor="settings-penaltyMessage">
-            <span className="mb-1 block text-sm font-bold text-[var(--brand-text)]">취소 안내 문구</span>
+            <span className="mb-1 block text-sm font-bold text-brand-text">취소 안내 문구</span>
             <textarea
               aria-describedby={`settings-penaltyMessage-description${errors.penaltyMessage ? " settings-penaltyMessage-error" : ""}`}
               aria-invalid={errors.penaltyMessage ? "true" : undefined}
@@ -80,7 +80,7 @@ export function AdminCancellationPolicySection({
           </label>
 
           <div aria-label="취소 안내 초안 미리보기" className="brand-alert-error rounded-2xl p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-[var(--brand-text)]"><Icon name="event_busy" /> 회원 화면 미리보기</div>
+            <div className="flex items-center gap-2 text-sm font-bold text-brand-text"><Icon name="event_busy" /> 회원 화면 미리보기</div>
             <p className="brand-inline-danger mt-3 whitespace-pre-line rounded-xl p-3 text-sm">{draft.penaltyMessage || "안내 문구를 입력해 주세요."}</p>
           </div>
         </div>
@@ -114,7 +114,7 @@ export function AdminParticipantGuideSection({
       {editing ? (
         <div className="space-y-4 px-4 py-5" id="participant-guide-editor">
           <label className="block" htmlFor="settings-participantOptionPricingGuide">
-            <span className="mb-1 block text-sm font-bold text-[var(--brand-text)]">참가 옵션 가격 안내 문구</span>
+            <span className="mb-1 block text-sm font-bold text-brand-text">참가 옵션 가격 안내 문구</span>
             <textarea
               aria-describedby={`settings-participantOptionPricingGuide-description${errors.participantOptionPricingGuide ? " settings-participantOptionPricingGuide-error" : ""}`}
               aria-invalid={errors.participantOptionPricingGuide ? "true" : undefined}
@@ -131,7 +131,7 @@ export function AdminParticipantGuideSection({
             {errors.participantOptionPricingGuide ? <span className="brand-form-error block" id="settings-participantOptionPricingGuide-error">{errors.participantOptionPricingGuide}</span> : null}
           </label>
           <div aria-label="참가 옵션 안내 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-[var(--brand-text)]"><Icon name="info" /> 회원 화면 미리보기</div>
+            <div className="flex items-center gap-2 text-sm font-bold text-brand-text"><Icon name="info" /> 회원 화면 미리보기</div>
             <p className="mt-3 whitespace-pre-line text-sm">{draft.participantOptionPricingGuide || "안내 문구를 입력해 주세요."}</p>
           </div>
         </div>

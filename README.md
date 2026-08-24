@@ -12,8 +12,8 @@ Next.js 기반의 서핑 모임 관리 앱이다. 홈 화면에서 달력, 모�
 ## 개발 메모
 - 인증은 카카오 로그인 기반이다.
 - 프로필 이미지는 브라우저에서 먼저 압축한 뒤 업로드한다.
-- Cloud Run 운영에서는 `GCS_PROFILE_IMAGE_BUCKET`을 설정해 프로필 이미지를 GCS에 저장한다.
-- 로컬 개발에서 `GCS_PROFILE_IMAGE_BUCKET`과 `BLOB_READ_WRITE_TOKEN`이 모두 없으면 프로필 이미지는 `public/uploads/` 아래에 저장된다.
+- 운영에서는 `BLOB_READ_WRITE_TOKEN`을 설정해 프로필 이미지를 Vercel Blob에 저장한다.
+- 로컬 개발에서 `BLOB_READ_WRITE_TOKEN`이 없으면 프로필 이미지는 `public/uploads/` 아래에 저장된다.
 - 관리자 보호는 `src/proxy.ts`에서 처리한다.
 - 참가 옵션 가격 안내 문구는 관리자 설정과 `/api/settings/public` API를 통해 노출된다.
 - 비용 책정은 `/admin/pricing`, 회차별 추가/차감 정산은 `/admin/meetings/[id]/settlement`에서 관리한다.
@@ -36,6 +36,4 @@ npm run dev
 - `SESSION_SECRET`
 - `KAKAO_CLIENT_ID`
 - `KAKAO_REDIRECT_URI`
-- `NEXT_PUBLIC_KAKAO_JS_KEY`
-- `GCS_PROFILE_IMAGE_BUCKET` (Cloud Run 프로필 이미지 업로드 사용 시)
-- `BLOB_READ_WRITE_TOKEN` (기존 Vercel Blob 호환 사용 시)
+- `BLOB_READ_WRITE_TOKEN` (Vercel Blob 프로필 이미지 업로드 사용 시)

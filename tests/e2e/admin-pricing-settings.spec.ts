@@ -208,9 +208,17 @@ test("settlement account whitespace is normalized before payload and remains nor
     await expect(page.getByText("계좌번호를 입력해 주세요.")).toBeVisible();
 
     await bank.fill("   ");
+    await expect(bank).toHaveValue("   ");
     await number.fill("\t");
+    await expect(number).toHaveValue("\t");
     await holder.fill("  ");
-    const requestPromise = page.waitForRequest((request) => request.method() === "PUT" && new URL(request.url()).pathname === "/api/admin/settings");
+    await expect(holder).toHaveValue("  ");
+    await expect(bank).toHaveValue("   ");
+    await expect(number).toHaveValue("\t");
+    const requestPromise = page.waitForRequest(
+      (request) => request.method() === "PUT" && new URL(request.url()).pathname === "/api/admin/settings",
+      { timeout: 5_000 },
+    );
     await page.getByRole("button", { name: "변경사항 저장" }).click();
     const request = await requestPromise;
     expect(request.postData()).toContain('"settlement_bank_name":""');

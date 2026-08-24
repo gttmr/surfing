@@ -124,13 +124,13 @@ export function LandingHeader({
             <button
               aria-label="알림 센터 열기"
               className={`relative flex h-9 w-9 items-center justify-center transition-colors ${
-                isAlertCenterOpen ? "text-[var(--brand-primary-text)]" : "text-[var(--brand-text-subtle)]"
+                isAlertCenterOpen ? "text-brand-primary-text" : "text-brand-text-subtle"
               }`}
               onClick={onOpenAlertCenter}
               type="button"
             >
               <NoticeGlyph className="h-5 w-5" />
-              {hasUnreadAlerts ? <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-[var(--brand-primary)]" /> : null}
+              {hasUnreadAlerts ? <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-brand-primary" /> : null}
             </button>
           ) : null}
           {user ? <ProfileButton user={user} /> : null}
@@ -181,7 +181,7 @@ export function AlertCenterModal({
               const expanded = expandedAlertKey === item.key;
 
               return (
-                <div key={item.key} className="border-b border-[var(--brand-divider)] last:border-b-0">
+                <div key={item.key} className="border-b border-brand-divider last:border-b-0">
                   <button
                     className="flex w-full items-center gap-3 px-0 py-4 text-left"
                     onClick={() => onToggleItem(item)}
@@ -193,9 +193,9 @@ export function AlertCenterModal({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-bold text-[var(--brand-text)]">{item.title}</p>
+                        <p className="truncate text-sm font-bold text-brand-text">{item.title}</p>
                         {item.unread ? (
-                          <span className="h-2 w-2 rounded-full bg-[var(--brand-primary)]" />
+                          <span className="h-2 w-2 rounded-full bg-brand-primary" />
                         ) : (
                           <span className="brand-text-subtle text-[11px] font-semibold">확인함</span>
                         )}
@@ -206,15 +206,15 @@ export function AlertCenterModal({
                   </button>
 
                   {expanded ? (
-                    <div className="border-t border-[var(--brand-divider)] px-0 py-4">
+                    <div className="border-t border-brand-divider px-0 py-4">
                       {item.type === "notice" ? (
                         <div className="space-y-2">
-                          <p className="text-base font-bold text-[var(--brand-text)]">{item.notice.title}</p>
+                          <p className="text-base font-bold text-brand-text">{item.notice.title}</p>
                           <p className="brand-text-muted whitespace-pre-line text-sm leading-6">{item.notice.body}</p>
                         </div>
                       ) : item.type === "order_cancelled" ? (
                         <div className="space-y-2">
-                          <p className="text-base font-bold text-[var(--brand-text)]">{item.notification.title}</p>
+                          <p className="text-base font-bold text-brand-text">{item.notification.title}</p>
                           <p className="brand-text-muted whitespace-pre-line text-sm leading-6">{item.notification.body}</p>
                         </div>
                       ) : (
@@ -237,7 +237,7 @@ export function AlertCenterModal({
                                     : "정산 필요"}
                               </span>
                             </div>
-                            <p className="mt-2 text-[1.8rem] font-headline font-extrabold leading-none tracking-[-0.04em] text-[var(--brand-text)]">
+                            <p className="mt-2 text-[1.8rem] font-headline font-extrabold leading-none tracking-[-0.04em] text-brand-text">
                               {formatWon(item.settlement.group.totalFee)}
                             </p>
                           </div>
@@ -290,7 +290,7 @@ export function AlertCenterModal({
 
                           <div className="brand-list-item rounded-2xl p-4">
                             <p className="brand-text-subtle text-[11px] font-bold uppercase tracking-[0.24em]">트립 정보</p>
-                            <p className="mt-2 text-sm font-bold text-[var(--brand-text)]">{item.settlement.meeting.date}</p>
+                            <p className="mt-2 text-sm font-bold text-brand-text">{item.settlement.meeting.date}</p>
                             <p className="brand-text-muted mt-1 text-sm">{item.settlement.meeting.location}</p>
                             <p className="brand-text-muted mt-1 text-sm">
                               비용 발생 사유: {formatSettlementReasons(item.settlement) || "참가비"}
@@ -403,10 +403,10 @@ export function CalendarSection({
                     tabIndex={cell.date === entryDate ? 0 : -1}
                     type="button"
                   >
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${isSelected ? "bg-[var(--brand-primary)] font-bold text-[var(--brand-primary-foreground)]" : isToday ? "bg-[var(--brand-primary-soft-strong)] font-bold text-[var(--brand-primary-text)]" : cell.inCurrentMonth ? dow === 0 ? "text-[var(--brand-calendar-sun)]" : dow === 6 ? "text-[var(--brand-calendar-sat)]" : "text-[var(--brand-text)]" : "text-[var(--brand-text-subtle)]"}`}>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${isSelected ? "bg-brand-primary font-bold text-brand-primary-foreground" : isToday ? "bg-brand-primary-soft-strong font-bold text-brand-primary-text" : cell.inCurrentMonth ? dow === 0 ? "text-brand-calendar-sun" : dow === 6 ? "text-brand-calendar-sat" : "text-brand-text" : "text-brand-text-subtle"}`}>
                       {cell.day}
                     </span>
-                    {hasMeeting ? <span aria-hidden className={`absolute -bottom-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-[var(--brand-primary-text)]" : "bg-[var(--brand-primary-border-strong)]"}`} /> : null}
+                    {hasMeeting ? <span aria-hidden className={`absolute -bottom-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-brand-primary-text" : "bg-brand-primary-border-strong"}`} /> : null}
                   </button>
                 );
               })}

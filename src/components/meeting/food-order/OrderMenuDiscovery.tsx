@@ -78,13 +78,13 @@ export function OrderMenuDiscovery({
       <section aria-labelledby="order-discovery-title">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-extrabold text-[var(--brand-text)]" id="order-discovery-title">메뉴 찾기</h3>
+            <h3 className="text-sm font-extrabold text-brand-text" id="order-discovery-title">메뉴 찾기</h3>
             <p className="brand-text-subtle mt-1 text-xs">이름이나 옵션을 찾고 필요한 수량만 담아 주세요.</p>
           </div>
           <span className="brand-chip-strong shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">선택 {selectedCount}</span>
         </div>
         <div className="relative mt-3">
-          <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-[var(--brand-text-subtle)]" name="search" />
+          <Icon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-brand-text-subtle" name="search" />
           <input
             aria-label="메뉴 검색"
             className="brand-input h-11 w-full rounded-2xl py-2 pl-10 pr-12 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
@@ -118,7 +118,7 @@ export function OrderMenuDiscovery({
       </section>
 
       {categories.length > 1 ? (
-        <nav aria-label="메뉴 카테고리" className="brand-mobile-scrollbar-hidden sticky top-0 z-[5] -mx-4 overflow-x-auto border-y border-[var(--brand-divider)] bg-[var(--brand-surface-glass)] px-4 py-2">
+        <nav aria-label="메뉴 카테고리" className="brand-mobile-scrollbar-hidden sticky top-0 z-[5] -mx-4 overflow-x-auto border-y border-brand-divider bg-brand-surface-glass px-4 py-2">
           <div className="flex w-max gap-2">
             {categories.map((group) => {
               const selected = group.categoryName === selectedCategory?.categoryName;
@@ -141,8 +141,8 @@ export function OrderMenuDiscovery({
 
       {groups.length === 0 ? (
         <section className="brand-panel-white rounded-3xl px-5 py-8 text-center" role="status">
-          <Icon className="text-[32px] text-[var(--brand-primary-text)]" name={selectedOnly ? "remove_shopping_cart" : "search_off"} />
-          <p className="mt-2 text-sm font-extrabold text-[var(--brand-text)]">
+          <Icon className="text-[32px] text-brand-primary-text" name={selectedOnly ? "remove_shopping_cart" : "search_off"} />
+          <p className="mt-2 text-sm font-extrabold text-brand-text">
             {selectedOnly ? "아직 담은 메뉴가 없습니다" : "검색 결과가 없습니다"}
           </p>
           <p className="brand-text-subtle mt-1 text-xs">{selectedOnly ? "전체 메뉴에서 수량을 추가해 주세요." : "다른 이름이나 옵션으로 찾아보세요."}</p>
@@ -158,7 +158,7 @@ export function OrderMenuDiscovery({
         <section className="scroll-mt-2 space-y-2" id={group.sectionId} key={group.sectionId}>
           <div className="flex items-center justify-between gap-3 px-1">
             <h3
-              className="rounded-lg text-xs font-extrabold tracking-[0.06em] text-[var(--brand-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
+              className="rounded-lg text-xs font-extrabold tracking-[0.06em] text-brand-text outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
               id={`${group.sectionId}-heading`}
               tabIndex={-1}
             >

@@ -163,7 +163,7 @@ export function AdminMeetingSettlementPageClient({
         <div className="flex items-start gap-3">
           <Link href={`/admin/meetings/${meetingId}`} className="brand-link mt-0.5 text-xl">&larr;</Link>
           <div className="min-w-0 flex-1">
-            <h1 className="font-headline break-keep text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">
+            <h1 className="font-headline break-keep text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">
               정산 관리
             </h1>
             <p className="brand-text-muted mt-0.5 break-keep text-sm">

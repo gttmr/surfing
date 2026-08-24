@@ -26,14 +26,14 @@ export function AdminSettingSectionHeader({
       <div className="flex flex-col items-stretch gap-3 min-[320px]:flex-row min-[320px]:items-start min-[320px]:justify-between">
         <div className="min-w-0 space-y-2" data-admin-setting-header-content>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-extrabold text-[var(--brand-text)]">{title}</h2>
+            <h2 className="text-base font-extrabold text-brand-text">{title}</h2>
             <span className="brand-chip-soft inline-flex max-w-full break-keep rounded-full px-2.5 py-1 text-center text-[11px] font-bold leading-4 [overflow-wrap:normal]" data-admin-role-label>{roleLabel}</span>
             {dirty ? (
               <span className="brand-chip-preparing rounded-full px-2.5 py-1 text-[11px] font-bold">초안 있음</span>
             ) : null}
           </div>
           <p className="brand-text-muted line-clamp-2 text-xs leading-5 max-[319px]:line-clamp-none max-[319px]:[overflow-wrap:anywhere]" data-admin-persisted-summary>
-            <span className="font-bold text-[var(--brand-text)]">저장된 값</span> · {summary}
+            <span className="font-bold text-brand-text">저장된 값</span> · {summary}
           </p>
         </div>
         <button
@@ -71,7 +71,7 @@ export function AdminSettingActionBar({
       aria-label="저장하지 않은 변경사항"
       className="brand-panel-white sticky bottom-[calc(var(--brand-dock-clearance)+var(--brand-safe-bottom)+0.5rem)] z-10 space-y-3 rounded-2xl p-3 shadow-brand"
     >
-      <p aria-live="polite" className="text-center text-xs font-bold text-[var(--brand-text)]">
+      <p aria-live="polite" className="text-center text-xs font-bold text-brand-text">
         {dirtySectionCount}개 섹션에 저장하지 않은 초안이 있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2">

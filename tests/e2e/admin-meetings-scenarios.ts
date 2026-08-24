@@ -5,6 +5,13 @@ type AdminPageFixture = {
   readonly page: Page;
 };
 
+function meetingIdFromBody(body: unknown): number {
+  if (typeof body !== "object" || body === null || !("id" in body) || typeof body.id !== "number") {
+    throw new Error("created meeting response is missing a numeric id");
+  }
+  return body.id;
+}
+
 export async function verifyMutationFailures({ page }: AdminPageFixture, testInfo: TestInfo): Promise<void> {
   await page.goto("/admin/meetings/8103", { waitUntil: "networkidle" });
   await page.route("**/api/participants/8838", (route) => route.fulfill({
@@ -66,13 +73,16 @@ export async function verifyRealMeetingCreate({ page }: AdminPageFixture, testIn
   const responsePromise = page.waitForResponse((response) => response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/meetings");
   await page.getByRole("button", { name: "모임 생성" }).click();
-  expect((await responsePromise).status()).toBe(201);
+  const response = await responsePromise;
+  expect(response.status()).toBe(201);
+  const meetingId = meetingIdFromBody(await response.json());
   const createdMeeting = page.getByRole("link").filter({ hasText: location });
   await createdMeeting.scrollIntoViewIfNeeded();
   await expect(createdMeeting).toBeVisible();
   await capture(page, "create-success", testInfo.project.name);
   await assertMobileGeometry(page);
   await assertAccessible(page);
+  expect((await page.request.delete(`/api/meetings/${meetingId}`)).status()).toBe(200);
 }
 
 export async function verifyRealParticipantRoundTrip({ page }: AdminPageFixture, testInfo: TestInfo): Promise<void> {
@@ -98,15 +108,30 @@ export async function verifyRealParticipantRoundTrip({ page }: AdminPageFixture,
 }
 
 export async function verifyDisposableMeetingDelete({ page }: AdminPageFixture, testInfo: TestInfo): Promise<void> {
-  await page.goto("/admin/meetings/8104", { waitUntil: "networkidle" });
-  await expect(page.getByText("합성 빈 해변").first()).toBeVisible();
+  const location = `삭제 전용 합성 모임 ${testInfo.project.name}`;
+  const createResponse = await page.request.post("/api/meetings", {
+    data: {
+      date: "2099-12-29",
+      startTime: "10:00",
+      endTime: "12:00",
+      location,
+      description: "삭제 경로만 검증하는 참가자 없는 모임",
+      isOpen: true,
+      meetingType: "정기",
+    },
+  });
+  expect(createResponse.status()).toBe(201);
+  const meetingId = meetingIdFromBody(await createResponse.json());
+
+  await page.goto(`/admin/meetings/${meetingId}`, { waitUntil: "networkidle" });
+  await expect(page.getByText(location).first()).toBeVisible();
   await page.getByRole("button", { name: "모임 삭제" }).click();
   const responsePromise = page.waitForResponse((response) => response.request().method() === "DELETE"
-    && new URL(response.url()).pathname === "/api/meetings/8104");
+    && new URL(response.url()).pathname === `/api/meetings/${meetingId}`);
   await page.getByRole("dialog", { name: "모임을 삭제할까요?" }).getByRole("button", { name: "모임 삭제" }).click();
   expect((await responsePromise).status()).toBe(200);
   await expect(page).toHaveURL(/\/admin\/meetings$/);
-  await expect(page.getByText("합성 빈 해변")).toBeHidden();
+  await expect(page.getByText(location)).toBeHidden();
   await capture(page, "delete-success", testInfo.project.name);
   await assertMobileGeometry(page);
   await assertAccessible(page);

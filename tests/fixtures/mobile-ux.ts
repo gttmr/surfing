@@ -5,7 +5,6 @@ export const MOBILE_UX_FIXTURE_IDS = {
   invalidMeeting: 8999,
   users: { member: 8201, companion: 8202, owner: 8203, shop: 8204, admin: 8205, banned: 8208 },
   companions: { linked: 8701, unlinked: 8702 },
-  disposable: { user: 8235, meeting: 8104, menu: 8437 },
 } as const;
 
 export const MOBILE_UX_PERSONAS = [

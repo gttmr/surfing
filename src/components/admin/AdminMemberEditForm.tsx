@@ -29,7 +29,7 @@ export function AdminMemberEditForm({
     <form className="space-y-4" noValidate onSubmit={onSubmit}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-extrabold text-[var(--brand-text)]">회원 정보 편집</h3>
+          <h3 className="text-sm font-extrabold text-brand-text">회원 정보 편집</h3>
           <p className="brand-text-subtle mt-1 text-xs">변경사항은 저장하기 전까지 반영되지 않습니다.</p>
         </div>
         <span aria-live="polite" className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${dirty ? "brand-chip-preparing" : "brand-chip-success"}`}>
@@ -45,7 +45,7 @@ export function AdminMemberEditForm({
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="text-xs font-bold text-[var(--brand-text)]">
+        <div className="text-xs font-bold text-brand-text">
           <label className="mb-1.5 block" htmlFor="admin-member-role">회원 등급</label>
           <select
             aria-describedby={errors.role ? "admin-member-role-error" : undefined}
@@ -64,7 +64,7 @@ export function AdminMemberEditForm({
           {errors.role ? <span className="brand-form-error block" id="admin-member-role-error">{errors.role}</span> : null}
         </div>
 
-        <div className="text-xs font-bold text-[var(--brand-text)]">
+        <div className="text-xs font-bold text-brand-text">
           <label className="mb-1.5 block" htmlFor="admin-member-type">회원 유형</label>
           <select
             aria-describedby={errors.memberType ? "admin-member-type-error" : undefined}
@@ -82,7 +82,7 @@ export function AdminMemberEditForm({
         </div>
       </div>
 
-      <div className="text-xs font-bold text-[var(--brand-text)]">
+      <div className="text-xs font-bold text-brand-text">
         <label className="mb-1.5 block" htmlFor="admin-member-phone">연락처</label>
         <input
           aria-describedby={errors.phoneNumber ? "admin-member-phone-error" : "admin-member-phone-help"}
@@ -101,7 +101,7 @@ export function AdminMemberEditForm({
         {errors.phoneNumber ? <span className="brand-form-error block" id="admin-member-phone-error">{errors.phoneNumber}</span> : null}
       </div>
 
-      <div className="text-xs font-bold text-[var(--brand-text)]">
+      <div className="text-xs font-bold text-brand-text">
         <label className="mb-1.5 block" htmlFor="admin-member-penalty">패널티 횟수</label>
         <input
           aria-describedby={errors.penaltyCount ? "admin-member-penalty-error" : undefined}

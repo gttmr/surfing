@@ -23,7 +23,7 @@ export function AsyncState({ kind, title, description, actionLabel, onAction, ac
   const content = (
     <>
       <Icon className={`text-[32px] ${kind === "loading" ? "animate-spin" : ""}`} name={ICONS[kind]} />
-      <h1 className="font-headline text-lg font-extrabold text-[var(--brand-text)]">{title}</h1>
+      <h1 className="font-headline text-lg font-extrabold text-brand-text">{title}</h1>
       {description ? <p className="brand-text-muted max-w-xs text-sm leading-6">{description}</p> : null}
       {actionLabel && actionHref ? (
         <Link className="brand-button-primary mt-2 inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-bold" href={actionHref}>

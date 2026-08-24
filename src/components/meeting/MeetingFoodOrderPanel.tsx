@@ -95,9 +95,9 @@ export function MeetingFoodOrderPanel({ meetingId }: { readonly meetingId: numbe
 
         {order.selectedParticipant ? (
           <>
-            <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl bg-[var(--brand-primary-soft)] px-3 py-3">
+            <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl bg-brand-primary-soft px-3 py-3">
               <div className="min-w-0">
-                <p className="break-words text-sm font-extrabold leading-5 text-[var(--brand-text)]">{order.selectedParticipant.name}</p>
+                <p className="break-words text-sm font-extrabold leading-5 text-brand-text">{order.selectedParticipant.name}</p>
                 <p className="brand-text-subtle mt-0.5 text-xs">
                   {!order.selectedParticipant.canOrder
                     ? "읽기 전용 주문 내역"
@@ -155,7 +155,7 @@ export function MeetingFoodOrderPanel({ meetingId }: { readonly meetingId: numbe
               />
             ) : (
               <div className="brand-panel-white rounded-3xl px-5 py-8 text-center">
-                <p className="text-sm font-extrabold text-[var(--brand-text)]">
+                <p className="text-sm font-extrabold text-brand-text">
                   {order.selectedParticipant.orderRole === "linked_companion_locked" ? "연동된 동반인이 직접 주문합니다." : "주문 내역만 확인할 수 있습니다."}
                 </p>
                 <p className="brand-text-subtle mt-1 text-xs leading-5">{order.selectedParticipant.lockedReason}</p>

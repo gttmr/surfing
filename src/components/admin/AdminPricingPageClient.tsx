@@ -124,7 +124,7 @@ export function AdminPricingPageClient({
         <header className="space-y-3">
           <div>
             <p className="brand-text-subtle text-xs font-semibold">관리자 · 정산 기준</p>
-            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">비용 책정</h1>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">비용 책정</h1>
             <p className="brand-text-muted mt-1 text-sm">회원 정산에 쓰는 금액을 섹션별로 확인하고 필요한 항목만 편집합니다.</p>
           </div>
           <p aria-live="polite" className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${dirtySectionCount > 0 ? "brand-chip-preparing" : "brand-chip-success"}`}>

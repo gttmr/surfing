@@ -27,7 +27,7 @@ export function AdminMeetingSettlementParticipant({
     <div className="pb-1">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-extrabold text-[var(--brand-text)]">
+          <p className="text-base font-extrabold text-brand-text">
             {participant.name}
             {participant.companionId ? " (동반)" : ""}
           </p>
@@ -62,7 +62,7 @@ export function AdminMeetingSettlementParticipant({
           {participant.foodOrders.map((item) => (
             <div key={item.id} className="brand-panel-white flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[var(--brand-text)]">
+                <p className="truncate text-sm font-semibold text-brand-text">
                   {item.optionChoiceLabelSnapshot
                     ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
                     : item.menuNameSnapshot}
@@ -74,7 +74,7 @@ export function AdminMeetingSettlementParticipant({
                 ) : null}
               </div>
               {showAmounts ? (
-                <span className="shrink-0 text-sm font-bold text-[var(--brand-text)]">
+                <span className="shrink-0 text-sm font-bold text-brand-text">
                   {formatWon(item.unitPriceSnapshot * item.quantity)}
                 </span>
               ) : null}
@@ -88,9 +88,9 @@ export function AdminMeetingSettlementParticipant({
           participant.adjustments.map((adjustment) => (
             <div key={adjustment.id} className="brand-card-soft flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{adjustment.label}</p>
+                <p className="truncate text-sm font-semibold text-brand-text">{adjustment.label}</p>
                 {showAmounts ? (
-                  <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-[var(--brand-companion)]" : "text-[var(--brand-primary-text)]"}`}>
+                  <p className={`text-xs font-bold ${adjustment.amount >= 0 ? "text-brand-companion" : "text-brand-primary-text"}`}>
                     {adjustment.amount >= 0 ? "+" : ""}{formatWon(adjustment.amount)}
                   </p>
                 ) : (
@@ -113,7 +113,7 @@ export function AdminMeetingSettlementParticipant({
 
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">조정 항목명</span>
+          <span className="mb-1.5 block text-xs font-bold text-brand-text">조정 항목명</span>
           <input
             aria-label={`${participant.name} 조정 항목명`}
             value={draft.label}
@@ -124,7 +124,7 @@ export function AdminMeetingSettlementParticipant({
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">조정 금액</span>
+          <span className="mb-1.5 block text-xs font-bold text-brand-text">조정 금액</span>
           <input
             aria-label={`${participant.name} 조정 금액`}
             value={draft.amount}

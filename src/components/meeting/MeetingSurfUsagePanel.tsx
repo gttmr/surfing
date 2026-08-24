@@ -133,7 +133,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
   if (!data) {
     return (
       <section className="brand-card-soft rounded-2xl p-4">
-        <h3 className="text-base font-extrabold text-[var(--brand-text)]">실제 이용 내역</h3>
+        <h3 className="text-base font-extrabold text-brand-text">실제 이용 내역</h3>
         <p className="brand-text-subtle mt-1 text-xs">{error ?? "이용 항목을 불러오는 중입니다."}</p>
       </section>
     );
@@ -143,7 +143,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
     <section className="brand-card-soft space-y-4 rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-extrabold text-[var(--brand-text)]">실제 이용 내역</h3>
+          <h3 className="text-base font-extrabold text-brand-text">실제 이용 내역</h3>
           <p className="brand-text-subtle mt-1 text-xs">당일 실제 이용한 항목을 제출해 주세요. 금액은 정산 공개 때 확인합니다.</p>
         </div>
         <span
@@ -170,7 +170,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                 className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-extrabold text-[var(--brand-text)]">{participant.name}</p>
+                  <p className="truncate text-sm font-extrabold text-brand-text">{participant.name}</p>
                   <p className="brand-text-subtle mt-1 truncate text-xs">{getCollapsedSummary(participant)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -195,7 +195,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
               </button>
 
               {expanded ? (
-                <div className="border-t border-[var(--brand-divider)] p-3">
+                <div className="border-t border-brand-divider p-3">
                   {participant.canSubmit ? (
                     <>
                       <div className="space-y-2">
@@ -207,7 +207,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                               className="brand-list-item flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
                             >
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-[var(--brand-text)]">{item.name}</p>
+                                <p className="truncate text-sm font-semibold text-brand-text">{item.name}</p>
                                 {item.description ? (
                                   <p className="brand-text-subtle mt-0.5 text-xs">{item.description}</p>
                                 ) : null}
@@ -220,7 +220,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                                 >
                                   -
                                 </button>
-                                <span className="w-8 text-center text-sm font-bold text-[var(--brand-text)]">{value}</span>
+                                <span className="w-8 text-center text-sm font-bold text-brand-text">{value}</span>
                                 <button
                                   type="button"
                                   onClick={() => updateQuantity(participant.participantId, item.id, value + 1)}

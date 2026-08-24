@@ -60,7 +60,7 @@ function CancelOrderDialog({
       {target ? (
         <>
           <label className="mb-3 block">
-            <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">취소 사유</span>
+            <span className="mb-1.5 block text-xs font-bold text-brand-text">취소 사유</span>
             <select
               value={reasonCode}
               onChange={(event) => setReasonCode(event.target.value)}
@@ -75,7 +75,7 @@ function CancelOrderDialog({
           </label>
 
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold text-[var(--brand-text)]">추가 설명</span>
+            <span className="mb-1.5 block text-xs font-bold text-brand-text">추가 설명</span>
             <textarea
               value={reasonText}
               onChange={(event) => setReasonText(event.target.value.slice(0, 100))}

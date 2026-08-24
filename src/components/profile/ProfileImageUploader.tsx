@@ -392,11 +392,11 @@ export function ProfileImageUploader({
                   }}
                 />
               </div>
-              <label className="w-full text-sm font-semibold text-[var(--brand-text)]">
+              <label className="w-full text-sm font-semibold text-brand-text">
                 확대
                 <input
                   aria-label="프로필 사진 확대"
-                  className="mt-2 w-full accent-[var(--brand-primary)]"
+                  className="mt-2 w-full accent-brand-primary"
                   max="3"
                   min="1"
                   onChange={(event) => handleZoomChange(Number(event.target.value))}

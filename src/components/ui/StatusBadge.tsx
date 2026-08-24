@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<
   },
   CANCELLED: {
     label: "취소됨",
-    className: "bg-[var(--brand-dimmed-surface)] text-[var(--brand-dimmed-text)] border border-[var(--brand-dimmed-border)]",
+    className: "bg-brand-dimmed-surface text-brand-dimmed-text border border-brand-dimmed-border",
     dot: "brand-status-dot-dimmed",
   },
 };

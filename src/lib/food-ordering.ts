@@ -120,20 +120,12 @@ export function sortFoodMenuCategories<T extends { displayOrder: number; name: s
   });
 }
 
-export function isFoodOrderLocked(items: Array<Pick<FoodOrderItemSnapshot, "preparingQuantity" | "servedQuantity">>) {
-  return items.some((item) => item.preparingQuantity > 0 || item.servedQuantity > 0);
-}
-
 export function isFoodOrderItemCancelled(item: Pick<FoodOrderItemSnapshot, "cancelledAt">) {
   return Boolean(item.cancelledAt);
 }
 
 export function getActiveFoodOrderItems<T extends Pick<FoodOrderItemSnapshot, "cancelledAt">>(items: T[]) {
   return items.filter((item) => !isFoodOrderItemCancelled(item));
-}
-
-export function getCancelledFoodOrderItems<T extends Pick<FoodOrderItemSnapshot, "cancelledAt">>(items: T[]) {
-  return items.filter(isFoodOrderItemCancelled);
 }
 
 export function canCancelFoodOrderItems(

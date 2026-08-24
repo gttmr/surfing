@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
-import { validateBaselineManifest } from "./manifest";
 import { isQaTargetName, QA_TARGET_NAMES } from "./targets";
 
 type PackageJson = {
   readonly scripts: Readonly<Record<string, string>>;
 };
 
-const QA_SCRIPT_PATTERN = /^(qa:|test:|build:qa$|start:qa$|gate:)/;
+const QA_SCRIPT_PATTERN = /^(qa:|test:|build:qa$|start:qa$)/;
 const PRODUCT_SCRIPTS = {
   dev: "next dev",
   build: "prisma generate && next build",
@@ -41,5 +40,4 @@ export function auditQaRegistry(): void {
       throw new QaRegistryAuditError(`product lifecycle script changed: ${name}`);
     }
   }
-  validateBaselineManifest();
 }

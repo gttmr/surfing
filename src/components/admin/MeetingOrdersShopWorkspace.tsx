@@ -47,7 +47,7 @@ function ShopMenuSalesTable({ data }: { readonly data: AdminMeetingFoodOrdersDat
 
   return (
     <section className="brand-panel-white overflow-hidden rounded-[1.7rem]">
-      <div className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 px-4 py-3 text-[11px] font-extrabold text-[var(--brand-text-subtle)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 px-4 py-3 text-[11px] font-extrabold text-brand-text-subtle">
         <span>메뉴</span>
         <span className="text-right">수량</span>
         <span className="text-right">금액</span>
@@ -55,16 +55,16 @@ function ShopMenuSalesTable({ data }: { readonly data: AdminMeetingFoodOrdersDat
       {rows.map((menu) => (
         <div
           key={menu.rowId}
-          className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 border-t border-[var(--brand-divider)] px-4 py-3 text-sm"
+          className="grid grid-cols-[minmax(0,1fr)_3rem_5.5rem] gap-2 border-t border-brand-divider px-4 py-3 text-sm"
         >
           <div className="min-w-0">
-            <p className="truncate font-bold text-[var(--brand-text)]">{menu.menuName}</p>
+            <p className="truncate font-bold text-brand-text">{menu.menuName}</p>
             {menu.cancelledQuantity > 0 ? (
               <p className="brand-text-subtle mt-0.5 text-[11px]">취소 {menu.cancelledQuantity}개 · {formatWon(menu.cancelledAmount)}</p>
             ) : null}
           </div>
-          <span className="text-right font-bold text-[var(--brand-text)]">{menu.orderedQuantity}</span>
-          <span className="text-right font-bold text-[var(--brand-text)]">
+          <span className="text-right font-bold text-brand-text">{menu.orderedQuantity}</span>
+          <span className="text-right font-bold text-brand-text">
             {formatWon(menu.unitPrice * menu.orderedQuantity)}
           </span>
         </div>

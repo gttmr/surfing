@@ -16,12 +16,11 @@ export type RouteCase = {
 
 export const ROUTE_CASE_MATRIX = [
   { id: "R01-public-home", route: "/", auth: "public", fixture: "D0", viewport: "both", action: "open", expected: { kind: "shell", value: "/" } },
-  { id: "R02-meeting-redirect", route: "/meeting/8101", auth: "member", fixture: "D0", viewport: "both", action: "open", expected: { kind: "redirect", value: "/?date=" } },
-  { id: "R02-invalid-meeting", route: "/meeting/8999", auth: "public", fixture: "X0", viewport: "both", action: "open", expected: { kind: "not-found", value: "404" } },
+  { id: "R02-legacy-meeting", route: "/meeting/8101", auth: "member", fixture: "D0", viewport: "both", action: "open", expected: { kind: "not-found", value: "404" } },
   { id: "R03-create", route: "/meeting/create", auth: "member", fixture: "E0", viewport: "both", action: "open", expected: { kind: "shell", value: "/meeting/create" } },
   { id: "R04-profile", route: "/profile", auth: "member", fixture: "L0", viewport: "both", action: "open", expected: { kind: "shell", value: "/profile" } },
   { id: "R05-settlement", route: "/settlement", auth: "member", fixture: "D0", viewport: "both", action: "open", expected: { kind: "shell", value: "/settlement" } },
-  { id: "R06-confirm", route: "/signup/confirm?status=approved&meetingId=8101&name=%ED%95%A9%EC%84%B1", auth: "public", fixture: "D0", viewport: "both", action: "open", expected: { kind: "shell", value: "/signup/confirm" } },
+  { id: "R06-legacy-confirm", route: "/signup/confirm?status=approved&meetingId=8101&name=%ED%95%A9%EC%84%B1", auth: "public", fixture: "D0", viewport: "both", action: "open", expected: { kind: "not-found", value: "404" } },
   { id: "R07-admin-login", route: "/admin/login", auth: "public", fixture: "E0", viewport: "both", action: "open", expected: { kind: "shell", value: "/admin/login" } },
   { id: "R08-admin-home", route: "/admin", auth: "password-admin", fixture: "D0", viewport: "both", action: "open", expected: { kind: "shell", value: "/admin" } },
   { id: "R09-admin-meetings", route: "/admin/meetings", auth: "kakao-admin", fixture: "D0", viewport: "both", action: "open", expected: { kind: "shell", value: "/admin/meetings" } },

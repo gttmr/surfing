@@ -1,8 +1,7 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
-const SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-in-production";
 const COOKIE_NAME = "__session";
 
 export interface SessionUser {
@@ -18,8 +17,22 @@ export interface SessionPayload {
   profileImage?: string;
 }
 
+function sessionSecret(): string {
+  const secret = process.env.SESSION_SECRET?.trim();
+  if (!secret) {
+    throw new Error("SESSION_SECRET is required");
+  }
+  return secret;
+}
+
 function sign(payload: string): string {
-  return createHmac("sha256", SECRET).update(payload).digest("base64url");
+  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+}
+
+function signatureMatches(payload: string, signature: string): boolean {
+  const expected = Buffer.from(sign(payload));
+  const actual = Buffer.from(signature);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 export function encodeSession(payloadData: SessionPayload): string {
@@ -33,7 +46,7 @@ export function decodeSession(token: string): SessionPayload | null {
     if (dot === -1) return null;
     const payload = token.slice(0, dot);
     const sig = token.slice(dot + 1);
-    if (sign(payload) !== sig) return null;
+    if (!signatureMatches(payload, sig)) return null;
     return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SessionPayload;
   } catch {
     return null;

@@ -39,9 +39,10 @@ test("home tabs and both member overlays preserve keyboard focus", async ({ cont
   await alertTrigger.click();
   const alertDialog = page.getByRole("dialog", { name: "알림 센터" });
   await expect(alertDialog).toBeVisible();
+  expect(await alertDialog.evaluate((node) => node instanceof HTMLDialogElement && node.open)).toBe(true);
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
   expect(await alertDialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
-  const alertGeometry = await alertDialog.evaluate((node) => ({
+  const alertGeometry = await alertDialog.locator("[data-dialog-panel]").evaluate((node) => ({
     clientHeight: node.clientHeight,
     maxHeight: getComputedStyle(node).maxHeight,
     overflowY: getComputedStyle(node).overflowY,
@@ -148,9 +149,9 @@ test("shop dock and cancel dialog expose current location and focus contract", a
 
   const dock = page.getByRole("navigation", { name: "샵 메뉴" });
   await expect(dock.getByRole("link", { name: /주문보드/ })).toHaveAttribute("aria-current", "page");
-  const cancelTrigger = page.getByRole("button", { name: "취소", exact: true }).first();
+  const cancelTrigger = page.getByRole("button", { name: /주문 취소$/ }).first();
   await cancelTrigger.click();
-  const dialog = page.getByRole("dialog", { name: "주문 취소" });
+  const dialog = page.getByRole("dialog", { name: "주문을 취소할까요?" });
   await expect(dialog).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
   await page.keyboard.press("Shift+Tab");

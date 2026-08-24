@@ -1,19 +1,16 @@
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 
-const EVIDENCE_ROOT = resolve(".omo/evidence/ui-ux-overhaul");
+const EVIDENCE_ROOT = resolve(".tmp/qa/evidence");
 
 export class EvidencePathError extends Error {
   readonly name = "EvidencePathError";
 }
 
-export function parseEvidenceDirectory(candidate: string | undefined): string {
-  if (!candidate) {
-    throw new EvidencePathError("EVIDENCE_DIR is required");
-  }
-  const resolved = resolve(candidate);
+export function parseEvidenceDirectory(candidate: string | undefined, targetName: string): string {
+  const resolved = resolve(candidate ?? `.tmp/qa/evidence/${targetName.replaceAll(":", "-")}`);
   if (resolved !== EVIDENCE_ROOT && !resolved.startsWith(`${EVIDENCE_ROOT}${sep}`)) {
-    throw new EvidencePathError("EVIDENCE_DIR must be inside .omo/evidence/ui-ux-overhaul");
+    throw new EvidencePathError("EVIDENCE_DIR must be inside .tmp/qa/evidence");
   }
   mkdirSync(resolved, { recursive: true });
   return resolved;

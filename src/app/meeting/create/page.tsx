@@ -111,7 +111,7 @@ function CreateMeetingPageContent() {
 
   if (!user) {
     return (
-      <div className="min-h-dvh bg-[var(--brand-page)]">
+      <div className="min-h-dvh bg-brand-page">
         <CreateHeader />
         <main className="mx-auto flex min-h-dvh w-full max-w-[430px] items-center px-4 pb-12 pt-24 text-center">
           <section className="brand-card-soft w-full rounded-3xl p-6">
@@ -128,7 +128,7 @@ function CreateMeetingPageContent() {
   }
 
   return (
-    <div className="min-h-dvh bg-[var(--brand-page)] pb-12">
+    <div className="min-h-dvh bg-brand-page pb-12">
       <CreateHeader />
       <main className="mx-auto w-full max-w-[430px] px-4 pb-12 pt-24">
         <section className="mb-5">
@@ -194,9 +194,9 @@ function CreateHeader() {
 function FormField({ children, error, id, label }: { children: React.ReactNode; error?: string; id: string; label: string }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold" htmlFor={id}>{label} <span aria-hidden className="text-[var(--brand-error)]">*</span></label>
+      <label className="mb-1.5 block text-sm font-semibold" htmlFor={id}>{label} <span aria-hidden className="text-brand-error">*</span></label>
       {children}
-      {error ? <p className="mt-1.5 text-xs font-semibold text-[var(--brand-danger-text)]" id={`${id}-error`}>{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs font-semibold text-brand-danger-text" id={`${id}-error`}>{error}</p> : null}
     </div>
   );
 }

@@ -5,17 +5,21 @@ import { guardedNodeArguments } from "./child-process-egress";
 import { db } from "./local-db";
 import { probeEgress, probeEnvironment, holdOwnerLock } from "./probes";
 import { auditQaRegistry } from "./registry-audit";
-import { runQaServer } from "./start-server";
+import { runQaServer, startQaServer } from "./start-server";
 import type { QaTarget } from "./targets";
 
 export class QaTargetExecutionError extends Error {
   readonly name = "QaTargetExecutionError";
 }
 
-function runNode(args: readonly string[], timeout = 300_000): void {
+function runNode(
+  args: readonly string[],
+  timeout = 300_000,
+  environment: NodeJS.ProcessEnv = process.env,
+): void {
   const result = spawnSync(process.execPath, args, {
     cwd: process.cwd(),
-    env: process.env,
+    env: environment,
     shell: false,
     stdio: "inherit",
     timeout,
@@ -50,6 +54,56 @@ function ownerToken(): string {
     throw new QaTargetExecutionError("owner capability is required for this target");
   }
   return token;
+}
+
+function buildQaApplication(): void {
+  const productionEnvironment: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
+  runNode(["node_modules/prisma/build/index.js", "generate"], 300_000, productionEnvironment);
+  runNode(
+    guardedNodeArguments(["node_modules/next/dist/bin/next", "build"]),
+    300_000,
+    productionEnvironment,
+  );
+}
+
+async function finishDatabaseLifecycle(owner: string): Promise<void> {
+  await db.down(owner);
+}
+
+async function runIntegrationLifecycle(
+  evidenceDirectory: string,
+  passthrough: readonly string[],
+): Promise<void> {
+  const owner = ownerToken();
+  let databaseStarted = false;
+  try {
+    await db.start(owner);
+    databaseStarted = true;
+    await db.reset(owner, evidenceDirectory);
+    runTests(testFiles("tests/integration"), passthrough);
+  } finally {
+    if (databaseStarted) await finishDatabaseLifecycle(owner);
+  }
+}
+
+async function runE2eLifecycle(
+  evidenceDirectory: string,
+  passthrough: readonly string[],
+): Promise<void> {
+  const owner = ownerToken();
+  let databaseStarted = false;
+  let server: Awaited<ReturnType<typeof startQaServer>> | null = null;
+  try {
+    await db.start(owner);
+    databaseStarted = true;
+    await db.reset(owner, evidenceDirectory);
+    buildQaApplication();
+    server = await startQaServer({ ...process.env, NODE_ENV: "production" });
+    runNode(["node_modules/playwright/cli.js", "test", ...passthrough], 600_000);
+  } finally {
+    if (server) await server.stop();
+    if (databaseStarted) await finishDatabaseLifecycle(owner);
+  }
 }
 
 async function executeDatabaseAction(action: string, evidenceDirectory: string): Promise<boolean> {
@@ -97,16 +151,15 @@ export async function executeTarget(target: QaTarget, passthrough: readonly stri
       runTests([...testFiles("src/lib"), ...testFiles("scripts/qa")], passthrough);
       return 0;
     case "test-integration":
-      runTests(testFiles("tests/integration"), passthrough);
+      await runIntegrationLifecycle(evidenceDirectory, passthrough);
       return 0;
     case "build":
-      runNode(["node_modules/prisma/build/index.js", "generate"]);
-      runNode(guardedNodeArguments(["node_modules/next/dist/bin/next", "build", "--webpack"]));
+      buildQaApplication();
       return 0;
     case "start":
       return runQaServer();
     case "test-e2e":
-      runNode(["node_modules/playwright/cli.js", "test", ...passthrough]);
+      await runE2eLifecycle(evidenceDirectory, passthrough);
       return 0;
     case "probe-environment":
       probeEnvironment(evidenceDirectory);
@@ -117,8 +170,6 @@ export async function executeTarget(target: QaTarget, passthrough: readonly stri
     case "probe-hold-lock":
       await holdOwnerLock();
       return 0;
-    case "not-implemented":
-      throw new QaTargetExecutionError(`QA target ${target.name} is registered but not yet implemented`);
     default:
       throw new QaTargetExecutionError(`QA target action is not implemented: ${target.action}`);
   }

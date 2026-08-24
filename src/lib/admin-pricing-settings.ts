@@ -156,14 +156,3 @@ export function validateSettingsDraft(draft: AdminSettingsFormData): SettingsVal
     },
   };
 }
-
-export function pricingDraftIsDirty(snapshot: AdminPricingState, draft: AdminPricingState): boolean {
-  return PRICING_AMOUNT_KEYS.some((key) => snapshot[key] !== draft[key]);
-}
-
-export function settingsDraftIsDirty(
-  snapshot: AdminSettingsFormData,
-  draft: AdminSettingsFormData,
-): boolean {
-  return SETTINGS_INPUT_KEYS.some((key) => snapshot[key] !== draft[key]);
-}

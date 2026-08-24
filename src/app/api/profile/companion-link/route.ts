@@ -2,31 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 
-export async function GET(req: NextRequest) {
-  const session = await getActiveSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
-  }
-
-  const linkedCompanion = await prisma.companion.findFirst({
-    where: { linkedKakaoId: session.kakaoId, archivedAt: null },
-    include: { owner: { select: { kakaoId: true, name: true } } },
-  });
-
-  if (!linkedCompanion) {
-    return NextResponse.json({ linked: false });
-  }
-
-  return NextResponse.json({
-    linked: true,
-    companion: {
-      id: linkedCompanion.id,
-      name: linkedCompanion.name,
-      owner: linkedCompanion.owner,
-    },
-  });
-}
-
 export async function PUT(req: NextRequest) {
   const session = await getActiveSessionFromRequest(req);
   if (!session) {

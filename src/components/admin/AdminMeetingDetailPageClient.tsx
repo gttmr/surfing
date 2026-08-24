@@ -160,7 +160,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting }: Admi
             <Link aria-label="모임 목록으로 돌아가기" className="brand-button-secondary flex h-11 w-11 shrink-0 items-center justify-center rounded-full" href="/admin/meetings"><Icon name="arrow_back" /></Link>
             <div className="min-w-0 flex-1">
               <p className="brand-text-subtle text-xs font-bold">MEETING DETAIL</p>
-              <h1 className="mt-1 font-headline text-[1.55rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">{displayDate(meeting.date)}</h1>
+              <h1 className="mt-1 font-headline text-[1.55rem] font-extrabold tracking-[-0.03em] text-brand-text">{displayDate(meeting.date)}</h1>
               <p className="brand-text-muted mt-1 break-keep text-sm">{meeting.startTime}–{meeting.endTime} · {meeting.location}</p>
             </div>
             <button aria-label="모임 정보 새로고침" className="brand-button-secondary flex h-11 w-11 shrink-0 items-center justify-center rounded-full" disabled={reloading} onClick={reloadMeeting} type="button"><Icon className={reloading ? "animate-spin" : ""} name="refresh" /></button>

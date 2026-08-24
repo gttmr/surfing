@@ -10,17 +10,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
   }
 
-  const user = await prisma.user.upsert({
+  const user = await prisma.user.findUnique({
     where: { kakaoId: session.kakaoId },
-    update: {
-      profileImage: session.profileImage || null,
-    },
-    create: {
-      kakaoId: session.kakaoId,
-      name: session.nickname || null,
-      profileImage: session.profileImage || null,
-      role: "MEMBER",
-    },
     include: {
       _count: {
         select: {
@@ -29,6 +20,9 @@ export async function GET(req: NextRequest) {
       },
     },
   });
+  if (!user) {
+    return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
+  }
 
   return NextResponse.json(withResolvedProfileImage(user));
 }
@@ -46,9 +40,11 @@ export async function PUT(req: NextRequest) {
   const trimmedName = name !== undefined ? (name.trim() || null) : undefined;
 
   // memberType은 기본적으로 최초 설정 시에만 허용한다.
-  // 단, 삭제 후 재로그인처럼 setup 플로우로 다시 들어온 경우에는
-  // 클라이언트가 명시적으로 forceMemberTypeSetup을 보내면 한 번 더 허용한다.
+  // setup 플로우가 명시적으로 요청한 경우에는 다시 선택할 수 있다.
   const existing = await prisma.user.findUnique({ where: { kakaoId: session.kakaoId } });
+  if (!existing) {
+    return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
+  }
   const canSetMemberType = Boolean(memberType) && (!existing?.name || forceMemberTypeSetup === true);
 
   const user = await prisma.user.update({

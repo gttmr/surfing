@@ -603,6 +603,10 @@ body {
   overscroll-behavior: contain;
 }
 
+.brand-modal-scrim::backdrop {
+  background: transparent;
+}
+
 .brand-crop-guide {
   border: 2.5px solid var(--brand-crop-guide-border);
   box-shadow: 0 0 0 999px var(--brand-crop-mask);

@@ -17,17 +17,8 @@ async function getProfileInitialData(isSetup: boolean): Promise<ProfileInitialDa
     return { notLoggedIn: true };
   }
 
-  const user = await prisma.user.upsert({
+  const user = await prisma.user.findUnique({
     where: { kakaoId: session.kakaoId },
-    update: {
-      profileImage: session.profileImage || null,
-    },
-    create: {
-      kakaoId: session.kakaoId,
-      name: session.nickname || null,
-      profileImage: session.profileImage || null,
-      role: "MEMBER",
-    },
     include: {
       _count: {
         select: {
@@ -36,6 +27,9 @@ async function getProfileInitialData(isSetup: boolean): Promise<ProfileInitialDa
       },
     },
   });
+  if (!user) {
+    return { notLoggedIn: true };
+  }
 
   const isCompanion = user.memberType === "COMPANION";
   const needsMemberLookup = isCompanion || isSetup;

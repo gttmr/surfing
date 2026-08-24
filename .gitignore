@@ -8,6 +8,9 @@
 /coverage
 /.playwright-cli/
 /output/
+/test-results/
+/playwright-report/
+/blob-report/
 
 # next.js
 /.next/
@@ -34,7 +37,6 @@ yarn-error.log*
 # vercel
 .vercel
 /.codex
-/.firebase
 
 # typescript
 *.tsbuildinfo
@@ -49,10 +51,7 @@ prisma/migrations/
 /public/uploads/
 .env*.local
 
-# isolated mobile QA
-/.omo/drafts/
-/.omo/plans/
-/.omo/evidence/ui-ux-audit/private/
-/.omo/evidence/ui-ux-overhaul/**
+# local agent artifacts
+/.omo/
 /tests/.auth/
 /.tmp/qa/

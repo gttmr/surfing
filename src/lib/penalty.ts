@@ -1,18 +1,3 @@
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/**
- * 일정 날짜까지 남은 일수를 계산 (KST 기준)
- */
-export function getDaysUntilMeeting(meetingDate: string): number {
-  const [year, month, day] = meetingDate.split("-").map(Number);
-  const meetingUtc = Date.UTC(year, month - 1, day);
-
-  const nowKst = new Date(Date.now() + KST_OFFSET_MS);
-  const todayUtc = Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), nowKst.getUTCDate());
-
-  return Math.floor((meetingUtc - todayUtc) / (1000 * 60 * 60 * 24));
-}
-
 /**
  * 취소 시 패널티 대상인지 확인 (해당 주 화요일 18:00 KST 이후)
  * 모임 날짜 기준으로 같은 주 화요일 18시 이후 취소 시 패널티 부과

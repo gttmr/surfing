@@ -22,6 +22,11 @@ export async function closeOrderTestClient() {
   await client.$disconnect();
 }
 
+export async function restoreOrderFixture() {
+  if (!evidenceDirectory) throw new Error("EVIDENCE_DIR is required");
+  await seedMobileUx(client, randomUUID(), evidenceDirectory);
+}
+
 export async function authenticate(context: BrowserContext, key: QaAuthContextKey) {
   await context.clearCookies();
   const storage = qaStorageState(key);

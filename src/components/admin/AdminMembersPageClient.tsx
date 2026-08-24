@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminMemberDetailSheet } from "@/components/admin/AdminMemberDetailSheet";
 import { AdminMemberListPanel } from "@/components/admin/AdminMemberListPanel";
@@ -61,9 +61,18 @@ export function AdminMembersPageClient({ initialUsers }: { readonly initialUsers
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const detailRequestRef = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusSearchAfterCloseRef = useRef(false);
 
   const filteredUsers = useMemo(() => filterAdminMembers(users, filter), [filter, users]);
   const dirty = detail !== null && draft !== null && !draftsMatch(detail, draft);
+
+  useEffect(() => {
+    if (summary !== null || !focusSearchAfterCloseRef.current) return;
+    focusSearchAfterCloseRef.current = false;
+    const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [summary]);
 
   function resetDetailState() {
     detailRequestRef.current += 1;
@@ -193,8 +202,8 @@ export function AdminMembersPageClient({ initialUsers }: { readonly initialUsers
         return;
       }
       setUsers((current) => current.filter((member) => member.id !== detail.id));
+      focusSearchAfterCloseRef.current = true;
       resetDetailState();
-      window.requestAnimationFrame(() => document.getElementById("admin-member-search")?.focus());
     } catch (error) {
       setDeleteError(error instanceof Error ? "네트워크 연결을 확인한 뒤 다시 시도해 주세요." : "회원을 삭제하지 못했습니다.");
       setDeleteConfirmOpen(false);
@@ -212,7 +221,7 @@ export function AdminMembersPageClient({ initialUsers }: { readonly initialUsers
         <header className="space-y-3">
           <div>
             <p className="brand-text-subtle text-xs font-semibold">관리자 · 회원</p>
-            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-[var(--brand-text)]">회원 관리</h1>
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">회원 관리</h1>
             <p className="brand-text-muted mt-1 text-sm">목록에서 회원을 찾고, 상세 확인 후 필요한 정보만 편집합니다.</p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-bold">
@@ -222,7 +231,7 @@ export function AdminMembersPageClient({ initialUsers }: { readonly initialUsers
           </div>
         </header>
 
-        <AdminMemberListPanel allMemberCount={users.length} filter={filter} members={filteredUsers} onFilterChange={setFilter} onOpenMember={loadDetail} onResetFilter={() => setFilter(INITIAL_FILTER)} />
+        <AdminMemberListPanel allMemberCount={users.length} filter={filter} members={filteredUsers} onFilterChange={setFilter} onOpenMember={loadDetail} onResetFilter={() => setFilter(INITIAL_FILTER)} searchInputRef={searchInputRef} />
       </div>
 
       <AdminMemberDetailSheet

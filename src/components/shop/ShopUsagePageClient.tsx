@@ -111,7 +111,7 @@ export function ShopUsagePageClient({
         </div>
       ) : (
         <div className="brand-card-soft rounded-3xl px-5 py-12 text-center">
-          <p className="text-sm font-semibold text-[var(--brand-text)]">표시할 모임이 없습니다.</p>
+          <p className="text-sm font-semibold text-brand-text">표시할 모임이 없습니다.</p>
           <p className="brand-text-subtle mt-1 text-xs">모임이 생성되면 여기서 이용 내역을 바로 관리할 수 있습니다.</p>
         </div>
       )}

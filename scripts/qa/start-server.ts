@@ -7,6 +7,11 @@ export class QaServerError extends Error {
   readonly name = "QaServerError";
 }
 
+export type QaServerHandle = {
+  readonly stop: () => Promise<void>;
+  readonly wait: () => Promise<number>;
+};
+
 async function waitForReady(child: ChildProcess): Promise<void> {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (child.exitCode !== null) {
@@ -30,7 +35,15 @@ async function waitForReady(child: ChildProcess): Promise<void> {
   throw new QaServerError("QA server readiness timed out");
 }
 
-export async function runQaServer(): Promise<number> {
+function waitForExit(child: ChildProcess): Promise<number> {
+  if (child.exitCode !== null) return Promise.resolve(child.exitCode);
+  return new Promise<number>((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code) => resolveExit(code ?? 1));
+  });
+}
+
+export async function startQaServer(environment: NodeJS.ProcessEnv = process.env): Promise<QaServerHandle> {
   const child = spawn(process.execPath, guardedNodeArguments([
     "node_modules/next/dist/bin/next",
     "start",
@@ -38,27 +51,46 @@ export async function runQaServer(): Promise<number> {
     QA_HOST,
     "-p",
     "3100",
-  ]), { cwd: process.cwd(), env: process.env, shell: false, stdio: "inherit" });
+  ]), { cwd: process.cwd(), env: environment, shell: false, stdio: "inherit" });
   if (child.pid === undefined) {
     throw new QaServerError("QA server process did not expose a pid");
   }
   const unregister = registerTaskProcess("server", child.pid);
   child.once("exit", unregister);
-  const terminate = (signal: NodeJS.Signals) => child.kill(signal);
-  process.on("SIGINT", terminate);
-  process.on("SIGTERM", terminate);
   try {
     await waitForReady(child);
     process.stdout.write("QA server ready on loopback port 3100\n");
-    return await new Promise<number>((resolveExit, reject) => {
-      child.once("error", reject);
-      child.once("exit", (code) => resolveExit(code ?? 1));
-    });
-  } finally {
-    process.off("SIGINT", terminate);
-    process.off("SIGTERM", terminate);
+  } catch (error) {
     if (child.exitCode === null) {
       child.kill("SIGTERM");
     }
+    await waitForExit(child).catch(() => undefined);
+    throw error;
+  }
+
+  return {
+    wait: () => waitForExit(child),
+    stop: async () => {
+      if (child.exitCode === null) child.kill("SIGTERM");
+      await waitForExit(child);
+    },
+  };
+}
+
+export async function runQaServer(): Promise<number> {
+  const server = await startQaServer({ ...process.env, NODE_ENV: "production" });
+  const terminate = (signal: NodeJS.Signals) => {
+    void server.stop();
+    if (signal === "SIGINT") process.exitCode = 130;
+    if (signal === "SIGTERM") process.exitCode = 143;
+  };
+  process.on("SIGINT", terminate);
+  process.on("SIGTERM", terminate);
+  try {
+    return await server.wait();
+  } finally {
+    process.off("SIGINT", terminate);
+    process.off("SIGTERM", terminate);
+    await server.stop();
   }
 }
