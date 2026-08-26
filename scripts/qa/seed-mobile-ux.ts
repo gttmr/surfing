@@ -68,6 +68,7 @@ async function clearFixture(transaction: Prisma.TransactionClient): Promise<void
   await transaction.participantFoodOrder.deleteMany();
   await transaction.participant.deleteMany();
   await transaction.meeting.deleteMany();
+  await transaction.meetingGroup.deleteMany();
   await transaction.foodMenuOptionChoice.deleteMany();
   await transaction.foodMenuItem.deleteMany();
   await transaction.foodMenuCategory.deleteMany();

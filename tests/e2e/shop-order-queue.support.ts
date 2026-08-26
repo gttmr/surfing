@@ -25,7 +25,7 @@ export async function closeShopOrderTestClient() {
 }
 
 export async function openShopOrders(page: Page) {
-  await page.goto("/shop?meetingId=8101", { waitUntil: "networkidle" });
+  await page.goto("/shop/orders?meetingId=8101", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "실시간 주문 큐" })).toBeVisible();
 }
 

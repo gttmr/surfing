@@ -3,6 +3,7 @@ import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 import type { ShopMeetingSurfUsageData } from "@/lib/surf-usage-data";
 import {
   SHOP_USAGE_STATUS_LABELS,
+  hasShopUsageVariance,
   type ShopUsageDrafts,
   type ShopUsageParticipant,
 } from "./shop-usage-review";
@@ -121,6 +122,15 @@ export function ShopUsageParticipantRow({
   const canSave = !confirmed && lockedAction === null && (dirty || participant.submissionStatus === "missing");
   const canConfirm = participant.submissionStatus === "submitted" && !dirty && lockedAction === null;
   const submittedAt = participant.submittedAt ? formatRelativeTimeKo(participant.submittedAt) : null;
+  const hasVariance = hasShopUsageVariance(participant);
+  const actualUsageLabel = items
+    .filter((item) => (values[item.id] ?? 0) > 0)
+    .map((item) => `${item.name} ${values[item.id]}`)
+    .join(" · ") || "이용 없음";
+  const draftShopAmount = items.reduce(
+    (total, item) => total + item.shopPrice * (values[item.id] ?? 0),
+    0
+  );
 
   return (
     <article className={`brand-panel-white overflow-hidden rounded-[1.6rem] ${open ? "brand-list-item-active" : ""}`} data-participant-id={participant.participantId}>
@@ -138,19 +148,27 @@ export function ShopUsageParticipantRow({
               {SHOP_USAGE_STATUS_LABELS[participant.submissionStatus]}
             </span>
             {dirty ? <span className="brand-chip-preparing rounded-full px-2 py-0.5 text-[10px] font-bold">저장 안 됨</span> : null}
+            {hasVariance ? <span className="brand-chip-danger rounded-full px-2 py-0.5 text-[10px] font-bold">예정과 다름</span> : null}
           </span>
           <span className="brand-text-subtle mt-1 block truncate text-xs">
-            {participant.requestedOptionLabel}{submittedAt ? ` · ${submittedAt}` : ""}
+            이용 예정 {participant.requestedOptionLabel}{submittedAt ? ` · ${submittedAt}` : ""}
           </span>
         </span>
         <span className="shrink-0 text-right">
-          <span className="block text-sm font-extrabold text-brand-text">{formatWon(participant.shopAmount)}</span>
+          <span className="brand-text-subtle block text-[10px] font-bold">샵 청구 예정</span>
+          <span className="block text-sm font-extrabold text-brand-text">{formatWon(dirty ? draftShopAmount : participant.shopAmount)}</span>
           <Icon className={`mt-1 text-[20px] text-brand-text-subtle ${open ? "rotate-180" : ""}`} name="expand_more" />
         </span>
       </button>
 
       {open ? (
         <div className="border-t border-brand-divider">
+          <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 bg-brand-primary-soft px-4 py-3 text-xs">
+            <dt className="brand-text-subtle font-semibold">이용 예정</dt>
+            <dd className="font-bold text-brand-text">{participant.requestedOptionLabel}</dd>
+            <dt className="brand-text-subtle font-semibold">실제 이용</dt>
+            <dd className="font-bold text-brand-text">{actualUsageLabel}</dd>
+          </dl>
           {confirmed ? (
             <ReadOnlyUsage entries={participant.entries} />
           ) : (

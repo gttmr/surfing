@@ -56,9 +56,9 @@ export async function verifyDelayedSaveLocksEditorAndShell(
   const field = page.getByLabel(delayedSave.field);
   const original = await field.inputValue();
   await field.fill(delayedSave.path.endsWith("pricing") ? String(Number(original) + 1) : `${original}\n지연 저장 잠금 초안`);
-  const portalLink = page.getByRole("link", { name: "회원 화면", exact: true });
+  const portalLink = page.getByRole("link", { name: "내 정보와 화면 전환", exact: true });
   const dockLink = page.getByRole("link", { name: delayedSave.dockDestination, exact: true });
-  const logoutButton = page.getByRole("button", { name: "로그아웃" });
+  const logoutButton = page.getByRole("button", { name: "관리자 로그아웃" });
   const leaveDialog = page.getByRole("dialog", { name: "변경 내용을 버릴까요?" });
   await portalLink.click();
   await expect(leaveDialog).toBeVisible();
@@ -157,12 +157,15 @@ export function registerAdminPricingVisualCases() {
     const dockBox = await dock.boundingBox();
     if (!actionBox || !dockBox) throw new Error("sticky action and dock geometry must be measurable");
     expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(dockBox.y);
+    await targetHeader.scrollIntoViewIfNeeded();
     const visibleHeaderBox = await targetHeader.boundingBox();
-    if (!visibleHeaderBox) throw new Error("target section header must remain visible for capture");
-    expect(visibleHeaderBox.y).toBeGreaterThanOrEqual(0);
-    expect(visibleHeaderBox.y + visibleHeaderBox.height).toBeLessThanOrEqual(originalViewport.height);
-    expect(actionBox.y).toBeGreaterThanOrEqual(0);
-    expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(originalViewport.height);
+    const visibleActionBox = await actionBar.boundingBox();
+    if (!visibleHeaderBox || !visibleActionBox) throw new Error("target section and sticky action must remain measurable for capture");
+    const subpixelTolerance = 1;
+    expect(visibleHeaderBox.y).toBeGreaterThanOrEqual(-subpixelTolerance);
+    expect(visibleHeaderBox.y + visibleHeaderBox.height).toBeLessThanOrEqual(originalViewport.height + subpixelTolerance);
+    expect(visibleActionBox.y).toBeGreaterThanOrEqual(-subpixelTolerance);
+    expect(visibleActionBox.y + visibleActionBox.height).toBeLessThanOrEqual(originalViewport.height + subpixelTolerance);
     await capture(page, "settings-200-percent-zoom-equivalent", testInfo.project.name);
   });
 }

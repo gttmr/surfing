@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { getTodayInSeoul } from "@/lib/date";
+import { toOvernightMeetingGroupSummary } from "@/lib/meeting-group";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -14,6 +15,13 @@ export async function GET(req: NextRequest) {
     where: upcoming ? { date: { gte: today } } : undefined,
     orderBy: { date: "asc" },
     include: {
+      meetingGroup: {
+        include: {
+          meetings: {
+            orderBy: { groupDayIndex: "asc" },
+          },
+        },
+      },
       _count: {
         select: { participants: { where: { status: "APPROVED" } } },
       },
@@ -31,6 +39,7 @@ export async function GET(req: NextRequest) {
     meetingType: m.meetingType,
     createdByKakaoId: m.createdByKakaoId,
     approvedCount: m._count.participants,
+    overnightGroup: toOvernightMeetingGroupSummary(m.meetingGroup),
   }));
 
   return NextResponse.json(result);

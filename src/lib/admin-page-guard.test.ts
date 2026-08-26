@@ -26,7 +26,7 @@ function defaultPageFunction(sourceFile: ts.SourceFile): ts.FunctionDeclaration 
 
 test("admin page guard AST order: every protected page awaits requireAdminPage first", () => {
   const pages = findAdminPages(join(process.cwd(), "src/app/admin"));
-  assert.equal(pages.length, 9);
+  assert.equal(pages.length, 11);
 
   for (const path of pages) {
     const source = readFileSync(path, "utf8");

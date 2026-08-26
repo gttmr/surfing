@@ -18,6 +18,7 @@ import {
 import { KakaoIcon } from "@/components/meeting/signup-form-controls";
 import { ProfileLeaveDialog } from "@/components/profile/ProfileLeaveDialog";
 import { useProfileLeaveGuard } from "@/components/profile/useProfileLeaveGuard";
+import { MemberDock } from "@/components/ui/MobileShell";
 
 const MEMBER_TYPE_LABELS: Record<string, string> = {
   REGULAR: "정회원",
@@ -267,6 +268,7 @@ export function ProfilePageClient({
         isCompanionWithoutOwner={isCompanionWithoutOwner}
         isDirty={isDirty}
       />
+      {!isEditing ? <MemberDock /> : null}
     </div>
   );
 }

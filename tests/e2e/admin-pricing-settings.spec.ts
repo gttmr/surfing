@@ -71,14 +71,14 @@ test("dirty administrator navigation offers stay or discard and restores focus w
   const original = await regularBaseFee.inputValue();
   await regularBaseFee.fill(String(Number(original) + 1));
 
-  const portalLink = page.getByRole("link", { name: "회원 화면", exact: true });
+  const portalLink = page.getByRole("link", { name: "내 정보와 화면 전환", exact: true });
   await portalLink.click();
   await expect(page.getByRole("dialog", { name: "변경 내용을 버릴까요?" })).toBeVisible();
   await capture(page, "dirty-navigation-dialog", testInfo.project.name);
   await page.getByRole("button", { name: "계속 편집" }).click();
   await expect(portalLink).toBeFocused();
 
-  const logoutButton = page.getByRole("button", { name: "로그아웃" });
+  const logoutButton = page.getByRole("button", { name: "관리자 로그아웃" });
   await logoutButton.click();
   await page.getByRole("button", { name: "계속 편집" }).click();
   await expect(logoutButton).toBeFocused();
@@ -101,7 +101,7 @@ test("dirty administrator navigation offers stay or discard and restores focus w
 
 for (const delayedSave of [
   { path: "/admin/pricing", edit: "식음료 지원 한도 편집", field: "1인당 지원 한도", dockDestination: "설정" },
-  { path: "/admin/settings", edit: "참가 옵션 안내 편집", field: "참가 옵션 가격 안내 문구", dockDestination: "비용" },
+  { path: "/admin/settings", edit: "참가 옵션 안내 편집", field: "참가 옵션 가격 안내 문구", dockDestination: "정산" },
 ] as const) {
   test(`${delayedSave.path} locks editor and shell leave actions during a delayed save`, async ({ page }) => {
     await verifyDelayedSaveLocksEditorAndShell(page, delayedSave);
@@ -143,7 +143,7 @@ test("settings sections expose role summaries, supported previews, and partial-a
   await page.goto("/admin/settings", { waitUntil: "networkidle" });
   await expect(page.getByText("취소하는 회원에게 표시")).toBeVisible();
   await expect(page.getByText("신청하는 회원에게 표시")).toBeVisible();
-  await expect(page.getByText("정산받는 회원에게 표시")).toBeVisible();
+  await expect(page.getByText("입금이 필요한 회원에게 표시")).toBeVisible();
 
   await page.getByRole("button", { name: "취소 안내 편집" }).click();
   await page.getByLabel("패널티 기준 일수").fill("31");
@@ -154,7 +154,7 @@ test("settings sections expose role summaries, supported previews, and partial-a
   await page.getByLabel("패널티 기준 일수").fill("3");
   await page.getByLabel("취소 안내 문구").fill("저장 전 초안 취소 안내입니다.");
   await expect(page.getByLabel("취소 안내 초안 미리보기")).toContainText("저장 전 초안");
-  await page.getByRole("button", { name: "정산 계좌 편집" }).click();
+  await page.getByRole("button", { name: "입금 계좌 편집" }).click();
   await page.getByLabel("은행명").fill("");
   await page.getByRole("button", { name: "변경사항 저장" }).click();
   await expect(page.getByText("은행명을 입력해 주세요.")).toBeVisible();
@@ -194,7 +194,7 @@ for (const failure of [{ status: 400, message: "입력 내용을 확인한 뒤 �
 
 test("settlement account whitespace is normalized before payload and remains normalized after reload", async ({ page }) => {
   await page.goto("/admin/settings", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "정산 계좌 편집" }).click();
+  await page.getByRole("button", { name: "입금 계좌 편집" }).click();
   const bank = page.getByLabel("은행명");
   const number = page.getByLabel("계좌번호");
   const holder = page.getByLabel("예금주");
@@ -227,7 +227,7 @@ test("settlement account whitespace is normalized before payload and remains nor
     await expect(page.getByText("모든 변경사항 저장됨")).toBeVisible();
 
     await page.reload({ waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "정산 계좌 편집" }).click();
+    await page.getByRole("button", { name: "입금 계좌 편집" }).click();
     await expect(page.getByLabel("은행명")).toHaveValue("");
     await expect(page.getByLabel("계좌번호")).toHaveValue("");
     await expect(page.getByLabel("예금주")).toHaveValue("");

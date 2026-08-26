@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type {
   CompanionItem,
@@ -7,10 +8,12 @@ import type {
   MyParticipantData,
   SignedUpCompanionData,
 } from "@/lib/landing-types";
-import type {
-  CompanionOption,
-  NewCompanionEntry,
-  SubmissionResult,
+import {
+  emptyCompanionOption,
+  type CompanionOption,
+  type NewCompanionEntry,
+  type SignupOptionField,
+  type SubmissionResult,
 } from "@/components/meeting/useSignupFormState";
 import {
   KakaoIcon,
@@ -20,8 +23,165 @@ import {
 } from "@/components/meeting/signup-form-controls";
 import { MeetingFoodOrderPanel } from "@/components/meeting/MeetingFoodOrderPanel";
 import { MeetingSurfUsagePanel } from "@/components/meeting/MeetingSurfUsagePanel";
+import type { SignupPricingPreview } from "@/lib/signup-pricing";
+import { calculateOvernightSignupEstimate } from "@/lib/signup-pricing";
+import { Icon } from "@/components/ui/Icon";
+import type { MeetingGroupDaySummary } from "@/lib/meeting-group";
+import { getTodayInSeoul } from "@/lib/date";
+import { formatWon } from "@/lib/format";
 
-type OptionField = "hasLesson" | "hasBus" | "hasRental";
+type OptionField = SignupOptionField;
+
+function DailyMeetingActivity({ meetingId, overnightDays }: { readonly meetingId: number; readonly overnightDays?: MeetingGroupDaySummary[] }) {
+  const today = getTodayInSeoul();
+  const [activeMeetingId, setActiveMeetingId] = useState(() => (
+    overnightDays?.find((day) => day.date === today)?.id ?? overnightDays?.[0]?.id ?? meetingId
+  ));
+  const activeDay = overnightDays?.find((day) => day.id === activeMeetingId);
+
+  if (!overnightDays?.length) {
+    return (
+      <>
+        <MeetingSurfUsagePanel meetingId={meetingId} />
+        <MeetingFoodOrderPanel meetingId={meetingId} />
+      </>
+    );
+  }
+
+  return (
+    <section className="brand-card-soft overflow-hidden rounded-2xl" aria-label="날짜별 실제 이용과 주문">
+      <div className="px-4 pb-3 pt-4">
+        <p className="text-sm font-extrabold text-brand-text">실제 이용·주문</p>
+        <p className="brand-text-subtle mt-1 break-keep text-xs">예정과 달라도 괜찮습니다. 실제 이용한 날짜에 입력해 주세요.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-1 border-y border-brand-divider bg-brand-surface p-1.5" role="tablist" aria-label="이용 날짜">
+        {overnightDays.map((day) => {
+          const [, month, date] = day.date.split("-");
+          const active = day.id === activeMeetingId;
+          return (
+            <button
+              aria-controls={`overnight-activity-${day.id}`}
+              aria-selected={active}
+              className={`min-h-11 rounded-xl px-2 py-2 text-xs font-extrabold ${active ? "brand-filter-tab-active" : "brand-text-subtle"}`}
+              id={`overnight-day-tab-${day.id}`}
+              key={day.id}
+              onClick={() => setActiveMeetingId(day.id)}
+              role="tab"
+              type="button"
+            >
+              {day.dayIndex}일차 · {Number(month)}.{Number(date)}
+            </button>
+          );
+        })}
+      </div>
+      <div aria-labelledby={`overnight-day-tab-${activeMeetingId}`} className="space-y-3 p-3" id={`overnight-activity-${activeMeetingId}`} role="tabpanel">
+        <div className="brand-panel-white rounded-xl px-3 py-2 text-xs">
+          <span className="font-extrabold text-brand-text">{activeDay?.dayIndex}일차</span>
+          <span className="brand-text-muted"> · {activeDay?.startTime}–{activeDay?.endTime} · {activeDay?.location}</span>
+        </div>
+        <MeetingSurfUsagePanel meetingId={activeMeetingId} />
+        <MeetingFoodOrderPanel meetingId={activeMeetingId} />
+      </div>
+    </section>
+  );
+}
+
+function OvernightChoices({
+  day2HasRental,
+  usesClubLodging,
+  disabled,
+  day2Label,
+  day1HasLesson,
+  day1HasRental,
+  lodgingFee,
+  participantType,
+  pricingPreview,
+  onDay2Rental,
+  onLodging,
+}: {
+  readonly day2HasRental: boolean;
+  readonly usesClubLodging: boolean;
+  readonly disabled: boolean;
+  readonly day2Label: string;
+  readonly day1HasLesson: boolean;
+  readonly day1HasRental: boolean;
+  readonly lodgingFee: number;
+  readonly participantType: "REGULAR" | "COMPANION";
+  readonly pricingPreview: SignupPricingPreview;
+  readonly onDay2Rental: (value: boolean) => void;
+  readonly onLodging: (value: boolean) => void;
+}) {
+  const day1Option = day1HasLesson ? "lesson" : day1HasRental ? "rental" : null;
+  const estimate = calculateOvernightSignupEstimate({
+    participantType,
+    pricing: pricingPreview,
+    day1Option,
+    day2HasRental,
+    usesClubLodging,
+    lodgingFee,
+  });
+  const day2Description = participantType === "REGULAR" && !day1Option
+    ? "첫 장비 대여일로 동호회 지원이 적용됩니다."
+    : participantType === "REGULAR"
+      ? "첫날 지원을 사용하면 둘째 날은 샵 가격을 부담합니다."
+      : "둘째 날에도 샵 장비 대여비가 반영됩니다.";
+  const choices = [
+    {
+      key: "day2-rental",
+      checked: day2HasRental,
+      label: `${day2Label} 장비 대여`,
+      description: day2Description,
+      onChange: onDay2Rental,
+    },
+    {
+      key: "lodging",
+      checked: usesClubLodging,
+      label: "동호회 숙소 이용",
+      description: lodgingFee > 0
+        ? "선택 시 모임에 등록된 1인 숙박비가 포함됩니다."
+        : "운영진이 준비한 숙소를 이용합니다.",
+      onChange: onLodging,
+    },
+  ];
+
+  return (
+    <div className="space-y-2 border-t border-brand-divider pt-3">
+      <p className="brand-text-subtle text-xs font-bold">1박2일 추가 선택</p>
+      {choices.map((choice) => (
+        <button
+          aria-checked={choice.checked}
+          className={`brand-select-card flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${choice.checked ? "brand-select-card-active" : ""}`}
+          disabled={disabled}
+          key={choice.key}
+          onClick={() => choice.onChange(!choice.checked)}
+          role="checkbox"
+          type="button"
+        >
+          <span className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${choice.checked ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+            {choice.checked ? <Icon className="text-[16px]" name="check" /> : null}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-brand-text">{choice.label}</span>
+            <span className="brand-text-subtle mt-0.5 block break-keep text-[11px]">{choice.description}</span>
+          </span>
+        </button>
+      ))}
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="brand-highlight-panel flex items-end justify-between gap-4 rounded-xl px-3 py-3"
+      >
+        <span>
+          <span className="block text-xs font-bold text-brand-text">현재 예상 금액</span>
+          <span className="brand-text-subtle mt-0.5 block text-[11px]">선택한 참가·장비·숙박 비용 기준</span>
+        </span>
+        <strong className="brand-estimate-value shrink-0 text-lg font-extrabold tabular-nums text-brand-primary" key={estimate.totalAmount}>
+          {formatWon(estimate.totalAmount)}
+        </strong>
+      </div>
+    </div>
+  );
+}
 
 export function GuestSignupPanel({
   onLogin,
@@ -48,33 +208,51 @@ export function GuestSignupPanel({
 type CompanionPanelProps = {
   meetingId: number;
   isIrregularMeeting: boolean;
+  isOvernight: boolean;
+  overnightDay2Label: string;
+  overnightLodgingFee: number;
+  overnightDays?: MeetingGroupDaySummary[];
   linkedStatus: LinkedCompanionStatus;
   serverError: string;
   participantOptionPricingGuide: string;
+  pricingPreview: SignupPricingPreview;
   updatingLinked: boolean;
   submittingLinked: boolean;
   hasBus: boolean;
   hasLesson: boolean;
   hasRental: boolean;
+  day2HasRental: boolean;
+  usesClubLodging: boolean;
   onSetMainBusChoice: (boarded: boolean) => void;
   onSetMainShopOption: (option: "lesson" | "rental" | null) => void;
-  onUpdateLinkedOption: (field: OptionField, value: boolean) => void;
+  onSetMainDay2Rental: (value: boolean) => void;
+  onSetMainLodging: (value: boolean) => void;
+  onUpdateLinkedOption: (field: SignupOptionField, value: boolean) => void;
   onApplyLinkedCompanion: () => void;
 };
 
 export function CompanionSignupPanel({
   meetingId,
   isIrregularMeeting,
+  isOvernight,
+  overnightDay2Label,
+  overnightLodgingFee,
+  overnightDays,
   linkedStatus,
   serverError,
   participantOptionPricingGuide,
+  pricingPreview,
   updatingLinked,
   submittingLinked,
   hasBus,
   hasLesson,
   hasRental,
+  day2HasRental,
+  usesClubLodging,
   onSetMainBusChoice,
   onSetMainShopOption,
+  onSetMainDay2Rental,
+  onSetMainLodging,
   onUpdateLinkedOption,
   onApplyLinkedCompanion,
 }: CompanionPanelProps) {
@@ -130,15 +308,28 @@ export function CompanionSignupPanel({
                   }}
                   disabled={updatingLinked}
                   trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                  burden={pricingPreview.companion}
                 />
+                {isOvernight ? (
+                  <OvernightChoices
+                    day2HasRental={linkedStatus.participant.day2HasRental ?? false}
+                    day2Label={overnightDay2Label}
+                    day1HasLesson={linkedStatus.participant.hasLesson}
+                    day1HasRental={linkedStatus.participant.hasRental}
+                    disabled={updatingLinked}
+                    lodgingFee={overnightLodgingFee}
+                    onDay2Rental={(value) => onUpdateLinkedOption("day2HasRental", value)}
+                    onLodging={(value) => onUpdateLinkedOption("usesClubLodging", value)}
+                    participantType="COMPANION"
+                    pricingPreview={pricingPreview}
+                    usesClubLodging={linkedStatus.participant.usesClubLodging ?? false}
+                  />
+                ) : null}
               </div>
             </div>
           ) : null}
           {linkedStatus.participant.status === "APPROVED" ? (
-            <>
-              <MeetingSurfUsagePanel meetingId={meetingId} />
-              <MeetingFoodOrderPanel meetingId={meetingId} />
-            </>
+            <DailyMeetingActivity meetingId={meetingId} overnightDays={overnightDays} />
           ) : null}
         </div>
       ) : linkedStatus.ownerApplied ? (
@@ -156,7 +347,23 @@ export function CompanionSignupPanel({
                   onChange={onSetMainShopOption}
                   disabled={submittingLinked}
                   trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                  burden={pricingPreview.companion}
                 />
+                {isOvernight ? (
+                  <OvernightChoices
+                    day2HasRental={day2HasRental}
+                    day2Label={overnightDay2Label}
+                    day1HasLesson={hasLesson}
+                    day1HasRental={hasRental}
+                    disabled={submittingLinked}
+                    lodgingFee={overnightLodgingFee}
+                    onDay2Rental={onSetMainDay2Rental}
+                    onLodging={onSetMainLodging}
+                    participantType="COMPANION"
+                    pricingPreview={pricingPreview}
+                    usesClubLodging={usesClubLodging}
+                  />
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -208,8 +415,13 @@ export function CancelResultPanel({
 type ExistingSignupPanelProps = {
   meetingId: number;
   isIrregularMeeting: boolean;
+  isOvernight: boolean;
+  overnightDay2Label: string;
+  overnightLodgingFee: number;
+  overnightDays?: MeetingGroupDaySummary[];
   meetingDisplay: string;
   participantOptionPricingGuide: string;
+  pricingPreview: SignupPricingPreview;
   profileName: string;
   serverError: string;
   myParticipant: MyParticipantData;
@@ -220,6 +432,8 @@ type ExistingSignupPanelProps = {
   mySignupHasBus: boolean;
   mySignupHasLesson: boolean;
   mySignupHasRental: boolean;
+  mySignupDay2HasRental: boolean;
+  mySignupUsesClubLodging: boolean;
   companions: CompanionItem[];
   signedUpCompanionData: Record<number, SignedUpCompanionData>;
   companionOptions: Record<number, CompanionOption>;
@@ -233,6 +447,8 @@ type ExistingSignupPanelProps = {
   onMySignupNoteChange: (value: string) => void;
   onSetMySignupBusChoice: (boarded: boolean) => void;
   onSetMySignupShopOption: (option: "lesson" | "rental" | null) => void;
+  onSetMySignupDay2Rental: (value: boolean) => void;
+  onSetMySignupLodging: (value: boolean) => void;
   onToggleExpandedCompanion: (id: number) => void;
   onToggleCompanionForMeeting: (id: number) => void;
   onUpdateCompanionOption: (id: number, field: OptionField, value: boolean) => void;
@@ -245,8 +461,13 @@ type ExistingSignupPanelProps = {
 export function ExistingSignupPanel({
   meetingId,
   isIrregularMeeting,
+  isOvernight,
+  overnightDay2Label,
+  overnightLodgingFee,
+  overnightDays,
   meetingDisplay,
   participantOptionPricingGuide,
+  pricingPreview,
   profileName,
   serverError,
   myParticipant,
@@ -257,6 +478,8 @@ export function ExistingSignupPanel({
   mySignupHasBus,
   mySignupHasLesson,
   mySignupHasRental,
+  mySignupDay2HasRental,
+  mySignupUsesClubLodging,
   companions,
   signedUpCompanionData,
   companionOptions,
@@ -270,6 +493,8 @@ export function ExistingSignupPanel({
   onMySignupNoteChange,
   onSetMySignupBusChoice,
   onSetMySignupShopOption,
+  onSetMySignupDay2Rental,
+  onSetMySignupLodging,
   onToggleExpandedCompanion,
   onToggleCompanionForMeeting,
   onUpdateCompanionOption,
@@ -333,10 +558,7 @@ export function ExistingSignupPanel({
       ) : null}
 
       {myParticipant.status === "APPROVED" ? (
-        <>
-          <MeetingSurfUsagePanel meetingId={meetingId} />
-          <MeetingFoodOrderPanel meetingId={meetingId} />
-        </>
+        <DailyMeetingActivity meetingId={meetingId} overnightDays={overnightDays} />
       ) : null}
 
       {!showMySignupDetails ? (
@@ -369,7 +591,23 @@ export function ExistingSignupPanel({
                       onChange={onSetMySignupShopOption}
                       disabled={savingMySignup}
                       trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+                      burden={pricingPreview.regular}
                     />
+                    {isOvernight ? (
+                      <OvernightChoices
+                        day2HasRental={mySignupDay2HasRental}
+                        day2Label={overnightDay2Label}
+                        day1HasLesson={mySignupHasLesson}
+                        day1HasRental={mySignupHasRental}
+                        disabled={savingMySignup}
+                        lodgingFee={overnightLodgingFee}
+                        onDay2Rental={onSetMySignupDay2Rental}
+                        onLodging={onSetMySignupLodging}
+                        participantType="REGULAR"
+                        pricingPreview={pricingPreview}
+                        usesClubLodging={mySignupUsesClubLodging}
+                      />
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -406,7 +644,7 @@ export function ExistingSignupPanel({
                   const isSignedUp = !!companionData;
                   const isChecked = selectedCompanionIdsForMeeting.has(companion.id);
                   const isExpanded = expandedManagedCompanions.has(companion.id);
-                  const options = companionOptions[companion.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
+                  const options = companionOptions[companion.id] ?? emptyCompanionOption();
 
                   return (
                     <div key={companion.id} className="brand-list-item rounded-lg p-3">
@@ -450,7 +688,23 @@ export function ExistingSignupPanel({
                               onUpdateCompanionOption(companion.id, "hasRental", next === "rental");
                             }}
                             disabled={savingMySignup}
+                            burden={pricingPreview.companion}
                           />
+                          {isOvernight ? (
+                            <OvernightChoices
+                              day2HasRental={companionData.day2HasRental ?? false}
+                              day2Label={overnightDay2Label}
+                              day1HasLesson={companionData.hasLesson}
+                              day1HasRental={companionData.hasRental}
+                              disabled={savingMySignup}
+                              lodgingFee={overnightLodgingFee}
+                              onDay2Rental={(value) => onUpdateCompanionOption(companion.id, "day2HasRental", value)}
+                              onLodging={(value) => onUpdateCompanionOption(companion.id, "usesClubLodging", value)}
+                              participantType="COMPANION"
+                              pricingPreview={pricingPreview}
+                              usesClubLodging={companionData.usesClubLodging ?? false}
+                            />
+                          ) : null}
                         </div>
                       ) : isChecked && !isSignedUp && !isIrregularMeeting ? (
                         <div className="mt-3 space-y-4 border-t border-brand-divider pt-3 pl-8">
@@ -466,7 +720,23 @@ export function ExistingSignupPanel({
                               onSetCompanionOption(companion.id, "hasRental", next === "rental");
                             }}
                             disabled={savingMySignup}
+                            burden={pricingPreview.companion}
                           />
+                          {isOvernight ? (
+                            <OvernightChoices
+                              day2HasRental={options.day2HasRental}
+                              day2Label={overnightDay2Label}
+                              day1HasLesson={options.hasLesson}
+                              day1HasRental={options.hasRental}
+                              disabled={savingMySignup}
+                              lodgingFee={overnightLodgingFee}
+                              onDay2Rental={(value) => onSetCompanionOption(companion.id, "day2HasRental", value)}
+                              onLodging={(value) => onSetCompanionOption(companion.id, "usesClubLodging", value)}
+                              participantType="COMPANION"
+                              pricingPreview={pricingPreview}
+                              usesClubLodging={options.usesClubLodging}
+                            />
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
@@ -538,6 +808,9 @@ export function ExistingSignupPanel({
 
 type RegularPanelProps = {
   isIrregularMeeting: boolean;
+  isOvernight: boolean;
+  overnightDay2Label: string;
+  overnightLodgingFee: number;
   duplicate: boolean;
   serverError: string;
   name: string;
@@ -547,7 +820,10 @@ type RegularPanelProps = {
   hasBus: boolean;
   hasLesson: boolean;
   hasRental: boolean;
+  day2HasRental: boolean;
+  usesClubLodging: boolean;
   participantOptionPricingGuide: string;
+  pricingPreview: SignupPricingPreview;
   companions: CompanionItem[];
   selectedCompanions: Set<number>;
   companionOptions: Record<number, CompanionOption>;
@@ -559,6 +835,8 @@ type RegularPanelProps = {
   onNoteChange: (value: string) => void;
   onSetMainBusChoice: (boarded: boolean) => void;
   onSetMainShopOption: (option: "lesson" | "rental" | null) => void;
+  onSetMainDay2Rental: (value: boolean) => void;
+  onSetMainLodging: (value: boolean) => void;
   onSelectCompanion: (id: number) => void;
   onSetCompanionOption: (id: number, field: OptionField, value: boolean) => void;
   onNewCompanionInputChange: (value: string) => void;
@@ -569,6 +847,9 @@ type RegularPanelProps = {
 
 export function RegularSignupPanel({
   isIrregularMeeting,
+  isOvernight,
+  overnightDay2Label,
+  overnightLodgingFee,
   duplicate,
   serverError,
   name,
@@ -578,7 +859,10 @@ export function RegularSignupPanel({
   hasBus,
   hasLesson,
   hasRental,
+  day2HasRental,
+  usesClubLodging,
   participantOptionPricingGuide,
+  pricingPreview,
   companions,
   selectedCompanions,
   companionOptions,
@@ -590,6 +874,8 @@ export function RegularSignupPanel({
   onNoteChange,
   onSetMainBusChoice,
   onSetMainShopOption,
+  onSetMainDay2Rental,
+  onSetMainLodging,
   onSelectCompanion,
   onSetCompanionOption,
   onNewCompanionInputChange,
@@ -645,7 +931,23 @@ export function RegularSignupPanel({
               onChange={onSetMainShopOption}
               disabled={submitting}
               trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
+              burden={pricingPreview.regular}
             />
+            {isOvernight ? (
+              <OvernightChoices
+                day2HasRental={day2HasRental}
+                day2Label={overnightDay2Label}
+                day1HasLesson={hasLesson}
+                day1HasRental={hasRental}
+                disabled={submitting}
+                lodgingFee={overnightLodgingFee}
+                onDay2Rental={onSetMainDay2Rental}
+                onLodging={onSetMainLodging}
+                participantType="REGULAR"
+                pricingPreview={pricingPreview}
+                usesClubLodging={usesClubLodging}
+              />
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -675,7 +977,7 @@ export function RegularSignupPanel({
           <div className="space-y-2">
             {companions.map((companion) => {
               const isSelected = selectedCompanions.has(companion.id);
-              const options = companionOptions[companion.id] ?? { hasLesson: false, hasBus: false, hasRental: false };
+              const options = companionOptions[companion.id] ?? emptyCompanionOption();
 
               return (
                 <div key={companion.id} className={`brand-select-card rounded-lg p-2.5 transition-all ${isSelected ? "brand-select-card-active" : ""}`}>
@@ -708,7 +1010,23 @@ export function RegularSignupPanel({
                           onSetCompanionOption(companion.id, "hasRental", next === "rental");
                         }}
                         disabled={submitting}
+                        burden={pricingPreview.companion}
                       />
+                      {isOvernight ? (
+                        <OvernightChoices
+                          day2HasRental={options.day2HasRental}
+                          day2Label={overnightDay2Label}
+                          day1HasLesson={options.hasLesson}
+                          day1HasRental={options.hasRental}
+                          disabled={submitting}
+                          lodgingFee={overnightLodgingFee}
+                          onDay2Rental={(value) => onSetCompanionOption(companion.id, "day2HasRental", value)}
+                          onLodging={(value) => onSetCompanionOption(companion.id, "usesClubLodging", value)}
+                          participantType="COMPANION"
+                          pricingPreview={pricingPreview}
+                          usesClubLodging={options.usesClubLodging}
+                        />
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -772,7 +1090,23 @@ export function RegularSignupPanel({
                           onUpdateNewCompanion(index, "hasRental", next === "rental");
                         }}
                         disabled={submitting}
+                        burden={pricingPreview.companion}
                       />
+                      {isOvernight ? (
+                        <OvernightChoices
+                          day2HasRental={newCompanion.day2HasRental}
+                          day2Label={overnightDay2Label}
+                          day1HasLesson={newCompanion.hasLesson}
+                          day1HasRental={newCompanion.hasRental}
+                          disabled={submitting}
+                          lodgingFee={overnightLodgingFee}
+                          onDay2Rental={(value) => onUpdateNewCompanion(index, "day2HasRental", value)}
+                          onLodging={(value) => onUpdateNewCompanion(index, "usesClubLodging", value)}
+                          participantType="COMPANION"
+                          pricingPreview={pricingPreview}
+                          usesClubLodging={newCompanion.usesClubLodging}
+                        />
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

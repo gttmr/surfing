@@ -13,10 +13,16 @@ import { resolveProfileImage } from "@/lib/profile-image";
 import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
+  PRICING_SETTING_KEYS,
 } from "@/lib/settings";
 import { getSession } from "@/lib/session";
 import type { MeetingWithCounts } from "@/lib/types";
 import { getTodayInSeoul } from "@/lib/date";
+import {
+  buildSignupPricingPreview,
+  DEFAULT_SIGNUP_PRICING_PREVIEW,
+} from "@/lib/signup-pricing";
+import { toOvernightMeetingGroupSummary } from "@/lib/meeting-group";
 
 function buildDetailedMeeting(meeting: {
   id: number;
@@ -28,6 +34,7 @@ function buildDetailedMeeting(meeting: {
   isOpen: boolean;
   meetingType: string;
   createdByKakaoId: string | null;
+  meetingGroup: Parameters<typeof toOvernightMeetingGroupSummary>[0];
   participants: Array<{
     id: number;
     name: string;
@@ -35,7 +42,9 @@ function buildDetailedMeeting(meeting: {
     hasLesson: boolean;
     hasBus: boolean;
     hasRental: boolean;
+    usesClubLodging: boolean;
     status: string;
+    attendanceStatus: string;
     kakaoId: string;
     companionId: number | null;
     waitlistPosition: number | null;
@@ -54,7 +63,9 @@ function buildDetailedMeeting(meeting: {
       hasLesson: participant.hasLesson,
       hasBus: participant.hasBus,
       hasRental: participant.hasRental,
+      usesClubLodging: participant.usesClubLodging,
       status: participant.status,
+      attendanceStatus: participant.attendanceStatus,
       kakaoId: participant.kakaoId,
       companionId: participant.companionId,
       waitlistPosition: participant.waitlistPosition,
@@ -72,11 +83,50 @@ function buildDetailedMeeting(meeting: {
     meetingType: meeting.meetingType,
     createdByKakaoId: meeting.createdByKakaoId,
     approvedCount: participantsList.filter((participant) => participant.status === "APPROVED").length,
+    overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
     participantsList,
   };
 }
 
+function sanitizeDetailedMeetingForViewer(
+  meeting: DetailedMeeting,
+  isAdmin: boolean,
+  viewerKakaoId: string | null
+): DetailedMeeting {
+  if (isAdmin) return meeting;
+  const publicGroupIds = new Map<string, string>();
+  let nextGroup = 1;
+  return {
+    ...meeting,
+    participantsList: meeting.participantsList.map((participant) => {
+      if (participant.kakaoId === viewerKakaoId) return participant;
+      let publicGroupId = publicGroupIds.get(participant.kakaoId);
+      if (!publicGroupId) {
+        publicGroupId = `meeting-${meeting.id}-group-${nextGroup}`;
+        publicGroupIds.set(participant.kakaoId, publicGroupId);
+        nextGroup += 1;
+      }
+      return {
+        ...participant,
+        kakaoId: publicGroupId,
+        note: null,
+        hasLesson: false,
+        hasBus: false,
+        hasRental: false,
+        usesClubLodging: false,
+      };
+    }),
+  };
+}
+
 const DETAILED_MEETING_INCLUDE = {
+  meetingGroup: {
+    include: {
+      meetings: {
+        orderBy: { groupDayIndex: "asc" as const },
+      },
+    },
+  },
   participants: {
     orderBy: [{ status: "asc" as const }, { submittedAt: "asc" as const }],
     include: {
@@ -106,6 +156,7 @@ export default async function SchedulePageContent({
   let noticesForClient: NoticeItem[] = [];
   let userNotificationsForClient: UserNotificationItem[] = [];
   let participantOptionPricingGuide = DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
+  let signupPricingPreview = DEFAULT_SIGNUP_PRICING_PREVIEW;
   const initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   const initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
 
@@ -141,6 +192,13 @@ export default async function SchedulePageContent({
       prisma.meeting.findMany({
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: {
+          meetingGroup: {
+            include: {
+              meetings: {
+                orderBy: { groupDayIndex: "asc" },
+              },
+            },
+          },
           _count: {
             select: { participants: { where: { status: "APPROVED" } } },
           },
@@ -150,7 +208,11 @@ export default async function SchedulePageContent({
         orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.setting.findMany({
-        where: { key: PARTICIPANT_OPTION_PRICING_GUIDE_KEY },
+        where: {
+          key: {
+            in: [PARTICIPANT_OPTION_PRICING_GUIDE_KEY, ...Object.values(PRICING_SETTING_KEYS)],
+          },
+        },
       }),
       validatedDate
         ? prisma.meeting.findMany({
@@ -204,6 +266,7 @@ export default async function SchedulePageContent({
       meetingType: meeting.meetingType,
       createdByKakaoId: meeting.createdByKakaoId,
       approvedCount: meeting._count.participants,
+      overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
     }));
 
     noticesForClient = notices.map((notice) => ({
@@ -229,30 +292,56 @@ export default async function SchedulePageContent({
         }))
       : [];
 
+    const settingsMap = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
     participantOptionPricingGuide =
-      settings[0]?.value ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
+      settingsMap[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
+    signupPricingPreview = buildSignupPricingPreview(settingsMap);
 
     const initialView = findInitialView(meetingsForClient, today, initialSelectedDate);
-    const selectedMeetingIds = initialView.selectedDate
-      ? meetingsForClient.filter((meeting) => meeting.date === initialView.selectedDate).map((meeting) => meeting.id)
+    const selectedMeetingsOnDate = initialView.selectedDate
+      ? meetingsForClient.filter((meeting) => meeting.date === initialView.selectedDate)
       : [];
+    const selectedMeetingIds = [...new Set(selectedMeetingsOnDate.map((meeting) => (
+      meeting.overnightGroup?.days[0]?.id ?? meeting.id
+    )))];
+    const selectedCanonicalMeetings = selectedMeetingIds
+      .map((meetingId) => meetingsForClient.find((meeting) => meeting.id === meetingId))
+      .filter((meeting): meeting is MeetingWithCounts => Boolean(meeting));
+    const detailedMeetingIds = [...new Set(selectedCanonicalMeetings.flatMap((meeting) => (
+      meeting.overnightGroup?.days.map((day) => day.id) ?? [meeting.id]
+    )))];
 
     if (selectedMeetingIds.length > 0) {
       // Use prefetched data if date matched, otherwise fetch for auto-selected date
+      const prefetchedIds = new Set(prefetchedDetailedMeetings.map((meeting) => meeting.id));
       const detailedMeetings =
-        validatedDate && prefetchedDetailedMeetings.length > 0
+        validatedDate && detailedMeetingIds.every((meetingId) => prefetchedIds.has(meetingId))
           ? prefetchedDetailedMeetings
           : await prisma.meeting.findMany({
-              where: { id: { in: selectedMeetingIds } },
+              where: { id: { in: detailedMeetingIds } },
               orderBy: [{ date: "asc" }, { startTime: "asc" }],
               include: DETAILED_MEETING_INCLUDE,
             });
 
-      for (const meeting of detailedMeetings) {
-        const detailedMeeting = buildDetailedMeeting(meeting);
-        initialMeetingDetailsById[meeting.id] = detailedMeeting;
+      const detailedMeetingsById = new Map(
+        detailedMeetings.map((meeting) => [meeting.id, buildDetailedMeeting(meeting)])
+      );
 
-        if (!sessionUser) continue;
+      for (const detailedMeeting of detailedMeetingsById.values()) {
+        const meeting = detailedMeeting;
+        initialMeetingDetailsById[meeting.id] = sanitizeDetailedMeetingForViewer(
+          detailedMeeting,
+          isAdmin,
+          sessionUser?.kakaoId ?? null
+        );
+
+      }
+
+      for (const meetingId of selectedMeetingIds) {
+        const detailedMeeting = detailedMeetingsById.get(meetingId);
+        if (!detailedMeeting || !sessionUser) continue;
+        const day2MeetingId = detailedMeeting.overnightGroup?.days[1]?.id;
+        const day2Meeting = day2MeetingId ? detailedMeetingsById.get(day2MeetingId) : null;
 
         const myParticipant = detailedMeeting.participantsList.find(
           (participant) =>
@@ -260,6 +349,13 @@ export default async function SchedulePageContent({
             participant.companionId === null &&
             participant.status !== "CANCELLED"
         );
+        const myDay2Participant = myParticipant && day2Meeting
+          ? day2Meeting.participantsList.find((participant) => (
+              participant.kakaoId === sessionUser.kakaoId
+              && participant.companionId === null
+              && participant.status !== "CANCELLED"
+            ))
+          : null;
 
         const signedUpCompanionData = detailedMeeting.participantsList.reduce<Record<number, SignupInitialData["signedUpCompanionData"][number]>>(
           (acc, participant) => {
@@ -270,9 +366,20 @@ export default async function SchedulePageContent({
             ) {
               acc[participant.companionId] = {
                 participantId: participant.id,
+                day2ParticipantId: day2Meeting?.participantsList.find((day2Participant) => (
+                  day2Participant.kakaoId === participant.kakaoId
+                  && day2Participant.companionId === participant.companionId
+                  && day2Participant.status !== "CANCELLED"
+                ))?.id,
                 hasLesson: participant.hasLesson,
                 hasBus: participant.hasBus,
                 hasRental: participant.hasRental,
+                day2HasRental: day2Meeting?.participantsList.find((day2Participant) => (
+                  day2Participant.kakaoId === participant.kakaoId
+                  && day2Participant.companionId === participant.companionId
+                  && day2Participant.status !== "CANCELLED"
+                ))?.hasRental ?? false,
+                usesClubLodging: participant.usesClubLodging,
               };
             }
             return acc;
@@ -306,6 +413,13 @@ export default async function SchedulePageContent({
                         hasLesson: participant.hasLesson,
                         hasBus: participant.hasBus,
                         hasRental: participant.hasRental,
+                        day2ParticipantId: day2Meeting?.participantsList.find((item) => (
+                          item.companionId === linkedCompanion.id && item.status !== "CANCELLED"
+                        ))?.id,
+                        day2HasRental: day2Meeting?.participantsList.find((item) => (
+                          item.companionId === linkedCompanion.id && item.status !== "CANCELLED"
+                        ))?.hasRental ?? false,
+                        usesClubLodging: participant.usesClubLodging,
                       }
                     : null;
                 })(),
@@ -313,7 +427,7 @@ export default async function SchedulePageContent({
             : { linked: false, ownerApplied: false }
           : null;
 
-        initialSignupDataByMeetingId[meeting.id] = {
+        initialSignupDataByMeetingId[detailedMeeting.id] = {
           userProfile: dbUser
             ? {
                 memberType: dbUser.memberType,
@@ -321,16 +435,20 @@ export default async function SchedulePageContent({
               }
             : null,
           participantOptionPricingGuide,
+          pricingPreview: signupPricingPreview,
           companions: regularCompanions,
           myParticipant: myParticipant
             ? {
                 id: myParticipant.id,
+                day2ParticipantId: myDay2Participant?.id,
                 status: myParticipant.status,
                 waitlistPosition: myParticipant.waitlistPosition ?? null,
                 note: myParticipant.note ?? "",
                 hasLesson: !!myParticipant.hasLesson,
                 hasBus: !!myParticipant.hasBus,
                 hasRental: !!myParticipant.hasRental,
+                day2HasRental: !!myDay2Participant?.hasRental,
+                usesClubLodging: !!myParticipant.usesClubLodging,
               }
             : null,
           signedUpCompanionData,
@@ -347,7 +465,6 @@ export default async function SchedulePageContent({
     <SurfClubLandingPage
       dbUnavailable={dbUnavailable}
       initialMeetingDetailsById={initialMeetingDetailsById}
-      initialSettlementStatusByMeetingId={{}}
       initialPendingSettlements={[]}
       initialSelectedDate={initialSelectedDate}
       initialSettlementAccount={null}

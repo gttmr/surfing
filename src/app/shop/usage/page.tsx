@@ -20,6 +20,7 @@ export default async function ShopUsagePage({
       selectedMeetingId={data.selectedMeetingId}
       initialData={data.selectedMeetingData}
       initialUsageData={data.selectedUsageData}
+      initialUsageDataByDay={data.selectedUsageDataByDay}
     />
   );
 }

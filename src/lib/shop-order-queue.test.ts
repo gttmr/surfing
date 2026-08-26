@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { FulfillmentOrderRow } from "./fulfillment-order-types";
 import {
+  findNewActiveOrderIds,
   getShopOrderRowActions,
   selectShopOrderRows,
   summarizeShopOrderRows,
@@ -97,4 +98,10 @@ test("shop queue summary and actions reflect whole-row fulfillment state", () =>
   assert.deepEqual(getShopOrderRowActions(rows[2]), { primary: "serve", confirmations: ["undo_prepare", "cancel"] });
   assert.deepEqual(getShopOrderRowActions(rows[3]), { primary: null, confirmations: ["undo_serve"] });
   assert.deepEqual(getShopOrderRowActions(rows[4]), { primary: null, confirmations: [] });
+});
+
+test("shop queue reports each newly arrived active order once", () => {
+  const repeatedNewOrder = orderRow({ orderId: 3, rowId: "3:8402", menuName: "추가 메뉴" });
+  assert.deepEqual(findNewActiveOrderIds([...rows, repeatedNewOrder], new Set([1, 2])), [3]);
+  assert.deepEqual(findNewActiveOrderIds(rows, new Set([1, 2, 3, 4, 5])), []);
 });

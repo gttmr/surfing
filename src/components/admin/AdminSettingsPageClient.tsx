@@ -135,7 +135,7 @@ export function AdminSettingsPageClient({
           <div>
             <p className="brand-text-subtle text-xs font-semibold">관리자 · 회원 안내</p>
             <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">설정</h1>
-            <p className="brand-text-muted mt-1 text-sm">회원에게 보이는 안내와 정산 계좌를 역할별로 확인하고 편집합니다.</p>
+            <p className="brand-text-muted mt-1 text-sm">회원에게 보이는 안내와 입금 계좌를 역할별로 확인하고 편집합니다.</p>
           </div>
           <p aria-live="polite" className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${dirtySectionCount > 0 ? "brand-chip-preparing" : "brand-chip-success"}`}>
             {dirtySectionCount > 0 ? `${dirtySectionCount}개 섹션 변경됨` : "모든 변경사항 저장됨"}

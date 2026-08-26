@@ -4,6 +4,7 @@ import {
   InvalidParticipantOptionsError,
   normalizeParticipantOptions,
 } from "@/lib/participant-options";
+import { createCompanionWithRecoveredSequence } from "@/lib/companion-sequence";
 import { createParticipantWithRecoveredSequence } from "@/lib/participant-sequence";
 import { runSerializableTransaction } from "@/lib/transaction";
 
@@ -96,8 +97,9 @@ export async function POST(req: NextRequest) {
     const createdCompanions: Array<{ id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }> = [];
     for (const newCompanion of normalizedNewCompanions) {
       if (!newCompanion.name?.trim()) continue;
-      const createdCompanion = await tx.companion.create({
-        data: { name: newCompanion.name.trim(), ownerKakaoId: user.kakaoId },
+      const createdCompanion = await createCompanionWithRecoveredSequence(tx, {
+        name: newCompanion.name.trim(),
+        ownerKakaoId: user.kakaoId,
       });
       createdCompanions.push({
         id: createdCompanion.id,

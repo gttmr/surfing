@@ -1,4 +1,5 @@
 import type { MeetingWithCounts } from "@/lib/types";
+import type { SignupPricingPreview } from "@/lib/signup-pricing";
 
 export type HomeUser = {
   kakaoId: string;
@@ -17,7 +18,7 @@ export type NoticeItem = {
 
 export type UserNotificationItem = {
   id: number;
-  type: "ORDER_CANCELLED";
+  type: "ORDER_CANCELLED" | "BILLING_PUBLISHED" | "PAYMENT_VERIFIED";
   title: string;
   body: string;
   meetingId: number | null;
@@ -43,11 +44,13 @@ export type SettlementSummary = {
       participantName: string;
       memberType: "REGULAR" | "COMPANION";
       baseFee: number;
+      lodgingFee: number;
       lessonFee: number;
       rentalFee: number;
       surfUsageShopFee: number;
       surfUsageMemberFee: number;
       surfUsageCoveredFee: number;
+      surfUsageLines: { id: number; usageItemName: string; quantity: number }[];
       foodSubtotal: number;
       foodSupportApplied: number;
       foodCharge: number;
@@ -55,6 +58,13 @@ export type SettlementSummary = {
       adjustments: { id: number; label: string; amount: number }[];
     }[];
   };
+  paymentStatus: "NO_PAYMENT_REQUIRED" | "PAYMENT_REQUIRED" | "REPORTED" | "VERIFIED";
+  isReported: boolean;
+  reportedAt: string | null;
+  isVerified: boolean;
+  verifiedAt: string | null;
+  settlementAccount: SettlementAccount;
+  publicationRevision: number | null;
   isCompleted: boolean;
   completedAt: string | null;
 };
@@ -72,7 +82,9 @@ export type MeetingParticipantItem = {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  usesClubLodging: boolean;
   status: string;
+  attendanceStatus: string;
   kakaoId: string;
   companionId: number | null;
   waitlistPosition?: number | null;
@@ -90,19 +102,25 @@ export type CompanionItem = {
 
 export type SignedUpCompanionData = {
   participantId: number;
+  day2ParticipantId?: number;
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  day2HasRental?: boolean;
+  usesClubLodging?: boolean;
 };
 
 export type MyParticipantData = {
   id: number;
+  day2ParticipantId?: number;
   status: string;
   waitlistPosition: number | null;
   note: string;
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  day2HasRental?: boolean;
+  usesClubLodging?: boolean;
 };
 
 export type LinkedCompanionStatus = {
@@ -122,6 +140,9 @@ export type LinkedCompanionStatus = {
     hasLesson: boolean;
     hasBus: boolean;
     hasRental: boolean;
+    day2ParticipantId?: number;
+    day2HasRental?: boolean;
+    usesClubLodging?: boolean;
   } | null;
 };
 
@@ -131,6 +152,7 @@ export type SignupInitialData = {
     name: string | null;
   } | null;
   participantOptionPricingGuide: string;
+  pricingPreview: SignupPricingPreview;
   companions: CompanionItem[];
   myParticipant: MyParticipantData | null;
   signedUpCompanionData: Record<number, SignedUpCompanionData>;

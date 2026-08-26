@@ -3,6 +3,7 @@ import { AsyncState } from "@/components/ui/AsyncState";
 import { Icon } from "@/components/ui/Icon";
 import type { AdminMeetingListItem } from "@/lib/admin-page-data";
 import { DAY_KO } from "@/lib/format";
+import { getOvernightMeetingSpan } from "@/lib/meeting-group";
 
 export type MeetingListView = "upcoming" | "past";
 
@@ -21,28 +22,38 @@ function meetingDateLabel(dateValue: string): string {
 
 function MeetingRow({ meeting }: { readonly meeting: AdminMeetingListItem }) {
   const dateLabel = meetingDateLabel(meeting.date);
+  const overnightSpan = meeting.overnightGroup ? getOvernightMeetingSpan(meeting.overnightGroup) : null;
+  const dateRangeLabel = overnightSpan ? `${dateLabel}–${meetingDateLabel(overnightSpan.endDate)}` : dateLabel;
+  const scheduleLabel = overnightSpan
+    ? `${overnightSpan.startTime} 시작 · ${overnightSpan.endTime} 종료 · ${overnightSpan.location}`
+    : `${meeting.startTime}–${meeting.endTime} · ${meeting.location}`;
 
   return (
     <Link
-      aria-label={`${dateLabel} ${meeting.location} 모임 운영`}
-      className="brand-list-item brand-list-item-hover block rounded-2xl p-4 transition-colors"
+      aria-label={`${dateRangeLabel} ${meeting.location} 모임 운영`}
+      className="brand-list-item brand-list-item-hover block rounded-2xl px-4 py-4 transition-colors"
       href={`/admin/meetings/${meeting.id}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-extrabold text-brand-text">{dateLabel}</p>
-          <p className="brand-text-muted mt-1 break-keep text-xs">{meeting.startTime}–{meeting.endTime} · {meeting.location}</p>
+          <p className="text-sm font-extrabold text-brand-text">{dateRangeLabel}</p>
+          <p className="brand-text-muted mt-1 break-keep text-xs">{scheduleLabel}</p>
         </div>
-        <span className="brand-button-primary inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold">
-          모임 운영
-          <Icon className="text-[16px]" name="arrow_forward" />
-        </span>
+        <span className="brand-chip-soft inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">{meeting.workflowLabel}</span>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
         <span className="brand-chip-soft rounded-full px-2 py-1 font-semibold">{meeting.meetingType}</span>
+        {meeting.overnightGroup ? <span className="brand-chip-dark rounded-full px-2 py-1 font-semibold">1박 2일</span> : null}
         <span className={meeting.isOpen ? "brand-chip-success rounded-full px-2 py-1 font-semibold" : "brand-chip-dimmed rounded-full px-2 py-1 font-semibold"}>{meeting.isOpen ? "신청 중" : "신청 마감"}</span>
         {meeting.createdByKakaoId ? <span className="brand-chip-dark rounded-full px-2 py-1 font-semibold">회원 등록</span> : null}
         <span className="brand-text-subtle ml-auto">확정 {meeting.approvedCount}명</span>
+      </div>
+      <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-brand-divider pt-3">
+        <span className="brand-text-muted text-xs font-semibold">다음 할 일</span>
+        <span className="inline-flex items-center gap-1 text-sm font-extrabold text-brand-primary">
+          {meeting.nextAction}
+          <Icon className="text-[18px]" name="arrow_forward" />
+        </span>
       </div>
     </Link>
   );
@@ -65,7 +76,7 @@ export function AdminMeetingListPanel({ meetings, query, view, onCreate }: Meeti
   }
 
   return (
-    <div className="brand-list-scroll max-h-[52dvh] space-y-2 overflow-y-auto rounded-2xl p-3" role="list">
+    <div className="space-y-2" role="list">
       {meetings.map((meeting) => <div key={meeting.id} role="listitem"><MeetingRow meeting={meeting} /></div>)}
     </div>
   );

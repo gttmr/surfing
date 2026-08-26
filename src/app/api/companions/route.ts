@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
+import { createCompanionWithRecoveredSequence } from "@/lib/companion-sequence";
+import { runSerializableTransaction } from "@/lib/transaction";
 
 // 내 동반인 목록 조회
 export async function GET(req: NextRequest) {
@@ -29,12 +31,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });
   }
 
-  const companion = await prisma.companion.create({
-    data: {
-      name: name.trim(),
-      ownerKakaoId: session.kakaoId,
-    },
-  });
+  const companion = await runSerializableTransaction((tx) => createCompanionWithRecoveredSequence(tx, {
+    name: name.trim(),
+    ownerKakaoId: session.kakaoId,
+  }));
 
   return NextResponse.json(companion, { status: 201 });
 }

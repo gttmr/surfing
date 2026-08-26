@@ -581,6 +581,7 @@ export type ShopDashboardData = {
   selectedMeetingId: number | null;
   selectedMeetingData: AdminMeetingFoodOrdersData | null;
   selectedUsageData: ShopMeetingSurfUsageData | null;
+  selectedUsageDataByDay: ShopMeetingSurfUsageData[];
 };
 
 export async function getShopDashboardData(requestedMeetingId?: number): Promise<ShopDashboardData> {
@@ -591,6 +592,14 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
       date: true,
       startTime: true,
       location: true,
+      meetingGroup: {
+        select: {
+          meetings: {
+            orderBy: { groupDayIndex: "asc" },
+            select: { id: true },
+          },
+        },
+      },
     },
   });
 
@@ -602,12 +611,18 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
     meetings.at(-1) ??
     null;
 
-  const [selectedMeetingData, selectedUsageData] = selectedMeeting
+  const selectedUsageMeetingIds = selectedMeeting?.meetingGroup?.meetings.map((meeting) => meeting.id)
+    ?? (selectedMeeting ? [selectedMeeting.id] : []);
+  const selectedResults = selectedMeeting
     ? await Promise.all([
         getAdminMeetingFoodOrdersData(selectedMeeting.id),
-        getShopMeetingSurfUsageData(selectedMeeting.id),
+        ...selectedUsageMeetingIds.map((meetingId) => getShopMeetingSurfUsageData(meetingId)),
       ])
-    : [null, null];
+    : [];
+  const selectedMeetingData = (selectedResults[0] as AdminMeetingFoodOrdersData | null | undefined) ?? null;
+  const selectedUsageDataByDay = selectedResults.slice(1)
+    .filter((data): data is ShopMeetingSurfUsageData => data !== null);
+  const selectedUsageData = selectedUsageDataByDay.find((data) => data.meeting.id === selectedMeeting?.id) ?? null;
 
   return {
     meetings: meetings.map((meeting) => ({
@@ -618,5 +633,6 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
     selectedMeetingId: selectedMeeting?.id ?? null,
     selectedMeetingData,
     selectedUsageData,
+    selectedUsageDataByDay,
   };
 }

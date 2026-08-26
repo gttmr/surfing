@@ -48,7 +48,7 @@ const participants: readonly ShopUsageParticipant[] = [
 test("shop usage review defaults to actionable participants and filters every status exactly", () => {
   assert.deepEqual(
     selectShopUsageParticipants(participants, { filter: "actionable", query: "" }).map((row) => row.participantId),
-    [1, 2],
+    [2, 1],
   );
   assert.deepEqual(
     selectShopUsageParticipants(participants, { filter: "missing", query: "" }).map((row) => row.participantId),
@@ -83,7 +83,18 @@ test("shop usage review marks only active-item differences as dirty", () => {
 });
 
 const validUsageResponse = {
-  meeting: { id: 8101, date: "2026-07-15", startTime: "09:30", endTime: "13:00", location: "합성 해변" },
+  meeting: {
+    id: 8101,
+    date: "2026-07-15",
+    startTime: "09:30",
+    endTime: "13:00",
+    location: "합성 해변",
+    actualUsageReview: {
+      state: "OPEN",
+      editable: true,
+      reason: "참석자의 실제 이용 내역을 확인해 주세요.",
+    },
+  },
   usageItems: [{
     id: 10,
     name: "장비 대여",

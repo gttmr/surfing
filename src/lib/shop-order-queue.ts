@@ -33,6 +33,17 @@ function isActive(row: FulfillmentOrderRow): boolean {
   return row.quantity > 0 && row.remainingQuantity > 0 && row.status !== "cancelled";
 }
 
+export function findNewActiveOrderIds(
+  rows: readonly FulfillmentOrderRow[],
+  knownOrderIds: ReadonlySet<number>,
+): number[] {
+  const newOrderIds = new Set<number>();
+  for (const row of rows) {
+    if (!knownOrderIds.has(row.orderId) && isActive(row)) newOrderIds.add(row.orderId);
+  }
+  return [...newOrderIds];
+}
+
 function matchesFilter(row: FulfillmentOrderRow, filter: ShopOrderFilter): boolean {
   if (filter === "all") return true;
   if (filter === "active") return isActive(row);

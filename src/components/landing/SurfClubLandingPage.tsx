@@ -7,7 +7,6 @@ import {
   findDefaultDateForMonth,
 } from "@/lib/home-view";
 import type {
-  AdminSettlementStatusSummary,
   DetailedMeeting,
   HomeUser,
   NoticeItem,
@@ -23,12 +22,14 @@ import {
   CalendarSection,
   LandingHeader,
   MeetingTabs,
+  PendingBillingAlert,
 } from "./landing-page-sections";
 import { useLandingState } from "./useLandingState";
 import { formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
-import { buildTossTransferUrl } from "@/lib/toss";
+import { MemberDock } from "@/components/ui/MobileShell";
+import { getOvernightMeetingSpan } from "@/lib/meeting-group";
 
 const MEETING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
   month: "long",
@@ -36,10 +37,14 @@ const MEETING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
   weekday: "short",
 });
 
-function getSettlementAlertStatus(settlement: SettlementSummary, inProgressMeetingIds: number[]) {
-  if (settlement.isCompleted) return "completed";
-  if (inProgressMeetingIds.includes(settlement.meeting.id)) return "in_progress";
+function getSettlementAlertStatus(settlement: SettlementSummary) {
+  if (settlement.paymentStatus === "VERIFIED" || settlement.paymentStatus === "NO_PAYMENT_REQUIRED") return "completed";
+  if (settlement.paymentStatus === "REPORTED") return "in_progress";
   return "pending";
+}
+
+function isActionableSettlement(settlement: SettlementSummary) {
+  return settlement.paymentStatus === "PAYMENT_REQUIRED" || settlement.paymentStatus === "REPORTED";
 }
 
 export default function SurfClubLandingPage({
@@ -50,7 +55,6 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide,
   initialMeetingDetailsById,
   initialSignupDataByMeetingId,
-  initialSettlementStatusByMeetingId,
   initialPendingSettlements,
   initialSettlementAccount,
   initialUserNotifications,
@@ -64,7 +68,6 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide: string;
   initialMeetingDetailsById: Record<number, DetailedMeeting>;
   initialSignupDataByMeetingId: Record<number, SignupInitialData>;
-  initialSettlementStatusByMeetingId: Record<number, AdminSettlementStatusSummary>;
   initialPendingSettlements: SettlementSummary[];
   initialSettlementAccount: SettlementAccount | null;
   initialUserNotifications: UserNotificationItem[];
@@ -81,12 +84,9 @@ export default function SurfClubLandingPage({
     isAlertCenterOpen,
     expandedAlertKey,
     readAlertKeys,
-    settlementProgressMeetingIds,
     pendingSettlements,
-    settlementAccount,
     meetingApprovedCountOverrides,
     meetingParticipantCountOverrides,
-    meetingSettlementStatusOverrides,
     sortedMeetings,
     setYear,
     setMonth,
@@ -95,12 +95,8 @@ export default function SurfClubLandingPage({
     setIsAlertCenterOpen,
     setExpandedAlertKey,
     setPendingSettlements,
-    setSettlementAccount,
     persistReadAlertKeys,
-    markSettlementInProgress,
     handleMeetingSummaryChange,
-    handleSettlementStatusChange,
-    handleSettlementCompletionChange,
   } = useLandingState({
     meetings,
     user,
@@ -109,75 +105,59 @@ export default function SurfClubLandingPage({
     initialSelectedDate,
   });
 
-  // P1: Settlement data lazy-loaded client-side instead of blocking SSR
+  // 청구는 홈 렌더링을 막지 않되, 앱 복귀 시 운영진 확인 결과를 바로 반영한다.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    fetch("/api/settlement/current")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
+    let controller: AbortController | null = null;
+
+    async function refreshPendingSettlements() {
+      controller?.abort();
+      controller = new AbortController();
+
+      try {
+        const response = await fetch("/api/settlement/current", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = response.ok ? await response.json() : null;
         if (cancelled || !data) return;
         setPendingSettlements(data.pending ?? []);
-        if (data.settlementAccount) {
-          setSettlementAccount(data.settlementAccount);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [user, setPendingSettlements, setSettlementAccount]);
+      } catch {
+        // 이전 청구 상태를 유지하고 다음 새로고침에서 다시 확인한다.
+      }
+    }
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void refreshPendingSettlements();
+      }
+    }
+
+    void refreshPendingSettlements();
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void refreshPendingSettlements();
+      }
+    }, 15_000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      controller?.abort();
+      window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, setPendingSettlements]);
+
+  const actionableSettlements = useMemo(
+    () => pendingSettlements.filter(isActionableSettlement),
+    [pendingSettlements]
+  );
   const hasNotices = notices.length > 0;
-  const hasPendingSettlement = pendingSettlements.length > 0;
+  const hasPendingSettlement = actionableSettlements.length > 0;
   const hasUserNotifications = userNotifications.length > 0;
   const hasAlertCenter = hasNotices || hasPendingSettlement || hasUserNotifications;
-
-  async function markSettlementCompleted(meetingId: number, completed = true, keepalive = false) {
-    try {
-      const res = await fetch("/api/settlement/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId, completed }),
-        keepalive,
-      });
-      if (!res.ok) return false;
-      const completedAt = completed ? new Date().toISOString() : null;
-      setPendingSettlements((prev) =>
-        prev.map((item) =>
-          item.meeting.id === meetingId
-            ? {
-                ...item,
-                isCompleted: completed,
-                completedAt,
-              }
-            : item
-        )
-      );
-      if (user?.kakaoId) {
-        handleSettlementCompletionChange(meetingId, user.kakaoId, completed, completedAt);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async function copySettlementAccount(meetingId: number) {
-    if (!settlementAccount?.accountNumber) return;
-    try {
-      await navigator.clipboard.writeText(settlementAccount.accountNumber);
-      markSettlementInProgress(meetingId);
-    } catch {
-      // no-op
-    }
-  }
-
-  function openTossTransfer(meetingId: number, amount?: number) {
-    if (!settlementAccount) return;
-    const tossUrl = buildTossTransferUrl(settlementAccount, amount);
-    if (!tossUrl) return;
-    markSettlementInProgress(meetingId);
-    window.location.href = tossUrl;
-  }
 
   const meetingsByDate = sortedMeetings.reduce<Record<string, MeetingWithCounts[]>>((acc, meeting) => {
     if (!acc[meeting.date]) acc[meeting.date] = [];
@@ -190,12 +170,41 @@ export default function SurfClubLandingPage({
 
   const monthKey = `${year}-${pad(month + 1)}`;
   const monthMeetings = sortedMeetings.filter((meeting) => meeting.date.startsWith(monthKey));
-  const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
+  const meetingsById = new Map(sortedMeetings.map((meeting) => [meeting.id, meeting]));
+  const selectedSourceMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
+  const selectedMeetings = selectedSourceMeetings.reduce<MeetingWithCounts[]>((result, meeting) => {
+    const canonicalMeeting = meeting.overnightGroup?.days[0]?.id
+      ? meetingsById.get(meeting.overnightGroup.days[0].id) ?? meeting
+      : meeting;
+    if (!result.some((item) => item.id === canonicalMeeting.id)) result.push(canonicalMeeting);
+    return result;
+  }, []);
   const hasSelectedMeetings = selectedMeetings.length > 0;
   const selectedMeeting = selectedMeetings[0];
+  const selectedOvernightSpan = selectedMeeting?.overnightGroup
+    ? getOvernightMeetingSpan(selectedMeeting.overnightGroup)
+    : null;
   const selectedMeetingDateLabel = selectedMeeting
-    ? MEETING_DATE_FORMATTER.format(new Date(`${selectedMeeting.date}T12:00:00`))
+    ? selectedOvernightSpan
+      ? [selectedOvernightSpan.startDate, selectedOvernightSpan.endDate]
+          .map((date) => MEETING_DATE_FORMATTER.format(new Date(`${date}T12:00:00`)))
+          .join("–")
+      : MEETING_DATE_FORMATTER.format(new Date(`${selectedMeeting.date}T12:00:00`))
     : "";
+  const selectedMeetingDescription = selectedMeeting?.overnightGroup
+    ? (() => {
+        const dailyDescriptions = selectedMeeting.overnightGroup.days.map((day) => ({
+          dayIndex: day.dayIndex,
+          description: initialMeetingDetailsById[day.id]?.description?.trim() ?? "",
+        }));
+        const descriptions = dailyDescriptions.map((day) => day.description).filter(Boolean);
+        if (descriptions.length === 0) return "운영진이 등록한 추가 안내가 없습니다.";
+        if (descriptions.length === dailyDescriptions.length && new Set(descriptions).size === 1) return descriptions[0];
+        return dailyDescriptions
+          .map((day) => `${day.dayIndex}일차${day.description ? `\n${day.description}` : " · 추가 안내 없음"}`)
+          .join("\n\n");
+      })()
+    : selectedMeeting?.description || "운영진이 등록한 추가 안내가 없습니다.";
   const selectedSignup = selectedMeeting ? initialSignupDataByMeetingId[selectedMeeting.id] : null;
   const selectedParticipation = selectedSignup?.myParticipant;
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
@@ -204,13 +213,6 @@ export default function SurfClubLandingPage({
     0
   );
   const selectedParticipantBadge = String(Math.min(selectedParticipantCount, 99));
-  const selectedSettlementPendingCount = isAdmin
-    ? selectedMeetings.reduce((sum, meeting) => {
-        const status = meetingSettlementStatusOverrides[meeting.id] ?? initialSettlementStatusByMeetingId[meeting.id];
-        return sum + (status?.summary.pendingCount ?? 0);
-      }, 0)
-    : 0;
-  const selectedSettlementBadge = isAdmin ? String(Math.min(selectedSettlementPendingCount, 99)) : undefined;
   const calendarCells = buildCalendarCells(year, month);
   const canCreateMeetingOnSelectedDate = Boolean(
     user && selectedDate && selectedDate >= today && selectedMeetings.length === 0 && !dbUnavailable
@@ -220,19 +222,19 @@ export default function SurfClubLandingPage({
   const alertItems = useMemo<AlertItem[]>(() => {
     const items: AlertItem[] = [];
 
-    for (const settlement of pendingSettlements) {
-      const settlementStatus = getSettlementAlertStatus(settlement, settlementProgressMeetingIds);
+    for (const settlement of actionableSettlements) {
+      const settlementStatus = getSettlementAlertStatus(settlement);
       const key = `settlement:${settlement.meeting.id}:${settlement.group.totalFee}:${settlement.group.items.length}`;
       items.push({
         key,
         type: "settlement",
-        title: `${settlement.meeting.date} 정산 안내`,
+        title: `${settlement.meeting.date} 청구 내역`,
         subtitle:
           settlementStatus === "completed"
-            ? `총 ${formatWon(settlement.group.totalFee)} · 송금 완료`
+            ? `총 ${formatWon(settlement.group.totalFee)} · 입금 완료`
             : settlementStatus === "in_progress"
-              ? `총 ${formatWon(settlement.group.totalFee)} · 송금 진행 중`
-              : `총 ${formatWon(settlement.group.totalFee)} · 정산 필요`,
+              ? `총 ${formatWon(settlement.group.totalFee)} · 입금 확인 중`
+              : `총 ${formatWon(settlement.group.totalFee)} · 입금 필요`,
         unread: settlementStatus !== "completed",
         settlementStatus,
         settlement,
@@ -264,7 +266,7 @@ export default function SurfClubLandingPage({
     }
 
     return items;
-  }, [notices, pendingSettlements, readAlertKeys, settlementProgressMeetingIds, userNotifications]);
+  }, [actionableSettlements, notices, readAlertKeys, userNotifications]);
   const hasUnreadAlerts = alertItems.some((item) => item.unread);
 
   function moveMonth(direction: -1 | 1) {
@@ -319,19 +321,50 @@ export default function SurfClubLandingPage({
         open={hasAlertCenter && isAlertCenterOpen}
         alertItems={alertItems}
         expandedAlertKey={expandedAlertKey}
-        settlementAccount={settlementAccount}
         onClose={() => setIsAlertCenterOpen(false)}
         onToggleItem={handleToggleAlertItem}
-        onOpenTossTransfer={openTossTransfer}
-        onCopySettlementAccount={(meetingId) => {
-          void copySettlementAccount(meetingId);
-        }}
-        onToggleSettlementCompleted={(meetingId, completed) => {
-          void markSettlementCompleted(meetingId, completed);
-        }}
       />
 
-      <main className="mx-auto flex w-full max-w-[430px] flex-col gap-6 px-4 pb-12 pt-24">
+      <main className={`mx-auto flex w-full max-w-[430px] flex-col gap-6 px-4 pt-24 ${user ? "pb-28" : "pb-12"}`}>
+        <PendingBillingAlert settlements={actionableSettlements} />
+
+        {selectedDate && selectedMeeting && !dbUnavailable ? (
+          <section aria-labelledby="selected-meeting-title" className="border-b border-brand-divider pb-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="brand-text-subtle text-xs font-bold">선택한 모임</p>
+                <h2 className="mt-1 font-headline text-xl font-extrabold tracking-[-0.04em]" id="selected-meeting-title">
+                  {selectedMeetingDateLabel}
+                </h2>
+                {selectedOvernightSpan ? (
+                  <p className="brand-text-muted mt-2 text-sm leading-6">
+                    {selectedOvernightSpan.startTime} 시작 · {selectedOvernightSpan.endTime} 종료 · {selectedOvernightSpan.location}
+                  </p>
+                ) : (
+                  <p className="brand-text-muted mt-2 text-sm leading-6">
+                    {selectedMeeting.startTime}–{selectedMeeting.endTime} · {selectedMeeting.location}
+                  </p>
+                )}
+              </div>
+              <span className="brand-chip-dark shrink-0 rounded-full px-3 py-1.5 text-xs font-bold">
+                {selectedMeeting.overnightGroup ? `1박 2일 · ${selectedMeeting.meetingType}` : selectedMeeting.meetingType}
+              </span>
+            </div>
+            <div className="mt-4 rounded-2xl bg-brand-primary-soft px-4 py-3">
+              <p className="brand-text-subtle text-xs font-semibold">지금 할 일</p>
+              <p className="mt-1 text-sm font-extrabold text-brand-text">
+                {!user
+                  ? "로그인하고 참가 여부 확인"
+                  : !selectedParticipation
+                    ? "참가 신청하기"
+                    : selectedParticipation.status === "WAITLISTED"
+                      ? `대기 ${selectedParticipation.waitlistPosition ?? ""}번 확인`
+                      : "신청 내용 확인·변경"}
+              </p>
+            </div>
+          </section>
+        ) : null}
+
         <CalendarSection
           year={year}
           monthLabel={MONTH_NAMES_KO[month]}
@@ -343,64 +376,26 @@ export default function SurfClubLandingPage({
           onSelectDate={selectCalendarDate}
         />
 
-        {selectedDate && selectedMeeting && !dbUnavailable ? (
-          <section aria-labelledby="selected-meeting-title" className="brand-card rounded-3xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="brand-text-subtle text-xs font-bold">선택한 모임</p>
-                <h2 className="mt-1 font-headline text-xl font-extrabold tracking-[-0.04em]" id="selected-meeting-title">
-                  {selectedMeetingDateLabel}
-                </h2>
-                <p className="brand-text-muted mt-2 text-sm leading-6">
-                  {selectedMeeting.startTime}–{selectedMeeting.endTime} · {selectedMeeting.location}
-                </p>
-              </div>
-              <span className="brand-chip-dark shrink-0 rounded-full px-3 py-1.5 text-xs font-bold">{selectedMeeting.meetingType}</span>
-            </div>
-            <div className="brand-panel-white mt-4 flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-              <div className="min-w-0">
-                <p className="brand-text-subtle text-xs font-semibold">지금 할 일</p>
-                <p className="mt-1 text-sm font-extrabold text-brand-text">
-                  {!user
-                    ? "로그인하고 참가 여부 확인"
-                    : !selectedParticipation
-                      ? "참가 신청하기"
-                      : selectedParticipation.status === "WAITLISTED"
-                        ? `대기 ${selectedParticipation.waitlistPosition ?? ""}번 확인`
-                        : "신청 내용 확인·변경"}
-                </p>
-              </div>
-              {user ? (
-                <Link className="brand-button-secondary shrink-0 rounded-xl px-3 py-2 text-sm font-bold" href="/settlement">
-                  내 정산
-                </Link>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
           <MeetingTabs
             activeTab={activeMeetingTab}
             participantBadge={selectedParticipantBadge}
-            settlementBadge={selectedSettlementBadge}
-            settlementLabel={isAdmin ? "정산 현황" : "내 정산"}
+            settlementLabel="모임 안내"
             showSettlementTab
             onChange={setActiveMeetingTab}
           >
             <section id="meeting-details">
-              {activeMeetingTab === "settlement" && !isAdmin ? (
-                <div className="brand-card-soft rounded-2xl p-5">
+              {activeMeetingTab === "settlement" ? (
+                <div className="border-y border-brand-divider py-5">
                   <div className="flex items-start gap-3">
-                    <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="payments" /></span>
+                    <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="info" /></span>
                     <div>
-                      <h3 className="text-base font-extrabold text-brand-text">내 정산 확인</h3>
-                      <p className="brand-text-muted mt-1 text-sm leading-6">내 참가비와 연결된 동반인의 정산 내역을 한곳에서 확인합니다.</p>
+                      <h3 className="text-base font-extrabold text-brand-text">모임 안내</h3>
+                      <p className="brand-text-muted mt-1 whitespace-pre-line text-sm leading-6">
+                        {selectedMeetingDescription}
+                      </p>
                     </div>
                   </div>
-                  <Link className="brand-button-primary mt-4 flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold" href="/settlement">
-                    내 정산으로 이동
-                  </Link>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -409,13 +404,11 @@ export default function SurfClubLandingPage({
                     activeTab={activeMeetingTab}
                     currentUser={user}
                     initialMeeting={initialMeetingDetailsById[meeting.id]}
-                    initialSettlementStatus={initialSettlementStatusByMeetingId[meeting.id]}
                     initialSignupData={initialSignupDataByMeetingId[meeting.id]}
                     isAdmin={isAdmin}
                     key={meeting.id}
                     meetingId={meeting.id}
                     onMeetingSummaryChange={handleMeetingSummaryChange}
-                    onSettlementStatusChange={handleSettlementStatusChange}
                     participantOptionPricingGuide={participantOptionPricingGuide}
                   />
                   ))}
@@ -486,6 +479,7 @@ export default function SurfClubLandingPage({
           </section>
         ) : null}
       </main>
+      {user ? <MemberDock /> : null}
     </div>
   );
 }

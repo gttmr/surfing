@@ -154,13 +154,21 @@ export function ShopUsageParticipantReview({
           />
         ))}
         {visibleParticipants.length === 0 ? (
-          <AsyncState
-            actionLabel="검색·필터 초기화"
-            description="검색어를 지우거나 확인이 필요한 참가자 목록으로 돌아가세요."
-            kind="empty"
-            onAction={onReset}
-            title="조건에 맞는 참가자가 없습니다."
-          />
+          summary.approvedCount > 0 && summary.confirmedCount === summary.approvedCount && !query ? (
+            <div className="brand-alert-success rounded-2xl px-4 py-6 text-center" role="status">
+              <Icon className="text-[28px]" name="task_alt" />
+              <p className="mt-2 text-sm font-extrabold">모든 실제 이용을 확정했습니다</p>
+              <button className="brand-link mt-2 text-xs font-bold" onClick={() => onFilterChange("confirmed")} type="button">확정 내역 보기</button>
+            </div>
+          ) : (
+            <AsyncState
+              actionLabel="검색·필터 초기화"
+              description="검색어를 지우거나 다른 상태를 선택해 주세요."
+              kind="empty"
+              onAction={onReset}
+              title="조건에 맞는 참가자가 없습니다."
+            />
+          )
         ) : null}
       </div>
 

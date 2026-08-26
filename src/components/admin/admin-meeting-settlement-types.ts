@@ -1,6 +1,7 @@
 export type SettlementDraft = {
   readonly label: string;
   readonly amount: string;
+  readonly direction: "increase" | "deduct";
 };
 
 export type AdjustmentDeleteTarget = {
@@ -11,6 +12,5 @@ export type AdjustmentDeleteTarget = {
 
 export type SettlementDraftChange = (
   participantId: number,
-  field: keyof SettlementDraft,
-  value: string
+  change: Partial<SettlementDraft>
 ) => void;

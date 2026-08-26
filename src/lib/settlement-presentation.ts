@@ -17,16 +17,21 @@ type SettlementChargeInput = Pick<
   | "rentalFee"
   | "surfUsageMemberFee"
   | "totalFee"
->;
+> & {
+  readonly lodgingFee?: SettlementLineItem["lodgingFee"];
+  readonly surfUsageLines?: SettlementLineItem["surfUsageLines"];
+};
 
 export function getSettlementChargeLines(item: SettlementChargeInput): readonly SettlementChargeLine[] {
   const lines: SettlementChargeLine[] = [];
 
   if (item.baseFee !== 0) lines.push({ key: "base", label: "참가", amount: item.baseFee });
+  const lodgingFee = item.lodgingFee ?? 0;
+  if (lodgingFee !== 0) lines.push({ key: "lodging", label: "숙박", amount: lodgingFee });
   if (item.lessonFee !== 0) lines.push({ key: "lesson", label: "강습", amount: item.lessonFee });
   if (item.rentalFee !== 0) lines.push({ key: "rental", label: "대여", amount: item.rentalFee });
-  if (item.surfUsageMemberFee !== 0) {
-    lines.push({ key: "surf-usage", label: "샵 이용", amount: item.surfUsageMemberFee });
+  if (item.surfUsageMemberFee !== 0 || (item.surfUsageLines?.length ?? 0) > 0) {
+    lines.push({ key: "surf-usage", label: "실제 이용 · 회원 부담", amount: item.surfUsageMemberFee });
   }
   if (item.foodSubtotal !== 0) {
     lines.push({ key: "food-subtotal", label: "식음료", amount: item.foodSubtotal });
@@ -45,7 +50,7 @@ export function getSettlementChargeLines(item: SettlementChargeInput): readonly 
   const displayedTotal = lines.reduce((sum, line) => sum + line.amount, 0);
   const remainingAmount = item.totalFee - displayedTotal;
   if (remainingAmount !== 0) {
-    lines.push({ key: "reconciliation", label: "기타 정산", amount: remainingAmount });
+    lines.push({ key: "reconciliation", label: "기타 청구", amount: remainingAmount });
   }
   if (lines.length === 0) {
     lines.push({ key: "base", label: "참가", amount: 0 });

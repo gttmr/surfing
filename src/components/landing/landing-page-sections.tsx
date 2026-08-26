@@ -8,7 +8,6 @@ import type { MeetingWithCounts } from "@/lib/types";
 import type {
   HomeUser,
   NoticeItem,
-  SettlementAccount,
   SettlementSummary,
   UserNotificationItem,
 } from "@/lib/landing-types";
@@ -47,6 +46,12 @@ export type AlertItem =
       notification: UserNotificationItem;
     };
 
+const BILLING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
+
 
 function NoticeGlyph({ className = "" }: { className?: string }) {
   return (
@@ -71,7 +76,7 @@ function formatSettlementReasons(settlement: SettlementSummary) {
     if (item.baseFee > 0) reasons.add("참가비");
     if (item.lessonFee > 0) reasons.add("강습비");
     if (item.rentalFee > 0) reasons.add("장비 대여비");
-    if (item.surfUsageMemberFee > 0) reasons.add("샵 이용");
+    if (item.surfUsageLines?.length) reasons.add("실제 이용");
     if (item.foodSubtotal > 0) reasons.add("식음료");
     for (const adjustment of item.adjustments) {
       reasons.add(adjustment.label);
@@ -86,7 +91,7 @@ function ProfileButton({ user }: { user: HomeUser }) {
   const fallbackEmoji = pickSurfAvatarEmoji(user.kakaoId ?? user.nickname);
 
   return (
-    <Link href="/profile" className="flex items-center">
+    <Link href="/profile" className="flex min-h-11 min-w-11 items-center justify-center">
       <span className="sr-only">프로필</span>
       <div className="brand-avatar-shell flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm">
         {hasImage ? (
@@ -115,15 +120,15 @@ export function LandingHeader({
 }) {
   return (
     <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
-      <div className="mx-auto flex h-16 w-full max-w-[390px] items-center justify-between px-4">
-        <div className="flex h-12 items-center">
+      <div className="mx-auto flex h-16 w-full max-w-[430px] items-center justify-between px-4">
+        <Link aria-label="모임 달력 홈으로 이동" className="brand-touch-target flex h-12 items-center" href="/">
           <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
-        </div>
+        </Link>
         <div className="flex items-center gap-2">
           {hasAlertCenter ? (
             <button
               aria-label="알림 센터 열기"
-              className={`relative flex h-9 w-9 items-center justify-center transition-colors ${
+              className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
                 isAlertCenterOpen ? "text-brand-primary-text" : "text-brand-text-subtle"
               }`}
               onClick={onOpenAlertCenter}
@@ -140,33 +145,74 @@ export function LandingHeader({
   );
 }
 
+export function PendingBillingAlert({
+  settlements,
+}: {
+  settlements: readonly SettlementSummary[];
+}) {
+  if (settlements.length === 0) return null;
+
+  const requiresPayment = settlements.some((settlement) => settlement.paymentStatus === "PAYMENT_REQUIRED");
+  const totalFee = settlements.reduce((sum, settlement) => sum + settlement.group.totalFee, 0);
+  const singleSettlement = settlements.length === 1 ? settlements[0] : null;
+  const title = requiresPayment
+    ? settlements.length === 1
+      ? "입금이 필요한 청구가 있습니다"
+      : `확인할 청구 ${settlements.length}건이 있습니다`
+    : "입금 확인을 기다리고 있습니다";
+  const summary = singleSettlement
+    ? `${BILLING_DATE_FORMATTER.format(new Date(`${singleSettlement.meeting.date}T12:00:00`))} 모임 · ${formatWon(singleSettlement.group.totalFee)}`
+    : `${settlements.length}건 · 총 ${formatWon(totalFee)}`;
+
+  return (
+    <section
+      aria-labelledby="pending-billing-title"
+      className={`${requiresPayment ? "brand-alert-error" : "brand-alert-info"} rounded-2xl px-4 py-4`}
+      role={requiresPayment ? "alert" : "status"}
+    >
+      <div className="flex items-start gap-3">
+        <span className={`${requiresPayment ? "brand-chip-danger" : "brand-chip-strong"} flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl`}>
+          <Icon className="text-[22px]" name={requiresPayment ? "priority_high" : "schedule"} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold">지금 처리할 청구</p>
+          <h2 className="mt-1 text-lg font-extrabold tracking-[-0.03em] text-brand-text" id="pending-billing-title">
+            {title}
+          </h2>
+          <p className="mt-2 text-sm font-bold">{summary}</p>
+          <p className="mt-1 text-xs leading-5">
+            {requiresPayment
+              ? "모임 비용이 확정되었습니다. 오늘 입금해 주세요."
+              : "입금 알림을 보냈습니다. 운영진이 확인하면 이 알림은 사라집니다."}
+          </p>
+        </div>
+      </div>
+      <Link className="brand-button-primary mt-4 flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-bold" href="/settlement">
+        {requiresPayment ? "청구 확인하고 입금하기" : "입금 확인 상태 보기"}
+      </Link>
+    </section>
+  );
+}
+
 type AlertCenterProps = {
   open: boolean;
   alertItems: AlertItem[];
   expandedAlertKey: string | null;
-  settlementAccount: SettlementAccount | null;
   onClose: () => void;
   onToggleItem: (item: AlertItem) => void;
-  onOpenTossTransfer: (meetingId: number, amount?: number) => void;
-  onCopySettlementAccount: (meetingId: number) => void;
-  onToggleSettlementCompleted: (meetingId: number, completed: boolean) => void;
 };
 
 export function AlertCenterModal({
   open,
   alertItems,
   expandedAlertKey,
-  settlementAccount,
   onClose,
   onToggleItem,
-  onOpenTossTransfer,
-  onCopySettlementAccount,
-  onToggleSettlementCompleted,
 }: AlertCenterProps) {
   return (
     <Dialog
       closeLabel="알림 센터 닫기"
-      description="공지사항과 정산 알림을 확인하세요."
+      description="공지사항과 청구·입금 알림을 확인하세요."
       onClose={onClose}
       open={open}
       title="알림 센터"
@@ -231,10 +277,10 @@ export function AlertCenterModal({
                                 }`}
                               >
                                 {item.settlementStatus === "completed"
-                                  ? "송금 완료"
+                                  ? "입금 완료"
                                   : item.settlementStatus === "in_progress"
-                                    ? "송금 진행 중"
-                                    : "정산 필요"}
+                                    ? "입금 확인 중"
+                                    : "입금 필요"}
                               </span>
                             </div>
                             <p className="mt-2 text-[1.8rem] font-headline font-extrabold leading-none tracking-[-0.04em] text-brand-text">
@@ -242,51 +288,9 @@ export function AlertCenterModal({
                             </p>
                           </div>
 
-                          {settlementAccount?.accountNumber ? (
-                            <>
-                              <div className="brand-text-muted text-xs">
-                                {settlementAccount.bankName} {settlementAccount.accountNumber}
-                                {settlementAccount.accountHolder ? ` · 예금주 ${settlementAccount.accountHolder}` : ""}
-                              </div>
-                              <div className="space-y-2">
-                                {item.settlementStatus !== "completed" ? (
-                                  <>
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <button
-                                        className="brand-button-primary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                        onClick={() => onOpenTossTransfer(item.settlement.meeting.id, item.settlement.group.totalFee)}
-                                        type="button"
-                                      >
-                                        토스로 송금
-                                      </button>
-                                      <button
-                                        className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                        onClick={() => onCopySettlementAccount(item.settlement.meeting.id)}
-                                        type="button"
-                                      >
-                                        계좌번호 복사
-                                      </button>
-                                    </div>
-                                    <button
-                                      className="brand-button-primary w-full rounded-xl px-4 py-2.5 text-sm font-bold"
-                                      onClick={() => onToggleSettlementCompleted(item.settlement.meeting.id, true)}
-                                      type="button"
-                                    >
-                                      송금완료했어요
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    className="brand-button-secondary rounded-xl px-4 py-2.5 text-sm font-bold"
-                                    onClick={() => onToggleSettlementCompleted(item.settlement.meeting.id, false)}
-                                    type="button"
-                                  >
-                                    완료 표시 해제
-                                  </button>
-                                )}
-                              </div>
-                            </>
-                          ) : null}
+                          <Link className="brand-button-primary flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-bold" href="/settlement" onClick={onClose}>
+                            청구 내역에서 확인
+                          </Link>
 
                           <div className="brand-list-item rounded-2xl p-4">
                             <p className="brand-text-subtle text-[11px] font-bold uppercase tracking-[0.24em]">트립 정보</p>
@@ -423,7 +427,7 @@ export function MeetingTabs({
   participantBadge,
   settlementBadge,
   showSettlementTab,
-  settlementLabel = "정산 현황",
+  settlementLabel = "모임 안내",
   onChange,
   children,
 }: {
@@ -436,12 +440,12 @@ export function MeetingTabs({
   children: ReactNode;
 }) {
   const items = [
-    { id: "apply" as const, label: "참가하기" },
+    { id: "apply" as const, label: "내 참가" },
     {
       id: "status" as const,
       label: (
         <span className="inline-flex items-center gap-2">
-          신청 현황
+          참가자
           <span className="brand-chip-dark flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold">{participantBadge}</span>
         </span>
       ),

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { AdminMeetingDetailPageClient } from "@/components/admin/AdminMeetingDetailPageClient";
-import { getAdminMeetingDetail } from "@/lib/admin-page-data";
+import { getAdminMeetingDetail, getAdminSettlementData } from "@/lib/admin-page-data";
 import { requireAdminPage } from "@/lib/require-admin-page";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +18,13 @@ export default async function AdminMeetingDetailPage({
     notFound();
   }
 
-  const meeting = await getAdminMeetingDetail(meetingId);
-  if (!meeting) {
+  const [meeting, operations] = await Promise.all([
+    getAdminMeetingDetail(meetingId),
+    getAdminSettlementData(meetingId),
+  ]);
+  if (!meeting || !operations) {
     notFound();
   }
 
-  return <AdminMeetingDetailPageClient meetingId={meetingId} initialMeeting={meeting} />;
+  return <AdminMeetingDetailPageClient meetingId={meetingId} initialMeeting={meeting} initialOperations={operations} />;
 }

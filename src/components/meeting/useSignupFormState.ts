@@ -11,11 +11,19 @@ import type {
   SignedUpCompanionData,
   SignupInitialData,
 } from "@/lib/landing-types";
+import {
+  buildSignupPricingPreview,
+  DEFAULT_SIGNUP_PRICING_PREVIEW,
+  withSignupBaseFees,
+  type SignupPricingPreview,
+} from "@/lib/signup-pricing";
 
 export interface CompanionOption {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  day2HasRental: boolean;
+  usesClubLodging: boolean;
 }
 
 export interface NewCompanionEntry {
@@ -23,6 +31,30 @@ export interface NewCompanionEntry {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  day2HasRental: boolean;
+  usesClubLodging: boolean;
+}
+
+export type SignupOptionField = "hasLesson" | "hasBus" | "hasRental" | "day2HasRental" | "usesClubLodging";
+
+function pricingPreviewForMeeting(preview: SignupPricingPreview, meeting: DetailedMeeting): SignupPricingPreview {
+  const group = meeting.overnightGroup;
+  return group
+    ? withSignupBaseFees(preview, {
+        regular: group.regularBaseFee,
+        companion: group.companionBaseFee,
+      })
+    : preview;
+}
+
+export function emptyCompanionOption(): CompanionOption {
+  return {
+    hasLesson: false,
+    hasBus: false,
+    hasRental: false,
+    day2HasRental: false,
+    usesClubLodging: false,
+  };
 }
 
 export interface SubmissionResult {
@@ -51,6 +83,8 @@ export function deriveRegularParticipantState(meeting: DetailedMeeting, kakaoId:
         hasLesson: participant.hasLesson,
         hasBus: participant.hasBus,
         hasRental: participant.hasRental,
+        day2HasRental: false,
+        usesClubLodging: participant.usesClubLodging,
       };
     }
     return acc;
@@ -66,6 +100,8 @@ export function deriveRegularParticipantState(meeting: DetailedMeeting, kakaoId:
           hasLesson: !!myParticipant.hasLesson,
           hasBus: !!myParticipant.hasBus,
           hasRental: !!myParticipant.hasRental,
+          day2HasRental: false,
+          usesClubLodging: !!myParticipant.usesClubLodging,
         }
       : null,
     signedUpCompanionData,
@@ -97,6 +133,9 @@ export function deriveLinkedStatusFromMeeting(
           hasLesson: participant.hasLesson,
           hasBus: participant.hasBus,
           hasRental: participant.hasRental,
+          day2ParticipantId: baseLinkedStatus.participant?.day2ParticipantId,
+          day2HasRental: baseLinkedStatus.participant?.day2HasRental ?? false,
+          usesClubLodging: baseLinkedStatus.participant?.usesClubLodging ?? participant.usesClubLodging,
         }
       : null,
   };
@@ -134,9 +173,15 @@ export function useSignupFormState({
   const [hasLesson, setHasLesson] = useState(false);
   const [hasBus, setHasBus] = useState(true);
   const [hasRental, setHasRental] = useState(false);
+  const [day2HasRental, setDay2HasRental] = useState(false);
+  const [usesClubLodging, setUsesClubLodging] = useState(false);
   const [participantOptionPricingGuide, setParticipantOptionPricingGuide] = useState(
     initialData?.participantOptionPricingGuide ?? initialGuide ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE
   );
+  const [pricingPreview, setPricingPreview] = useState(() => pricingPreviewForMeeting(
+    initialData?.pricingPreview ?? DEFAULT_SIGNUP_PRICING_PREVIEW,
+    meeting
+  ));
   const [nameError, setNameError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -153,6 +198,8 @@ export function useSignupFormState({
   const [mySignupHasLesson, setMySignupHasLesson] = useState(false);
   const [mySignupHasBus, setMySignupHasBus] = useState(false);
   const [mySignupHasRental, setMySignupHasRental] = useState(false);
+  const [mySignupDay2HasRental, setMySignupDay2HasRental] = useState(false);
+  const [mySignupUsesClubLodging, setMySignupUsesClubLodging] = useState(false);
   const [expandedManagedCompanions, setExpandedManagedCompanions] = useState<Set<number>>(new Set());
 
   const [companions, setCompanions] = useState<CompanionItem[]>(initialData?.companions ?? []);
@@ -191,6 +238,7 @@ export function useSignupFormState({
         setUser(currentUser);
         setUserProfile(initialData.userProfile);
         setParticipantOptionPricingGuide(initialData.participantOptionPricingGuide);
+        setPricingPreview(pricingPreviewForMeeting(initialData.pricingPreview, meeting));
         setCompanions(initialData.companions);
         setMyParticipant(initialData.myParticipant);
         setSignedUpCompanionData(initialData.signedUpCompanionData);
@@ -225,6 +273,7 @@ export function useSignupFormState({
 
         setUserProfile(profile);
         setParticipantOptionPricingGuide(settings?.participant_option_pricing_guide ?? initialGuide ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE);
+        setPricingPreview(pricingPreviewForMeeting(buildSignupPricingPreview(settings ?? {}), meeting));
 
         if (profile?.name) {
           setName(profile.name);
@@ -235,9 +284,18 @@ export function useSignupFormState({
         }
 
         if (profile?.memberType === "REGULAR") {
-          const companionList = await fetch("/api/companions").then((r) => r.ok ? r.json() : []);
+          const [companionList, overnightStatus] = await Promise.all([
+            fetch("/api/companions").then((r) => r.ok ? r.json() : []),
+            meeting.overnightGroup
+              ? fetch(`/api/participants/overnight?meetingId=${meeting.id}`).then((r) => r.ok ? r.json() : null)
+              : Promise.resolve(null),
+          ]);
           if (cancelled) return;
           setCompanions(companionList);
+          if (overnightStatus) {
+            setMyParticipant(overnightStatus.myParticipant ?? null);
+            setSignedUpCompanionData(overnightStatus.signedUpCompanionData ?? {});
+          }
           setLinkedStatus(null);
         } else if (profile?.memberType === "COMPANION") {
           const nextLinkedStatus = await fetch(`/api/participants/linked-companion?meetingId=${meeting.id}`)
@@ -271,8 +329,23 @@ export function useSignupFormState({
 
     if (userProfile?.memberType === "REGULAR") {
       const regularState = deriveRegularParticipantState(meeting, user.kakaoId);
-      setMyParticipant(regularState.myParticipant);
-      setSignedUpCompanionData(regularState.signedUpCompanionData);
+      setMyParticipant((current) => regularState.myParticipant ? {
+        ...regularState.myParticipant,
+        day2ParticipantId: current?.day2ParticipantId,
+        day2HasRental: current?.day2HasRental ?? false,
+        usesClubLodging: current?.usesClubLodging ?? regularState.myParticipant?.usesClubLodging ?? false,
+      } : null);
+      setSignedUpCompanionData((current) => Object.fromEntries(
+        Object.entries(regularState.signedUpCompanionData).map(([companionId, data]) => [
+          companionId,
+          {
+            ...data,
+            day2ParticipantId: current[Number(companionId)]?.day2ParticipantId,
+            day2HasRental: current[Number(companionId)]?.day2HasRental ?? false,
+            usesClubLodging: current[Number(companionId)]?.usesClubLodging ?? data.usesClubLodging ?? false,
+          },
+        ])
+      ));
       return;
     }
 
@@ -297,6 +370,8 @@ export function useSignupFormState({
       setMySignupHasLesson(false);
       setMySignupHasBus(false);
       setMySignupHasRental(false);
+      setMySignupDay2HasRental(false);
+      setMySignupUsesClubLodging(false);
       return;
     }
 
@@ -304,6 +379,8 @@ export function useSignupFormState({
     setMySignupHasLesson(myParticipant.hasLesson);
     setMySignupHasBus(myParticipant.hasBus);
     setMySignupHasRental(myParticipant.hasRental);
+    setMySignupDay2HasRental(myParticipant.day2HasRental ?? false);
+    setMySignupUsesClubLodging(myParticipant.usesClubLodging ?? false);
   }, [myParticipant]);
 
   const syncFromUpdatedMeeting = useCallback(async () => {
@@ -312,8 +389,31 @@ export function useSignupFormState({
 
     if (userProfile?.memberType === "REGULAR") {
       const regularState = deriveRegularParticipantState(updatedMeeting, user.kakaoId);
-      setMyParticipant(regularState.myParticipant);
-      setSignedUpCompanionData(regularState.signedUpCompanionData);
+      setMyParticipant((current) => regularState.myParticipant ? {
+        ...regularState.myParticipant,
+        day2ParticipantId: current?.day2ParticipantId,
+        day2HasRental: current?.day2HasRental ?? false,
+        usesClubLodging: current?.usesClubLodging ?? regularState.myParticipant?.usesClubLodging ?? false,
+      } : null);
+      setSignedUpCompanionData((current) => Object.fromEntries(
+        Object.entries(regularState.signedUpCompanionData).map(([companionId, data]) => [
+          companionId,
+          {
+            ...data,
+            day2ParticipantId: current[Number(companionId)]?.day2ParticipantId,
+            day2HasRental: current[Number(companionId)]?.day2HasRental ?? false,
+            usesClubLodging: current[Number(companionId)]?.usesClubLodging ?? data.usesClubLodging ?? false,
+          },
+        ])
+      ));
+      if (updatedMeeting.overnightGroup) {
+        const overnightStatus = await fetch(`/api/participants/overnight?meetingId=${updatedMeeting.id}`)
+          .then((response) => response.ok ? response.json() : null);
+        if (overnightStatus) {
+          setMyParticipant(overnightStatus.myParticipant ?? null);
+          setSignedUpCompanionData(overnightStatus.signedUpCompanionData ?? {});
+        }
+      }
       return updatedMeeting;
     }
 
@@ -324,11 +424,11 @@ export function useSignupFormState({
     return updatedMeeting;
   }, [onMeetingChange, user, userProfile]);
 
-  function setCompanionOpt(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
+  function setCompanionOpt(companionId: number, field: SignupOptionField, value: boolean) {
     setCompanionOptions((prev) => ({
       ...prev,
       [companionId]: {
-        ...(prev[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false }),
+        ...(prev[companionId] ?? emptyCompanionOption()),
         ...(field === "hasLesson" && value ? { hasRental: false } : {}),
         ...(field === "hasRental" && value ? { hasLesson: false } : {}),
         [field]: value,
@@ -339,11 +439,11 @@ export function useSignupFormState({
   function handleAddNewCompanion() {
     const trimmed = newCompanionInput.trim();
     if (!trimmed) return;
-    setNewCompanions((prev) => [...prev, { name: trimmed, hasLesson: false, hasBus: false, hasRental: false }]);
+    setNewCompanions((prev) => [...prev, { name: trimmed, ...emptyCompanionOption() }]);
     setNewCompanionInput("");
   }
 
-  function updateNewCompanion(idx: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
+  function updateNewCompanion(idx: number, field: SignupOptionField, value: boolean) {
     setNewCompanions((prev) => prev.map((companion, index) => {
       if (index !== idx) return companion;
       return {
@@ -379,6 +479,8 @@ export function useSignupFormState({
       setMySignupHasLesson(myParticipant.hasLesson);
       setMySignupHasBus(myParticipant.hasBus);
       setMySignupHasRental(myParticipant.hasRental);
+      setMySignupDay2HasRental(myParticipant.day2HasRental ?? false);
+      setMySignupUsesClubLodging(myParticipant.usesClubLodging ?? false);
     }
     setShowCancelConfirm(false);
     setMySignupSaved(false);
@@ -400,7 +502,7 @@ export function useSignupFormState({
     setDuplicate(false);
 
     try {
-      const res = await fetch("/api/participants", {
+      const res = await fetch(meeting.overnightGroup ? "/api/participants/overnight" : "/api/participants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -410,9 +512,10 @@ export function useSignupFormState({
           hasLesson,
           hasBus,
           hasRental,
-          companionIds: Array.from(selectedCompanions),
+          ...(meeting.overnightGroup ? { day2HasRental, usesClubLodging } : {}),
+          companionIds: meeting.overnightGroup ? undefined : Array.from(selectedCompanions),
           companionOptions: Object.fromEntries(
-            Array.from(selectedCompanions).map((id) => [id, companionOptions[id] ?? { hasLesson: false, hasBus: false, hasRental: false }])
+            Array.from(selectedCompanions).map((id) => [id, companionOptions[id] ?? emptyCompanionOption()])
           ),
           newCompanions,
         }),
@@ -440,6 +543,9 @@ export function useSignupFormState({
         hasLesson,
         hasBus,
         hasRental,
+        day2ParticipantId: data.day2ParticipantId,
+        day2HasRental: data.day2HasRental ?? day2HasRental,
+        usesClubLodging: data.usesClubLodging ?? usesClubLodging,
       });
       setSubmissionResult({
         status: data.status,
@@ -457,6 +563,8 @@ export function useSignupFormState({
       setHasLesson(false);
       setHasBus(true);
       setHasRental(false);
+      setDay2HasRental(false);
+      setUsesClubLodging(false);
       await syncFromUpdatedMeeting();
       setSubmitting(false);
       return;
@@ -466,7 +574,7 @@ export function useSignupFormState({
     }
   }
 
-  async function handleUpdateCompanionOption(companionId: number, field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
+  async function handleUpdateCompanionOption(companionId: number, field: SignupOptionField, value: boolean) {
     const companionData = signedUpCompanionData[companionId];
     if (!companionData) return;
     setSignedUpCompanionData((prev) => ({
@@ -490,7 +598,7 @@ export function useSignupFormState({
     await syncFromUpdatedMeeting();
   }
 
-  async function handleUpdateLinkedOption(field: "hasLesson" | "hasBus" | "hasRental", value: boolean) {
+  async function handleUpdateLinkedOption(field: SignupOptionField, value: boolean) {
     if (!linkedStatus?.participant) return;
     setUpdatingLinked(true);
     setLinkedStatus((prev) => prev ? {
@@ -528,6 +636,7 @@ export function useSignupFormState({
           hasLesson,
           hasBus,
           hasRental,
+          ...(meeting.overnightGroup ? { day2HasRental, usesClubLodging } : {}),
         }),
       });
 
@@ -537,9 +646,25 @@ export function useSignupFormState({
         return;
       }
 
+      setLinkedStatus((current) => current ? {
+        ...current,
+        participant: {
+          id: data.id,
+          status: data.status,
+          hasLesson: data.hasLesson,
+          hasBus: data.hasBus,
+          hasRental: data.hasRental,
+          day2ParticipantId: data.day2ParticipantId,
+          day2HasRental: data.day2HasRental ?? false,
+          usesClubLodging: data.usesClubLodging ?? false,
+        },
+      } : current);
+
       setHasLesson(false);
       setHasBus(true);
       setHasRental(false);
+      setDay2HasRental(false);
+      setUsesClubLodging(false);
       await syncFromUpdatedMeeting();
     } catch {
       setServerError("네트워크 오류가 발생했습니다.");
@@ -587,6 +712,10 @@ export function useSignupFormState({
           hasLesson: mySignupHasLesson,
           hasBus: mySignupHasBus,
           hasRental: mySignupHasRental,
+          ...(meeting.overnightGroup ? {
+            day2HasRental: mySignupDay2HasRental,
+            usesClubLodging: mySignupUsesClubLodging,
+          } : {}),
         }),
       });
 
@@ -604,6 +733,8 @@ export function useSignupFormState({
         hasLesson: !!updated.hasLesson,
         hasBus: !!updated.hasBus,
         hasRental: !!updated.hasRental,
+        day2HasRental: updated.day2HasRental ?? mySignupDay2HasRental,
+        usesClubLodging: updated.usesClubLodging ?? mySignupUsesClubLodging,
       } : prev);
 
       // 2. Batch register/cancel companions based on checkbox state
@@ -612,7 +743,7 @@ export function useSignupFormState({
       const toRemove = [...currentSignedUpIds].filter((id) => !selectedCompanionIdsForMeeting.has(id));
 
       for (const companionId of toAdd) {
-        const options = companionOptions[companionId] ?? { hasLesson: false, hasBus: false, hasRental: false };
+        const options = companionOptions[companionId] ?? emptyCompanionOption();
         const addRes = await fetch("/api/participants/companions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -622,7 +753,15 @@ export function useSignupFormState({
           const created = await addRes.json();
           setSignedUpCompanionData((prev) => ({
             ...prev,
-            [companionId]: { participantId: created.id, hasLesson: created.hasLesson, hasBus: created.hasBus, hasRental: created.hasRental },
+            [companionId]: {
+              participantId: created.id,
+              day2ParticipantId: created.day2ParticipantId,
+              hasLesson: created.hasLesson,
+              hasBus: created.hasBus,
+              hasRental: created.hasRental,
+              day2HasRental: created.day2HasRental ?? false,
+              usesClubLodging: created.usesClubLodging ?? false,
+            },
           }));
         } else {
           const data = await addRes.json();
@@ -674,7 +813,10 @@ export function useSignupFormState({
       hasLesson,
       hasBus,
       hasRental,
+      day2HasRental,
+      usesClubLodging,
       participantOptionPricingGuide,
+      pricingPreview,
       nameError,
       submitting,
       serverError,
@@ -688,6 +830,8 @@ export function useSignupFormState({
       mySignupHasLesson,
       mySignupHasBus,
       mySignupHasRental,
+      mySignupDay2HasRental,
+      mySignupUsesClubLodging,
       expandedManagedCompanions,
       companions,
       selectedCompanions,
@@ -711,6 +855,10 @@ export function useSignupFormState({
       setShowMySignupDetails,
       setSubmissionResult,
       setMySignupNote,
+      setDay2HasRental,
+      setUsesClubLodging,
+      setMySignupDay2HasRental,
+      setMySignupUsesClubLodging,
       setExpandedManagedCompanions,
       setSelectedCompanions,
       setNewCompanionInput,

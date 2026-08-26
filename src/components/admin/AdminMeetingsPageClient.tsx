@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminMeetingCreateForm } from "@/components/admin/AdminMeetingCreateForm";
 import { AdminMeetingListPanel, type MeetingListView } from "@/components/admin/AdminMeetingListPanel";
@@ -27,6 +28,7 @@ export function AdminMeetingsPageClient({
   const [view, setView] = useState<MeetingListView>("upcoming");
   const [query, setQuery] = useState("");
   const { toasts, addToast, removeToast } = useToast();
+  const router = useRouter();
 
   const today = getTodayInSeoul();
   const upcomingMeetings = useMemo(
@@ -50,6 +52,7 @@ export function AdminMeetingsPageClient({
     setQuery("");
     setCreating(false);
     addToast("모임을 생성했습니다", "success");
+    router.push(`/admin/meetings/${meeting.id}`);
   }
 
   return (

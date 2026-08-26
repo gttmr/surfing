@@ -31,7 +31,7 @@ test.beforeEach(async ({ context }) => {
   await installBrowserEgressGuard(context, evidenceDirectory);
 });
 
-test("admin shell redirects public users and contains six mobile destinations", async ({ context, page }, testInfo) => {
+test("admin shell redirects public users and contains five purpose-based mobile destinations", async ({ context, page }, testInfo) => {
   const portalPrefetches: string[] = [];
   await page.route(/^https:\/\/[^/]*kakao\.com\//, (route) => route.abort("blockedbyclient"));
   page.on("request", (request) => {
@@ -51,10 +51,9 @@ test("admin shell redirects public users and contains six mobile destinations", 
   await authenticate(context, "password-admin");
   await page.goto("/admin", { waitUntil: "networkidle" });
   const dock = page.getByRole("navigation", { name: "관리자 메뉴" });
-  await expect(dock.getByRole("link")).toHaveCount(6);
-  await expect(dock.getByRole("link", { name: /공지/ })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("navigation", { name: "서비스 화면" }).getByRole("link", { name: /회원 화면/ })).toHaveAttribute("href", "/");
-  await expect(page.getByRole("navigation", { name: "서비스 화면" }).getByRole("link", { name: /샵 화면/ })).toHaveAttribute("href", "/shop");
+  await expect(dock.getByRole("link")).toHaveCount(5);
+  await expect(dock.getByRole("link", { name: "홈", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "내 정보와 화면 전환" })).toHaveAttribute("href", "/profile");
   expect(portalPrefetches, "portal links must remain navigation-only without background shop requests").toEqual([]);
   const geometry = await dock.evaluate((node) => {
     const rect = node.getBoundingClientRect();
@@ -70,7 +69,7 @@ test("admin shell redirects public users and contains six mobile destinations", 
 
 test("notice reading and editing are separate and dirty drafts require a choice", async ({ context, page }, testInfo) => {
   await authenticate(context, "password-admin");
-  await page.goto("/admin", { waitUntil: "networkidle" });
+  await page.goto("/admin/notices", { waitUntil: "networkidle" });
   await page.getByRole("button").filter({ has: page.getByText("합성 공지", { exact: true }) }).click();
   await expect(page.getByRole("heading", { name: "합성 공지" })).toBeVisible();
   await capture(page, "notice-reader", testInfo.project.name);
@@ -92,7 +91,7 @@ test("notice reading and editing are separate and dirty drafts require a choice"
 
 test("notice validation and server failure retain the draft", async ({ context, page }, testInfo) => {
   await authenticate(context, "password-admin");
-  await page.goto("/admin", { waitUntil: "networkidle" });
+  await page.goto("/admin/notices", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "새 공지" }).click();
   await page.getByRole("button", { name: "공지 등록" }).click();
   await expect(page.getByText("공지 제목을 입력해 주세요.")).toBeVisible();
@@ -123,7 +122,7 @@ test("notice validation and server failure retain the draft", async ({ context, 
 
 test("notice delete can be cancelled and list failures can retry", async ({ context, page }, testInfo) => {
   await authenticate(context, "password-admin");
-  await page.goto("/admin", { waitUntil: "networkidle" });
+  await page.goto("/admin/notices", { waitUntil: "networkidle" });
   await page.getByRole("button").filter({ has: page.getByText("합성 공지", { exact: true }) }).click();
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   const deleteDialog = page.getByRole("dialog", { name: "공지를 삭제할까요?" });

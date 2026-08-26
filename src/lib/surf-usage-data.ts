@@ -4,6 +4,10 @@ import {
   isMeetingOrderOpen,
 } from "@/lib/food-ordering";
 import {
+  getActualUsageReviewAvailability,
+  type ActualUsageReviewAvailability,
+} from "@/lib/meeting-lifecycle";
+import {
   DEFAULT_SURF_USAGE_ITEMS,
   getSurfUsageLineShopAmount,
   summarizeUsageBilling,
@@ -11,6 +15,7 @@ import {
   type SurfUsageMemberBillingPolicy,
   type SurfUsageServiceType,
 } from "@/lib/surf-usage-billing";
+import { getTodayInSeoul } from "@/lib/date";
 
 type UsageItemRow = {
   id: number;
@@ -50,6 +55,13 @@ type UsageSubmissionRow = {
   note: string | null;
 };
 
+export function isParticipantActualUsageOpen(
+  meeting: { date: string; meetingGroupId?: number | null },
+  today = getTodayInSeoul(),
+): boolean {
+  return meeting.meetingGroupId ? meeting.date <= today : isMeetingOrderOpen(meeting.date, today);
+}
+
 export type ParticipantMeetingSurfUsageData = {
   meeting: {
     id: number;
@@ -61,11 +73,15 @@ export type ParticipantMeetingSurfUsageData = {
     name: string;
     description: string | null;
     serviceType: SurfUsageServiceType;
+    regularMemberUnitPrice: number;
+    companionMemberUnitPrice: number;
   }>;
   participants: Array<{
     participantId: number;
     name: string;
     companionId: number | null;
+    requestedOptionLabel: string;
+    requestedServiceType: SurfUsageServiceType | null;
     canSubmit: boolean;
     roleLabel: string;
     lockedReason: string | null;
@@ -88,6 +104,7 @@ export type ShopMeetingSurfUsageData = {
     startTime: string;
     endTime: string;
     location: string;
+    actualUsageReview: ActualUsageReviewAvailability;
   };
   usageItems: Array<{
     id: number;
@@ -122,6 +139,7 @@ export type ShopMeetingSurfUsageData = {
     participantName: string;
     companionId: number | null;
     requestedOptionLabel: string;
+    requestedServiceType?: SurfUsageServiceType | null;
     submissionStatus: "missing" | "submitted" | "confirmed";
     submittedAt: string | null;
     confirmedAt: string | null;
@@ -176,9 +194,15 @@ function getParticipantType(companionId: number | null) {
 }
 
 function getRequestedOptionLabel(participant: { hasLesson: boolean; hasRental: boolean }) {
-  if (participant.hasLesson) return "신청: 강습+장비";
-  if (participant.hasRental) return "신청: 장비만";
-  return "신청: 참가만";
+  if (participant.hasLesson) return "강습+장비";
+  if (participant.hasRental) return "장비만";
+  return "이용 안 함";
+}
+
+function getRequestedServiceType(participant: { hasLesson: boolean; hasRental: boolean }): SurfUsageServiceType | null {
+  if (participant.hasLesson) return "LESSON_PACKAGE";
+  if (participant.hasRental) return "EQUIPMENT_RENTAL";
+  return null;
 }
 
 function getSubmissionStatus(submission: UsageSubmissionRow | null): "missing" | "submitted" | "confirmed" {
@@ -279,6 +303,7 @@ export async function getParticipantMeetingSurfUsageData(
     select: {
       id: true,
       date: true,
+      meetingGroupId: true,
       participants: {
         where: {
           status: "APPROVED",
@@ -294,6 +319,8 @@ export async function getParticipantMeetingSurfUsageData(
           name: true,
           kakaoId: true,
           companionId: true,
+          hasLesson: true,
+          hasRental: true,
           companion: {
             select: {
               ownerKakaoId: true,
@@ -338,7 +365,7 @@ export async function getParticipantMeetingSurfUsageData(
   if (!meeting) return null;
 
   const usageItems = await ensureMeetingSurfUsageItems(meetingId);
-  const usageOpen = isMeetingOrderOpen(meeting.date);
+  const usageOpen = isParticipantActualUsageOpen(meeting);
 
   return {
     meeting: {
@@ -353,6 +380,12 @@ export async function getParticipantMeetingSurfUsageData(
         name: item.name,
         description: item.description,
         serviceType: asServiceType(item.serviceType),
+        regularMemberUnitPrice: item.memberBillingPolicy === "ALL_SHOP"
+          ? item.shopPrice
+          : item.memberBillingPolicy === "REGULAR_FIXED_COMPANION_SHOP"
+            ? item.regularMemberPrice
+            : 0,
+        companionMemberUnitPrice: item.shopPrice,
       })),
     participants: meeting.participants.map((participant) => {
       const access = getFoodOrderParticipantAccess({
@@ -366,7 +399,9 @@ export async function getParticipantMeetingSurfUsageData(
       const status = getSubmissionStatus(submission);
       const canSubmit = access.canOrder && usageOpen && status !== "confirmed";
       const lockedReason = !usageOpen
-        ? "이용 내역은 모임 당일에만 제출할 수 있습니다."
+        ? meeting.meetingGroupId
+          ? "해당 날짜가 시작되면 실제 이용을 제출할 수 있습니다."
+          : "이용 내역은 모임 당일에만 제출할 수 있습니다."
         : status === "confirmed"
           ? "샵에서 이용 내역을 확정했습니다."
           : access.lockedReason;
@@ -375,6 +410,8 @@ export async function getParticipantMeetingSurfUsageData(
         participantId: participant.id,
         name: participant.name,
         companionId: participant.companionId,
+        requestedOptionLabel: getRequestedOptionLabel(participant),
+        requestedServiceType: getRequestedServiceType(participant),
         canSubmit,
         roleLabel:
           access.orderRole === "owner_proxy"
@@ -433,6 +470,10 @@ export async function submitParticipantSurfUsage(
     select: {
       id: true,
       date: true,
+      meetingGroupId: true,
+      billingReviewConfirmedAt: true,
+      billingPublishedAt: true,
+      settlementOpen: true,
     },
   });
 
@@ -440,8 +481,14 @@ export async function submitParticipantSurfUsage(
     throw new Error("모임을 찾을 수 없습니다.");
   }
 
-  if (!isMeetingOrderOpen(meeting.date)) {
-    throw new Error("이용 내역은 모임 당일에만 제출할 수 있습니다.");
+  if (!isParticipantActualUsageOpen(meeting)) {
+    throw new Error(meeting.meetingGroupId
+      ? "해당 날짜가 시작되면 실제 이용을 제출할 수 있습니다."
+      : "이용 내역은 모임 당일에만 제출할 수 있습니다.");
+  }
+
+  if (meeting.billingReviewConfirmedAt || meeting.billingPublishedAt || meeting.settlementOpen) {
+    throw new Error("청구 검토가 시작되어 실제 이용 내역이 잠겼습니다.");
   }
 
   const participant = await prisma.participant.findFirst({
@@ -538,6 +585,9 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       startTime: true,
       endTime: true,
       location: true,
+      billingReviewConfirmedAt: true,
+      billingPublishedAt: true,
+      settlementOpen: true,
       participants: {
         where: { status: "APPROVED" },
         orderBy: { submittedAt: "asc" },
@@ -635,6 +685,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       participantName: participant.name,
       companionId: participant.companionId,
       requestedOptionLabel: getRequestedOptionLabel(participant),
+      requestedServiceType: getRequestedServiceType(participant),
       submissionStatus,
       submittedAt: submission?.submittedAt.toISOString() ?? null,
       confirmedAt: submission?.confirmedAt?.toISOString() ?? null,
@@ -650,6 +701,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       startTime: meeting.startTime,
       endTime: meeting.endTime,
       location: meeting.location,
+      actualUsageReview: getActualUsageReviewAvailability(meeting),
     },
     usageItems: usageItems.map((item) => ({
       id: item.id,
@@ -683,12 +735,32 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
   };
 }
 
+async function requireActualUsageReviewOpen(meetingId: number) {
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: {
+      date: true,
+      endTime: true,
+      billingReviewConfirmedAt: true,
+      billingPublishedAt: true,
+      settlementOpen: true,
+    },
+  });
+
+  if (!meeting) throw new Error("모임을 찾을 수 없습니다.");
+
+  const availability = getActualUsageReviewAvailability(meeting);
+  if (!availability.editable) throw new Error(availability.reason);
+}
+
 export async function saveShopParticipantSurfUsage(
   meetingId: number,
   participantId: number,
   rawItems: unknown,
   actorKakaoId: string | null
 ) {
+  await requireActualUsageReviewOpen(meetingId);
+
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, meetingId, status: "APPROVED" },
     select: { id: true },
@@ -749,6 +821,8 @@ export async function confirmShopParticipantSurfUsage(
   participantId: number,
   actorKakaoId: string | null
 ) {
+  await requireActualUsageReviewOpen(meetingId);
+
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, meetingId, status: "APPROVED" },
     select: { id: true },
@@ -783,6 +857,19 @@ export async function saveShopSurfUsageCatalog(
 ) {
   if (!Array.isArray(rawItems)) {
     throw new Error("items가 필요합니다.");
+  }
+
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: {
+      billingReviewConfirmedAt: true,
+      billingPublishedAt: true,
+      settlementOpen: true,
+    },
+  });
+  if (!meeting) throw new Error("모임을 찾을 수 없습니다.");
+  if (meeting.billingReviewConfirmedAt || meeting.billingPublishedAt || meeting.settlementOpen) {
+    throw new Error("청구 검토가 시작되어 이용 항목 설정이 잠겼습니다.");
   }
 
   await ensureMeetingSurfUsageItems(meetingId);

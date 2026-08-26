@@ -15,7 +15,9 @@ function isParticipant(value: unknown): value is AdminMeetingParticipant {
     && "hasLesson" in value && typeof value.hasLesson === "boolean"
     && "hasBus" in value && typeof value.hasBus === "boolean"
     && "hasRental" in value && typeof value.hasRental === "boolean"
+    && "usesClubLodging" in value && typeof value.usesClubLodging === "boolean"
     && "status" in value && typeof value.status === "string"
+    && "attendanceStatus" in value && typeof value.attendanceStatus === "string"
     && "waitlistPosition" in value && (typeof value.waitlistPosition === "number" || value.waitlistPosition === null)
     && "isPenalized" in value && typeof value.isPenalized === "boolean"
     && "cancelledAt" in value && nullableString(value.cancelledAt)
@@ -33,6 +35,7 @@ export function isAdminMeetingDetail(value: unknown): value is AdminMeetingDetai
     && "description" in value && nullableString(value.description)
     && "isOpen" in value && typeof value.isOpen === "boolean"
     && "meetingType" in value && typeof value.meetingType === "string"
+    && "overnightGroup" in value && (typeof value.overnightGroup === "object" || value.overnightGroup === null)
     && "participants" in value && Array.isArray(value.participants) && value.participants.every(isParticipant)
     && "approvedCount" in value && typeof value.approvedCount === "number";
 }

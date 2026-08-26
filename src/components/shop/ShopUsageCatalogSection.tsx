@@ -108,7 +108,7 @@ export function ShopUsageCatalogSection({
   }
 
   return (
-    <details className="brand-panel-white overflow-hidden rounded-[1.6rem]">
+    <details className="brand-panel-white overflow-hidden rounded-[1.6rem]" id="usage-catalog">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
         <span className="min-w-0">
           <span className="block text-sm font-extrabold text-brand-text">이용 항목 설정</span>

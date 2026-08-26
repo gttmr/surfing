@@ -16,6 +16,7 @@ function RecipientSection({
   data,
   selectedRecipientKey,
   showAmounts,
+  editable,
   drafts,
   submittingFor,
   onToggle,
@@ -28,6 +29,7 @@ function RecipientSection({
   readonly data: AdminSettlementData;
   readonly selectedRecipientKey: string | null;
   readonly showAmounts: boolean;
+  readonly editable: boolean;
   readonly drafts: Readonly<Record<number, SettlementDraft>>;
   readonly submittingFor: number | null;
   readonly onToggle: (key: string) => void;
@@ -54,6 +56,7 @@ function RecipientSection({
             participants={participants}
             expanded={selectedRecipientKey === key}
             showAmounts={showAmounts}
+            editable={editable}
             drafts={drafts}
             submittingFor={submittingFor}
             onToggle={() => onToggle(key)}
@@ -71,6 +74,7 @@ export function AdminMeetingSettlementRecipients({
   data,
   selectedRecipientKey,
   showAmounts,
+  editable,
   drafts,
   submittingFor,
   onToggle,
@@ -81,6 +85,7 @@ export function AdminMeetingSettlementRecipients({
   readonly data: AdminSettlementData;
   readonly selectedRecipientKey: string | null;
   readonly showAmounts: boolean;
+  readonly editable: boolean;
   readonly drafts: Readonly<Record<number, SettlementDraft>>;
   readonly submittingFor: number | null;
   readonly onToggle: (key: string) => void;
@@ -88,14 +93,14 @@ export function AdminMeetingSettlementRecipients({
   readonly onAddAdjustment: (participantId: number) => void;
   readonly onRequestDelete: (target: NonNullable<AdjustmentDeleteTarget>) => void;
 }) {
-  const pendingRecipients = data.recipients.filter((recipient) => !recipient.completed);
-  const completedRecipients = data.recipients.filter((recipient) => recipient.completed);
+  const pendingRecipients = data.recipients.filter((recipient) => !recipient.verified);
+  const completedRecipients = data.recipients.filter((recipient) => recipient.verified);
 
   if (data.recipients.length === 0) {
     return (
       <div className="brand-panel-white rounded-3xl px-5 py-10 text-center" role="status">
-        <p className="text-sm font-bold text-brand-text">정산 수신자가 없습니다.</p>
-        <p className="brand-text-subtle mt-1 text-xs">참가자 정산 정보가 준비되면 여기에 표시됩니다.</p>
+        <p className="text-sm font-bold text-brand-text">청구 대상자가 없습니다.</p>
+        <p className="brand-text-subtle mt-1 text-xs">참가자별 청구 항목이 준비되면 여기에 표시됩니다.</p>
       </div>
     );
   }
@@ -103,11 +108,12 @@ export function AdminMeetingSettlementRecipients({
   return (
     <div className="space-y-6">
       <RecipientSection
-        title="정산 대기"
+        title="청구 대상"
         recipients={pendingRecipients}
         data={data}
         selectedRecipientKey={selectedRecipientKey}
         showAmounts={showAmounts}
+        editable={editable}
         drafts={drafts}
         submittingFor={submittingFor}
         onToggle={onToggle}
@@ -116,11 +122,12 @@ export function AdminMeetingSettlementRecipients({
         onRequestDelete={onRequestDelete}
       />
       <RecipientSection
-        title="송금 완료"
+        title="입금 완료"
         recipients={completedRecipients}
         data={data}
         selectedRecipientKey={selectedRecipientKey}
         showAmounts={showAmounts}
+        editable={editable}
         drafts={drafts}
         submittingFor={submittingFor}
         onToggle={onToggle}

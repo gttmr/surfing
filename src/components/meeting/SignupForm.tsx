@@ -49,7 +49,10 @@ export function SignupForm({
       hasLesson,
       hasBus,
       hasRental,
+      day2HasRental,
+      usesClubLodging,
       participantOptionPricingGuide,
+      pricingPreview,
       nameError,
       submitting,
       serverError,
@@ -63,6 +66,8 @@ export function SignupForm({
       mySignupHasLesson,
       mySignupHasBus,
       mySignupHasRental,
+      mySignupDay2HasRental,
+      mySignupUsesClubLodging,
       expandedManagedCompanions,
       companions,
       selectedCompanions,
@@ -86,6 +91,10 @@ export function SignupForm({
       setShowMySignupDetails,
       setSubmissionResult,
       setMySignupNote,
+      setDay2HasRental,
+      setUsesClubLodging,
+      setMySignupDay2HasRental,
+      setMySignupUsesClubLodging,
       setExpandedManagedCompanions,
       setSelectedCompanions,
       setSelectedCompanionIdsForMeeting,
@@ -116,6 +125,15 @@ export function SignupForm({
     initialData,
     onMeetingChange,
   });
+  const overnightDay2 = meeting.overnightGroup?.days[1];
+  const overnightLodgingFee = meeting.overnightGroup?.lodgingFee ?? 0;
+  const overnightDay2Label = overnightDay2
+    ? (() => {
+        const date = new Date(`${overnightDay2.date}T00:00:00`);
+        const [, month, day] = overnightDay2.date.split("-");
+        return `${Number(month)}월 ${Number(day)}일(${DAY_KO[date.getDay()]})`;
+      })()
+    : "2일차";
 
   useEffect(() => {
     const authError = searchParams.get("auth_error");
@@ -152,16 +170,25 @@ export function SignupForm({
       <CompanionSignupPanel
         meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
+        isOvernight={Boolean(meeting.overnightGroup)}
+        overnightDay2Label={overnightDay2Label}
+        overnightLodgingFee={overnightLodgingFee}
+        overnightDays={meeting.overnightGroup?.days}
         linkedStatus={linkedStatus}
         serverError={serverError}
         participantOptionPricingGuide={participantOptionPricingGuide}
+        pricingPreview={pricingPreview}
         updatingLinked={updatingLinked}
         submittingLinked={submittingLinked}
         hasBus={hasBus}
         hasLesson={hasLesson}
         hasRental={hasRental}
+        day2HasRental={day2HasRental}
+        usesClubLodging={usesClubLodging}
         onSetMainBusChoice={setMainBusChoice}
         onSetMainShopOption={setMainShopOption}
+        onSetMainDay2Rental={setDay2HasRental}
+        onSetMainLodging={setUsesClubLodging}
         onUpdateLinkedOption={(field, value) => {
           void handleUpdateLinkedOption(field, value);
         }}
@@ -195,8 +222,13 @@ export function SignupForm({
       <ExistingSignupPanel
         meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
+        isOvernight={Boolean(meeting.overnightGroup)}
+        overnightDay2Label={overnightDay2Label}
+        overnightLodgingFee={overnightLodgingFee}
+        overnightDays={meeting.overnightGroup?.days}
         meetingDisplay={meetingDisplay}
         participantOptionPricingGuide={participantOptionPricingGuide}
+        pricingPreview={pricingPreview}
         profileName={profileName ?? name}
         serverError={serverError}
         myParticipant={myParticipant}
@@ -207,6 +239,8 @@ export function SignupForm({
         mySignupHasBus={mySignupHasBus}
         mySignupHasLesson={mySignupHasLesson}
         mySignupHasRental={mySignupHasRental}
+        mySignupDay2HasRental={mySignupDay2HasRental}
+        mySignupUsesClubLodging={mySignupUsesClubLodging}
         companions={companions}
         signedUpCompanionData={signedUpCompanionData}
         companionOptions={companionOptions}
@@ -225,6 +259,8 @@ export function SignupForm({
         onMySignupNoteChange={setMySignupNote}
         onSetMySignupBusChoice={setMySignupBusChoice}
         onSetMySignupShopOption={setMySignupShopOption}
+        onSetMySignupDay2Rental={setMySignupDay2HasRental}
+        onSetMySignupLodging={setMySignupUsesClubLodging}
         onToggleExpandedCompanion={(id) => {
           setExpandedManagedCompanions((prev) => {
             const next = new Set(prev);
@@ -260,6 +296,9 @@ export function SignupForm({
   return (
     <RegularSignupPanel
       isIrregularMeeting={isIrregularMeeting}
+      isOvernight={Boolean(meeting.overnightGroup)}
+      overnightDay2Label={overnightDay2Label}
+      overnightLodgingFee={overnightLodgingFee}
       duplicate={duplicate}
       serverError={serverError}
       name={name}
@@ -269,7 +308,10 @@ export function SignupForm({
       hasBus={hasBus}
       hasLesson={hasLesson}
       hasRental={hasRental}
+      day2HasRental={day2HasRental}
+      usesClubLodging={usesClubLodging}
       participantOptionPricingGuide={participantOptionPricingGuide}
+      pricingPreview={pricingPreview}
       companions={companions}
       selectedCompanions={selectedCompanions}
       companionOptions={companionOptions}
@@ -286,6 +328,8 @@ export function SignupForm({
       onNoteChange={setNote}
       onSetMainBusChoice={setMainBusChoice}
       onSetMainShopOption={setMainShopOption}
+      onSetMainDay2Rental={setDay2HasRental}
+      onSetMainLodging={setUsesClubLodging}
       onSelectCompanion={(id) => {
         setSelectedCompanions((prev) => {
           const next = new Set(prev);

@@ -102,7 +102,7 @@ export function AdminMemberFeesSection({
         dirty={dirty}
         editing={editing}
         onToggleEditing={onToggleEditing}
-        roleLabel="회원 정산에 반영"
+        roleLabel="회원 청구에 반영"
         summary={`정회원 참가 ${formatWon(snapshot[PRICING_SETTING_KEYS.regularBaseFee])} · 동반인 참가 ${formatWon(snapshot[PRICING_SETTING_KEYS.companionBaseFee])}`}
         title="참가비와 옵션 비용"
       />
@@ -159,7 +159,7 @@ export function AdminFoodSupportSection({
         dirty={dirty}
         editing={editing}
         onToggleEditing={onToggleEditing}
-        roleLabel="식음료 정산에 반영"
+        roleLabel="식음료 청구에 반영"
         summary={`1인당 최대 ${formatWon(snapshot.foodOrderSupportCap)}`}
         title="식음료 지원 한도"
       />
@@ -167,7 +167,7 @@ export function AdminFoodSupportSection({
         <div className="space-y-4 px-4 py-5" id="food-support-editor">
           <PricingInput description="참가자별 식음료 주문에서 차감되는 최대 금액" disabled={disabled} error={error} label="1인당 지원 한도" name="foodOrderSupportCap" onChange={onChange} value={draft.foodOrderSupportCap} />
           <div aria-label="식음료 지원 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
-            <p className="text-xs font-bold text-brand-text">정산 반영 미리보기</p>
+            <p className="text-xs font-bold text-brand-text">회원 부담 미리보기</p>
             <p className="brand-text-muted mt-2 text-sm">참가자별 식음료 주문 금액에서 최대 <strong className="text-brand-text">{formatWon(draft.foodOrderSupportCap)}</strong>까지 지원됩니다.</p>
           </div>
         </div>

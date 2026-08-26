@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
-import { MobileDock } from "@/components/ui/MobileShell";
+import { MobileAppHeader, MobileDock } from "@/components/ui/MobileShell";
 
 interface ShopLayoutProps {
   children: React.ReactNode;
 }
 
 const NAV_ITEMS = [
-  { href: "/shop", label: "주문보드", icon: "receipt_long", exact: true },
-  { href: "/shop/usage", label: "장비이용", icon: "checklist", exact: false },
-  { href: "/shop/menus", label: "메뉴관리", icon: "restaurant_menu", exact: false },
+  { href: "/shop", label: "홈", icon: "dashboard", exact: true },
+  { href: "/shop/orders", label: "주문", icon: "receipt_long", exact: false },
+  { href: "/shop/usage", label: "이용 확인", icon: "checklist", exact: false },
+  { href: "/shop/menus", label: "메뉴 관리", icon: "restaurant_menu", exact: false },
 ];
 
 export function ShopLayout({ children }: ShopLayoutProps) {
@@ -31,47 +32,30 @@ export function ShopLayout({ children }: ShopLayoutProps) {
 
   return (
     <div className="min-h-screen bg-brand-page text-brand-text">
-      <header className="brand-header-surface sticky top-0 z-20">
-        <div className="mx-auto flex w-full max-w-[430px] items-center justify-between px-4 py-3 md:max-w-5xl md:px-6">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="brand-link text-sm font-semibold transition-colors">&larr; 사이트</Link>
-            <span className="brand-text-subtle">|</span>
-            <span className="font-headline text-sm font-extrabold tracking-[-0.02em]">샵 포털</span>
-          </div>
+      <MobileAppHeader
+        context="샵 운영"
+        trailing={(
+          <>
+            <Link aria-label="내 정보와 화면 전환" className="brand-touch-target flex items-center justify-center rounded-full" href="/profile">
+              <Icon className="text-[22px]" name="account_circle" />
+            </Link>
           <button
+            aria-label="로그아웃"
             type="button"
             onClick={handleLogout}
-            className="brand-button-secondary rounded-full px-3 py-1.5 text-xs font-bold transition-colors"
+            className="brand-touch-target flex items-center justify-center rounded-full"
           >
-            로그아웃
+            <Icon className="text-[21px]" name="logout" />
           </button>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
-      <div className="mx-auto flex w-full max-w-[430px] flex-1 flex-col md:max-w-5xl md:flex-row">
-        <aside className="hidden w-52 shrink-0 p-4 md:block md:p-6">
-          <nav className="brand-card-soft sticky top-24 space-y-1 rounded-3xl p-3">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                aria-current={isActive(item) ? "page" : undefined}
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors ${
-                  isActive(item) ? "brand-chip-dark" : "brand-list-item brand-list-item-hover"
-                }`}
-              >
-                <Icon name={item.icon} className="text-[20px]" />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="flex-1 px-4 pb-28 pt-4 md:px-6 md:pb-8 md:pt-6">{children}</main>
+      <div className="flex w-full flex-1 flex-col">
+        <main className="flex-1 px-4 pb-28 pt-5">{children}</main>
       </div>
 
       <MobileDock
-        className="md:hidden"
         items={NAV_ITEMS.map((item) => ({
           active: isActive(item),
           href: item.href,

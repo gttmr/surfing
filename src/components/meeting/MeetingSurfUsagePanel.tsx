@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ParticipantMeetingSurfUsageData } from "@/lib/surf-usage-data";
+import { formatWon } from "@/lib/format";
 
 type DraftMap = Record<number, Record<number, number>>;
 type ParticipantRow = ParticipantMeetingSurfUsageData["participants"][number];
@@ -13,9 +14,13 @@ function buildDrafts(data: ParticipantMeetingSurfUsageData): DraftMap {
       Object.fromEntries(
         data.usageItems.map((item) => [
           item.id,
-          participant.entries
-            .filter((entry) => entry.usageItemId === item.id)
-            .reduce((sum, entry) => sum + entry.quantity, 0),
+          (() => {
+            const submittedQuantity = participant.entries
+              .filter((entry) => entry.usageItemId === item.id)
+              .reduce((sum, entry) => sum + entry.quantity, 0);
+            if (participant.submissionStatus !== "missing" || participant.entries.length > 0) return submittedQuantity;
+            return participant.requestedServiceType === item.serviceType ? 1 : 0;
+          })(),
         ])
       ),
     ])
@@ -23,9 +28,9 @@ function buildDrafts(data: ParticipantMeetingSurfUsageData): DraftMap {
 }
 
 function getStatusLabel(status: ParticipantRow["submissionStatus"]) {
-  if (status === "confirmed") return "샵 확정";
+  if (status === "confirmed") return "샵 확인";
   if (status === "submitted") return "제출됨";
-  return "미제출";
+  return "입력 필요";
 }
 
 function getStatusChipClass(status: ParticipantRow["submissionStatus"]) {
@@ -98,6 +103,24 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
     return data.usageItems.reduce((sum, item) => sum + (drafts[participantId]?.[item.id] ?? 0), 0);
   }
 
+  function getDraftSummary(participantId: number) {
+    if (!data) return "이용 없음";
+    return data.usageItems
+      .filter((item) => (drafts[participantId]?.[item.id] ?? 0) > 0)
+      .map((item) => `${item.name} ${drafts[participantId]?.[item.id]}`)
+      .join(" · ") || "이용 없음";
+  }
+
+  function getExpectedMemberAmount(participant: ParticipantRow) {
+    if (!data) return 0;
+    return data.usageItems.reduce((sum, item) => {
+      const unitPrice = participant.companionId === null
+        ? item.regularMemberUnitPrice
+        : item.companionMemberUnitPrice;
+      return sum + unitPrice * (drafts[participant.participantId]?.[item.id] ?? 0);
+    }, 0);
+  }
+
   async function handleSubmit(participantId: number) {
     if (!data) return;
     const participant = participants.find((item) => item.participantId === participantId);
@@ -133,7 +156,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
   if (!data) {
     return (
       <section className="brand-card-soft rounded-2xl p-4">
-        <h3 className="text-base font-extrabold text-brand-text">실제 이용 내역</h3>
+        <h3 className="text-base font-extrabold text-brand-text">실제 이용 확인</h3>
         <p className="brand-text-subtle mt-1 text-xs">{error ?? "이용 항목을 불러오는 중입니다."}</p>
       </section>
     );
@@ -143,8 +166,8 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
     <section className="brand-card-soft space-y-4 rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-extrabold text-brand-text">실제 이용 내역</h3>
-          <p className="brand-text-subtle mt-1 text-xs">당일 실제 이용한 항목을 제출해 주세요. 금액은 정산 공개 때 확인합니다.</p>
+          <h3 className="text-base font-extrabold text-brand-text">실제 이용 확인</h3>
+          <p className="brand-text-subtle mt-1 text-xs">신청한 예정과 다르게 이용했다면 실제 수량으로 고쳐 주세요. 최종 금액은 청구 공개 후 확정됩니다.</p>
         </div>
         <span
           className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -196,6 +219,12 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
 
               {expanded ? (
                 <div className="border-t border-brand-divider p-3">
+                  <div className="mb-3 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 rounded-xl bg-brand-primary-soft px-3 py-3 text-xs">
+                    <span className="brand-text-subtle font-semibold">이용 예정</span>
+                    <strong className="text-brand-text">{participant.requestedOptionLabel}</strong>
+                    <span className="brand-text-subtle font-semibold">실제 이용</span>
+                    <strong className="text-brand-text">{getDraftSummary(participant.participantId)}</strong>
+                  </div>
                   {participant.canSubmit ? (
                     <>
                       <div className="space-y-2">
@@ -216,6 +245,8 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                                 <button
                                   type="button"
                                   onClick={() => updateQuantity(participant.participantId, item.id, value - 1)}
+                                  aria-label={`${participant.name} ${item.name} 수량 줄이기`}
+                                  disabled={value === 0}
                                   className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
                                 >
                                   -
@@ -224,6 +255,8 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                                 <button
                                   type="button"
                                   onClick={() => updateQuantity(participant.participantId, item.id, value + 1)}
+                                  aria-label={`${participant.name} ${item.name} 수량 늘리기`}
+                                  disabled={value === 20}
                                   className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
                                 >
                                   +
@@ -232,6 +265,10 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                             </div>
                           );
                         })}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-primary-soft px-3 py-2 text-xs">
+                        <span className="font-semibold text-brand-text">예상 회원 부담</span>
+                        <strong className="text-sm text-brand-text">{formatWon(getExpectedMemberAmount(participant))}</strong>
                       </div>
                       <button
                         type="button"

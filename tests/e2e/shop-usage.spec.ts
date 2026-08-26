@@ -15,6 +15,22 @@ async function prepareShopUsageTest(context: BrowserContext) {
   if (!evidenceDirectory) throw new Error("EVIDENCE_DIR is required");
   await installBrowserEgressGuard(context, evidenceDirectory);
   await seedMobileUx(client, randomUUID(), evidenceDirectory);
+  const meeting = await client.meeting.findUniqueOrThrow({
+    where: { id: 8101 },
+    select: { date: true },
+  });
+  const endedDate = new Date(`${meeting.date}T00:00:00Z`);
+  endedDate.setUTCDate(endedDate.getUTCDate() - 1);
+  await client.meeting.update({
+    where: { id: 8101 },
+    data: {
+      date: endedDate.toISOString().slice(0, 10),
+      isOpen: false,
+      settlementOpen: false,
+      billingReviewConfirmedAt: null,
+      billingPublishedAt: null,
+    },
+  });
   await context.clearCookies();
   const storage = qaStorageState("shop");
   if (storage && typeof storage !== "string") await context.addCookies(storage.cookies);
@@ -108,7 +124,12 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.afterAll(async () => {
-  await client.$disconnect();
+  try {
+    if (!evidenceDirectory) throw new Error("EVIDENCE_DIR is required");
+    await seedMobileUx(client, randomUUID(), evidenceDirectory);
+  } finally {
+    await client.$disconnect();
+  }
 });
 
 test.setTimeout(90_000);
@@ -126,7 +147,7 @@ test("usage review filters exact counts and guards dirty search, filter, and ope
 
   await expect(page.getByRole("button", { name: "확인 필요 29" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "미제출 28" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "확인 필요 1", exact: true })).toBeVisible();
+  await expect(page.getByText(/확인 필요 1명 · 미제출 28명/)).toBeVisible();
   await expect(page.getByRole("button", { name: "확정 1" })).toBeVisible();
   await expect(participantRows(page)).toHaveCount(29);
   await expect(participantRows(page).locator('button[aria-expanded="true"]')).toHaveCount(0);

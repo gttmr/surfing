@@ -250,12 +250,12 @@ export function ProfileHeaderSection({
     <>
       <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
         <div className="mx-auto flex h-16 w-full max-w-[430px] items-center justify-between px-4">
-          <Link href="/" className="flex h-12 items-center" onClick={onNavigate}>
+          <Link aria-label="모임 달력 홈으로 이동" href="/" className="flex h-12 items-center" onClick={onNavigate}>
             <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
           </Link>
           <div className="flex items-center gap-2">
             <button
-              className="brand-button-secondary rounded-xl px-3 py-2 text-xs font-bold transition-colors"
+              className="brand-button-secondary min-h-11 rounded-xl px-3 text-xs font-bold transition-colors"
               onClick={onLogout}
               type="button"
             >
@@ -309,23 +309,24 @@ export function PersonalJourneyLinks({
   canAccessShopPortal: boolean;
   onNavigate: MouseEventHandler<HTMLAnchorElement>;
 }) {
+  if (!canAccessAdminPortal && !canAccessShopPortal) return null;
+
   const links = [
-    { href: "/", icon: "home", label: "모임 홈", detail: "일정과 신청 확인" },
-    { href: "/settlement", icon: "receipt_long", label: "내 정산", detail: "모임별 금액 확인" },
+    { href: "/", icon: "calendar_month", label: "회원 화면", detail: "모임 참가와 청구 확인" },
     ...(canAccessShopPortal
-      ? [{ href: "/shop", icon: "storefront", label: "샵 포털", detail: "주문과 이용 관리" }]
+      ? [{ href: "/shop", icon: "storefront", label: "샵 운영", detail: "주문과 실제 이용 확인" }]
       : []),
     ...(canAccessAdminPortal
-      ? [{ href: "/admin/login", icon: "admin_panel_settings", label: "관리자", detail: "현재 로그인으로 이동" }]
+      ? [{ href: "/admin", icon: "admin_panel_settings", label: "관리자", detail: "모임과 청구 운영" }]
       : []),
   ];
 
   return (
-    <nav aria-label="개인 메뉴" className="brand-card-soft rounded-3xl p-3">
-      <p className="brand-text-subtle px-2 pb-2 text-xs font-bold">바로 가기</p>
-      <div className="grid grid-cols-2 gap-2">
+    <nav aria-label="화면 전환" className="border-y border-brand-divider py-4">
+      <p className="brand-text-subtle pb-2 text-xs font-bold">화면 전환</p>
+      <div className="divide-y divide-brand-divider">
         {links.map((link) => (
-          <Link className="brand-panel-white flex min-h-20 items-center gap-3 rounded-2xl p-3" href={link.href} key={link.href} onClick={onNavigate}>
+          <Link className="flex min-h-16 items-center gap-3 py-3" href={link.href} key={link.href} onClick={onNavigate}>
             <span className="brand-chip-soft flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
               <Icon className="text-[21px]" name={link.icon} />
             </span>
@@ -333,6 +334,7 @@ export function PersonalJourneyLinks({
               <span className="block text-sm font-extrabold text-brand-text">{link.label}</span>
               <span className="brand-text-subtle mt-0.5 block text-[11px] leading-4">{link.detail}</span>
             </span>
+            <Icon className="brand-text-subtle ml-auto text-[19px]" name="chevron_right" />
           </Link>
         ))}
       </div>

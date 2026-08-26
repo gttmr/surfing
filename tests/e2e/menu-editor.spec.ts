@@ -226,7 +226,7 @@ test("confirmed category, menu, and option deletion moves focus to a surviving e
 
   await authenticate(context, "shop");
   await page.goto("/shop/menus", { waitUntil: "networkidle" });
-  await expect(page.getByText("샵 포털", { exact: true })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "샵 메뉴" }).getByRole("link", { name: /메뉴관리/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByText("샵 운영", { exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "샵 메뉴" }).getByRole("link", { name: "메뉴 관리", exact: true })).toHaveAttribute("aria-current", "page");
   await captureEvidence(page, testInfo.project.name, "deterministic-focus-shop-shell");
 });

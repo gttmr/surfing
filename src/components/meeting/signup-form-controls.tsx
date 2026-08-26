@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { formatWon } from "@/lib/format";
+import type { SignupBurdenPreview } from "@/lib/signup-pricing";
 
 export function KakaoIcon() {
   return (
@@ -58,7 +60,7 @@ export function OptionPricingHelp({ guide }: { guide: string }) {
 
 function segmentedButtonClass(active: boolean, disabled?: boolean) {
   return [
-    "flex-1 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
+    "flex min-h-11 flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-bold transition-colors",
     active
       ? "bg-brand-primary text-brand-primary-foreground"
       : "bg-brand-surface-elevated text-brand-text border border-brand-divider-strong",
@@ -114,36 +116,41 @@ export function ShopOptionChoice({
   onChange,
   disabled,
   trailing,
+  burden,
 }: {
   value: "lesson" | "rental" | null;
   onChange: (next: "lesson" | "rental" | null) => void;
   disabled?: boolean;
   trailing?: ReactNode;
+  burden?: SignupBurdenPreview;
 }) {
+  const choices = [
+    { value: "lesson" as const, label: "강습+장비", amount: (burden?.baseFee ?? 0) + (burden?.lessonFee ?? 0) },
+    { value: "rental" as const, label: "장비만", amount: (burden?.baseFee ?? 0) + (burden?.rentalFee ?? 0) },
+    { value: null, label: "이용 안 함", amount: burden?.baseFee ?? 0 },
+  ];
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-brand-text">샵 이용</p>
+        <p className="text-sm font-semibold text-brand-text">이용 예정</p>
         {trailing}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => onChange(value === "lesson" ? null : "lesson")}
-          disabled={disabled}
-          className={segmentedButtonClass(value === "lesson", disabled)}
-        >
-          강습+장비대여
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(value === "rental" ? null : "rental")}
-          disabled={disabled}
-          className={segmentedButtonClass(value === "rental", disabled)}
-        >
-          장비 대여만
-        </button>
+      <div className="grid grid-cols-3 gap-2">
+        {choices.map((choice) => (
+          <button
+            className={`${segmentedButtonClass(value === choice.value, disabled)} flex-col px-1.5 text-xs leading-4`}
+            disabled={disabled}
+            key={choice.label}
+            onClick={() => onChange(choice.value)}
+            type="button"
+          >
+            <span>{choice.label}</span>
+            {burden ? <span className="mt-0.5 text-[10px] font-semibold opacity-80">예상 {formatWon(choice.amount)}</span> : null}
+          </button>
+        ))}
       </div>
+      <p className="brand-text-subtle text-[11px] leading-5">예상 회원 부담입니다. 모임 후 실제 이용 확인 결과에 따라 최종 청구가 달라질 수 있습니다.</p>
     </div>
   );
 }

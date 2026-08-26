@@ -199,8 +199,8 @@ test("dirty profile navigation offers accessible stay and discard choices", asyn
   });
   expect(browserExitGuarded).toBe(true);
 
-  const settlementLink = page.getByRole("link", { name: /내 정산/ });
-  await settlementLink.click();
+  const homeLink = page.getByRole("link", { name: "모임 달력 홈으로 이동", exact: true });
+  await homeLink.click();
   const leaveDialog = page.getByRole("dialog", { name: "변경 내용을 버릴까요?" });
   await expect(leaveDialog).toBeVisible();
   await expect(leaveDialog.getByRole("button", { name: "닫기" })).toBeFocused();
@@ -211,7 +211,7 @@ test("dirty profile navigation offers accessible stay and discard choices", asyn
   await assertAccessible(page);
   await leaveDialog.getByRole("button", { name: "계속 편집" }).click();
   await expect(page).toHaveURL(/\/profile$/);
-  await expect(settlementLink).toBeFocused();
+  await expect(homeLink).toBeFocused();
   await expect(page.getByLabel("이름")).toHaveValue("이동 전 초안");
 
   await page.getByRole("button", { name: "로그아웃" }).click();
@@ -226,6 +226,7 @@ test("dirty profile navigation offers accessible stay and discard choices", asyn
   await expect(companionsTab).toHaveAttribute("aria-selected", "true");
   await expect(companionsTab).toBeFocused();
   await page.getByRole("tab", { name: /기본 정보/ }).click();
+  const settlementLink = page.getByRole("link", { name: "청구", exact: true });
   await settlementLink.click();
   await expect(page).toHaveURL(/\/settlement$/);
 });
@@ -265,29 +266,29 @@ test("settlement groups multiple meetings and provides an empty return path", as
   await authenticate(context, "member");
   await page.goto("/settlement", { waitUntil: "networkidle" });
   await expect(page.getByText("2건")).toBeVisible();
-  await expect(page.getByText("보낼 금액")).toHaveCount(2);
+  await expect(page.getByText("회원 부담", { exact: true })).toHaveCount(2);
   await expect(page.getByText("합성 서핑 해변 A")).toBeVisible();
   await expect(page.getByText("합성 서핑 해변 C")).toBeVisible();
   await expect(page.getByText("식음료", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("식음료 지원", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("정산 필요", { exact: true })).toBeVisible();
-  await expect(page.getByText("송금 완료", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "송금 완료로 표시" })).toBeVisible();
+  await expect(page.getByText("입금 필요", { exact: true })).toBeVisible();
+  await expect(page.getByText("납부 없음", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "입금했어요" })).toBeVisible();
   const openMeeting = page.locator("section").filter({ hasText: "합성 서핑 해변 A" });
-  const lineAmounts = await openMeeting.locator("dd").allTextContents();
+  const lineAmounts = await openMeeting.locator("dl").first().locator("dd").allTextContents();
   expect(lineAmounts.map((value) => Number(value.replace(/[^\d-]/g, ""))).reduce((sum, value) => sum + value, 0)).toBe(27_750);
-  await openMeeting.getByRole("button", { name: "송금 완료로 표시" }).click();
-  await expect(openMeeting.getByText("송금 완료", { exact: true })).toBeVisible();
-  await openMeeting.getByRole("button", { name: "완료 표시 취소" }).click();
-  await expect(openMeeting.getByText("정산 필요", { exact: true })).toBeVisible();
+  await openMeeting.getByRole("button", { name: "입금했어요" }).click();
+  await expect(openMeeting.getByText("입금 확인 중", { exact: true })).toBeVisible();
+  await openMeeting.getByRole("button", { name: "입금 알림 취소" }).click();
+  await expect(openMeeting.getByText("입금 필요", { exact: true })).toBeVisible();
   await capture(page, "settlement-multiple", testInfo.project.name);
   await assertNoHorizontalOverflow(page);
   await assertAccessible(page);
 
   await authenticatePayload(context, { kakaoId: "qa-user-35", nickname: "합성 회원 35" });
   await page.goto("/settlement", { waitUntil: "networkidle" });
-  await expect(page.getByText("정산할 항목이 아직 없습니다.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "프로필로 돌아가기", exact: true }).last()).toHaveAttribute("href", "/profile");
+  await expect(page.getByText("공개된 청구가 없습니다")).toBeVisible();
+  await expect(page.getByRole("link", { name: "모임 달력 보기", exact: true })).toHaveAttribute("href", "/");
 });
 
 test("legacy routes return not-found and role-aware portal links remain navigation-only", async ({ context, page }, testInfo) => {
@@ -300,14 +301,14 @@ test("legacy routes return not-found and role-aware portal links remain navigati
   await authenticate(context, "shop");
   await page.goto("/profile", { waitUntil: "networkidle" });
   const cookiesBefore = await context.cookies();
-  await expect(page.getByRole("link", { name: /샵 포털/ })).toHaveAttribute("href", "/shop");
-  await page.getByRole("link", { name: /샵 포털/ }).click();
+  await expect(page.getByRole("link", { name: /샵 운영/ })).toHaveAttribute("href", "/shop");
+  await page.getByRole("link", { name: /샵 운영/ }).click();
   await expect(page).toHaveURL(/\/shop/);
   expect((await context.cookies()).map((cookie) => cookie.value)).toEqual(cookiesBefore.map((cookie) => cookie.value));
 
   await authenticate(context, "kakao-admin");
   await page.goto("/profile", { waitUntil: "networkidle" });
-  await expect(page.getByRole("link", { name: /관리자/ })).toHaveAttribute("href", "/admin/login");
-  await expect(page.getByRole("link", { name: /내 정산/ })).toHaveAttribute("href", "/settlement");
+  await expect(page.getByRole("link", { name: /관리자/ })).toHaveAttribute("href", "/admin");
+  await expect(page.getByRole("link", { name: "청구", exact: true })).toHaveAttribute("href", "/settlement");
   await capture(page, "profile-role-navigation", testInfo.project.name);
 });

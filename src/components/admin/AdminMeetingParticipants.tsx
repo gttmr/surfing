@@ -8,7 +8,7 @@ import type { AdminMeetingParticipant } from "@/lib/admin-page-data";
 import type { ParticipantStatus } from "@/lib/types";
 
 export type ParticipantTab = "approved" | "waitlisted" | "cancelled" | "all";
-export type ParticipantAction = "approve" | "cancel";
+export type ParticipantAction = "approve" | "cancel" | "attended" | "absent" | "attendance-pending";
 
 type ParticipantActionRequest = {
   readonly action: ParticipantAction;
@@ -20,6 +20,7 @@ type AdminMeetingParticipantsProps = {
   readonly onChangeTab: (tab: ParticipantTab) => void;
   readonly onRequestAction: (request: ParticipantActionRequest) => void;
   readonly participants: readonly AdminMeetingParticipant[];
+  readonly attendanceLocked?: boolean;
 };
 
 const STATUS_GROUPS = [
@@ -53,9 +54,14 @@ function sortWithCompanions(participants: readonly AdminMeetingParticipant[]): A
   return result;
 }
 
-function ParticipantCard({ participant, onRequestAction }: { readonly participant: AdminMeetingParticipant; readonly onRequestAction: (request: ParticipantActionRequest) => void }) {
+function ParticipantCard({ attendanceLocked, participant, onRequestAction }: { readonly attendanceLocked: boolean; readonly participant: AdminMeetingParticipant; readonly onRequestAction: (request: ParticipantActionRequest) => void }) {
   const status = participantStatus(participant.status);
   const companion = participant.companionId !== null;
+  const attendanceLabel = participant.attendanceStatus === "ATTENDED"
+    ? "참석"
+    : participant.attendanceStatus === "ABSENT"
+      ? "불참"
+      : "참석 확인 필요";
   return (
     <article className={`brand-card-soft relative rounded-2xl p-3 ${companion ? "ml-5 border-l-2 border-l-brand-primary-border-strong" : ""}`}>
       <details>
@@ -65,6 +71,9 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
               <span className="w-full text-balance font-extrabold text-brand-text">{participant.name}</span>
               {companion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
               {status ? <StatusBadge size="sm" status={status} waitlistPosition={participant.waitlistPosition} /> : <span className="brand-chip-dimmed rounded px-2 py-0.5 text-xs">상태 확인 필요</span>}
+              {participant.status === "APPROVED" ? (
+                <span className={participant.attendanceStatus === "ATTENDED" ? "brand-chip-success rounded px-2 py-0.5 text-xs font-bold" : participant.attendanceStatus === "ABSENT" ? "brand-chip-dimmed rounded px-2 py-0.5 text-xs font-bold" : "brand-chip-danger rounded px-2 py-0.5 text-xs font-bold"}>{attendanceLabel}</span>
+              ) : null}
             </span>
             <span className="brand-text-subtle mt-1 block text-xs">세부 정보 펼치기</span>
           </span>
@@ -82,18 +91,48 @@ function ParticipantCard({ participant, onRequestAction }: { readonly participan
           {participant.note ? <p className="break-keep leading-5 text-brand-text">{participant.note}</p> : null}
           <p className="brand-text-subtle">신청 {new Date(participant.submittedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
           {participant.cancelledAt ? <p className="brand-text-subtle">취소 {new Date(participant.cancelledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p> : null}
+          {participant.status === "APPROVED" && attendanceLocked ? (
+            <p className="brand-text-subtle pt-2 text-xs font-semibold">청구 공개 후에는 참석 상태가 잠깁니다.</p>
+          ) : null}
+          {participant.status === "APPROVED" && !attendanceLocked ? (
+            <fieldset className="pt-2">
+              <legend className="mb-2 text-xs font-bold text-brand-text">실제 참석</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ["attended", "참석"],
+                  ["absent", "불참"],
+                  ["attendance-pending", "미확인"],
+                ] as const).map(([action, label]) => {
+                  const selected = (action === "attended" && participant.attendanceStatus === "ATTENDED")
+                    || (action === "absent" && participant.attendanceStatus === "ABSENT")
+                    || (action === "attendance-pending" && participant.attendanceStatus === "PENDING");
+                  return (
+                    <button
+                      aria-pressed={selected}
+                      className={`${selected ? "brand-button-primary" : "brand-button-secondary"} min-h-11 rounded-xl px-2 text-xs font-bold`}
+                      key={action}
+                      onClick={() => onRequestAction({ action, participant })}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : null}
         </div>
       </details>
       <div className="absolute right-3 top-3 flex flex-col items-stretch gap-1.5">
         {participant.status === "WAITLISTED" ? <button aria-label={`${participant.name} 참가 확정`} className="brand-button-confirm rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "approve", participant })} type="button">참가 확정</button> : null}
         {participant.status !== "CANCELLED" ? <button aria-label={`${participant.name} 참가 취소`} className="brand-button-danger rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "cancel", participant })} type="button">참가 취소</button> : null}
-        {participant.status === "CANCELLED" ? <button aria-label={`${participant.name} 참가 복구`} className="brand-button-confirm rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "approve", participant })} type="button">참가 복구</button> : null}
+        {participant.status === "CANCELLED" ? <button aria-label={`${participant.name} 참가 확정`} className="brand-button-confirm rounded-xl px-3 py-2 text-xs font-bold" onClick={() => onRequestAction({ action: "approve", participant })} type="button">참가 확정</button> : null}
       </div>
     </article>
   );
 }
 
-export function AdminMeetingParticipants({ activeTab, onChangeTab, onRequestAction, participants }: AdminMeetingParticipantsProps) {
+export function AdminMeetingParticipants({ activeTab, attendanceLocked = false, onChangeTab, onRequestAction, participants }: AdminMeetingParticipantsProps) {
   const [query, setQuery] = useState("");
   const counts = useMemo(() => ({
     approved: participants.filter((participant) => participant.status === "APPROVED").length,
@@ -146,7 +185,7 @@ export function AdminMeetingParticipants({ activeTab, onChangeTab, onRequestActi
                       <span>{group.label} <span className="brand-text-subtle ml-1 text-xs">{groupedParticipants.length}명</span></span>
                       <Icon className="brand-text-subtle text-[20px]" name="expand_more" />
                     </summary>
-                    <div className="mt-3 space-y-2">{groupedParticipants.map((participant) => <ParticipantCard key={participant.id} onRequestAction={onRequestAction} participant={participant} />)}</div>
+                    <div className="mt-3 space-y-2">{groupedParticipants.map((participant) => <ParticipantCard attendanceLocked={attendanceLocked} key={participant.id} onRequestAction={onRequestAction} participant={participant} />)}</div>
                   </details>
                 );
               })}

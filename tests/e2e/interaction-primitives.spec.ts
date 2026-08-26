@@ -70,7 +70,7 @@ test("home tabs and both member overlays preserve keyboard focus", async ({ cont
   await expect(tablist.getByRole("tab", { selected: true })).not.toHaveText(previousName ?? "");
   await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", await tablist.getByRole("tab", { selected: true }).getAttribute("id") ?? "missing");
   await page.keyboard.press("Home");
-  await expect(tablist.getByRole("tab", { name: "참가하기", selected: true })).toBeFocused();
+  await expect(tablist.getByRole("tab", { name: "내 참가", selected: true })).toBeFocused();
 
   const orderTrigger = page.getByRole("button", { name: /점심 메뉴 주문/ }).first();
   await orderTrigger.click();
@@ -145,10 +145,10 @@ test("profile and admin tabs use roving selection", async ({ context, page }, te
 
 test("shop dock and cancel dialog expose current location and focus contract", async ({ context, page }, testInfo) => {
   await authenticate(context, "shop");
-  await page.goto("/shop?meetingId=8101", { waitUntil: "networkidle" });
+  await page.goto("/shop/orders?meetingId=8101", { waitUntil: "networkidle" });
 
   const dock = page.getByRole("navigation", { name: "샵 메뉴" });
-  await expect(dock.getByRole("link", { name: /주문보드/ })).toHaveAttribute("aria-current", "page");
+  await expect(dock.getByRole("link", { name: "주문", exact: true })).toHaveAttribute("aria-current", "page");
   const cancelTrigger = page.getByRole("button", { name: /주문 취소$/ }).first();
   await cancelTrigger.click();
   const dialog = page.getByRole("dialog", { name: "주문을 취소할까요?" });

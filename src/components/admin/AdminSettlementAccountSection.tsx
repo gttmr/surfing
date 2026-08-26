@@ -51,9 +51,9 @@ export function AdminSettlementAccountSection({
         dirty={dirty}
         editing={editing}
         onToggleEditing={onToggleEditing}
-        roleLabel="정산받는 회원에게 표시"
+        roleLabel="입금이 필요한 회원에게 표시"
         summary={accountSummary(snapshot)}
-        title="정산 계좌"
+        title="입금 계좌"
       />
       {editing ? (
         <div className="space-y-4 px-4 py-5" id="settlement-account-editor">
@@ -84,7 +84,7 @@ export function AdminSettlementAccountSection({
               );
             })}
           </div>
-          <div aria-label="정산 계좌 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
+          <div aria-label="입금 계좌 초안 미리보기" className="brand-highlight-panel rounded-2xl p-4">
             <p className="text-sm font-bold text-brand-text">회원 화면 미리보기</p>
             <p className="brand-text-muted mt-2 text-sm">{accountSummary(draft)}</p>
           </div>

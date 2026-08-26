@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAdminDirtyNavigationGuard } from "@/components/admin/useAdminDirtyNavigationGuard";
 import { Dialog } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
-import { MobileDock } from "@/components/ui/MobileShell";
+import { MobileAppHeader, MobileDock } from "@/components/ui/MobileShell";
 
 interface AdminLayoutProps {
   readonly children: React.ReactNode;
@@ -17,11 +17,10 @@ interface AdminLayoutProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/admin", label: "공지", icon: "campaign", exact: true },
+  { href: "/admin", label: "홈", icon: "dashboard", exact: true },
   { href: "/admin/meetings", label: "모임", icon: "groups", exact: false },
   { href: "/admin/members", label: "회원", icon: "person_search", exact: false },
-  { href: "/admin/pricing", label: "비용", icon: "payments", exact: false },
-  { href: "/admin/menus", label: "메뉴", icon: "restaurant_menu", exact: false },
+  { href: "/admin/settlements", label: "정산", icon: "account_balance_wallet", exact: false },
   { href: "/admin/settings", label: "설정", icon: "settings", exact: false },
 ] as const;
 
@@ -66,43 +65,33 @@ export function AdminLayout({ children, dirtyNavigation }: AdminLayoutProps) {
           </button>
         </div>
       </Dialog>
-      <header className="brand-header-surface sticky top-0 z-20 border-b border-brand-divider pt-[var(--brand-safe-top)]">
-        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <p className="font-headline text-sm font-extrabold tracking-[-0.02em]">관리자</p>
-            <nav aria-label="서비스 화면" className="mt-1 flex items-center gap-3 text-xs font-semibold">
-              <Link
-                aria-disabled={isSaveInFlight || undefined}
-                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
-                href="/"
-                onClick={leaveGuard.onNavigate}
-                prefetch={false}
-                tabIndex={isSaveInFlight ? -1 : undefined}
-              >
-                <Icon className="text-[16px]" name="surfing" /> 회원 화면
-              </Link>
-              <Link
-                aria-disabled={isSaveInFlight || undefined}
-                className={`brand-link inline-flex items-center gap-1 ${isSaveInFlight ? "pointer-events-none cursor-not-allowed opacity-50" : ""}`}
-                href="/shop"
-                onClick={leaveGuard.onNavigate}
-                prefetch={false}
-                tabIndex={isSaveInFlight ? -1 : undefined}
-              >
-                <Icon className="text-[16px]" name="storefront" /> 샵 화면
-              </Link>
-            </nav>
-          </div>
+      <MobileAppHeader
+        context="관리자"
+        onHomeClick={leaveGuard.onNavigate}
+        trailing={(
+          <>
+            <Link
+              aria-disabled={isSaveInFlight || undefined}
+              aria-label="내 정보와 화면 전환"
+              className={`brand-touch-target flex items-center justify-center rounded-full ${isSaveInFlight ? "pointer-events-none opacity-50" : ""}`}
+              href="/profile"
+              onClick={leaveGuard.onNavigate}
+              tabIndex={isSaveInFlight ? -1 : undefined}
+            >
+              <Icon className="text-[22px]" name="account_circle" />
+            </Link>
           <button
+            aria-label="관리자 로그아웃"
             type="button"
             disabled={isSaveInFlight}
             onClick={leaveGuard.requestLogout}
-            className="brand-button-secondary shrink-0 rounded-full px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="brand-touch-target flex items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50"
           >
-            로그아웃
+            <Icon className="text-[21px]" name="logout" />
           </button>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
       <div className="mx-auto flex w-full flex-1 flex-col">
         <main className="flex-1 px-4 pb-32 pt-5">

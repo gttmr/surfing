@@ -8,6 +8,7 @@ import { selectShopOrderRows, summarizeShopOrderRows } from "@/lib/shop-order-qu
 import { ShopOrderActionDialog } from "./ShopOrderActionDialog";
 import { ShopOrderQueueControls } from "./ShopOrderQueueControls";
 import { ShopOrderQueueList } from "./ShopOrderQueueList";
+import { ShopOrderSoundAlert } from "./ShopOrderSoundAlert";
 import type { ShopOrderActionOptions, ShopOrderActionTarget } from "./types";
 import { useShopOrderQueue } from "./useShopOrderQueue";
 
@@ -56,6 +57,8 @@ export function ShopOrderQueue({
         summary={summary}
         total={queue.data.orderRows.length}
       />
+
+      <ShopOrderSoundAlert signal={queue.newOrderSignal} />
 
       <ShopOrderQueueList
         completedRows={completedRows}

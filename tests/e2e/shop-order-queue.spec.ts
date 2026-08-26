@@ -99,6 +99,41 @@ test("polls only while visible and refreshes once when visibility returns", asyn
   await expect(page.getByText(insertedMenu, { exact: true })).toBeVisible();
 });
 
+test("plays one opt-in chime for a newly arrived order and not for the initial queue", async ({ page }) => {
+  await openShopOrders(page);
+  await page.evaluate(() => {
+    const testWindow = window as typeof window & { __orderChimeStarts?: number };
+    testWindow.__orderChimeStarts = 0;
+    const originalStart = OscillatorNode.prototype.start;
+    Object.defineProperty(OscillatorNode.prototype, "start", {
+      configurable: true,
+      value(this: OscillatorNode, when = 0) {
+        testWindow.__orderChimeStarts = (testWindow.__orderChimeStarts ?? 0) + 1;
+        return originalStart.call(this, when);
+      },
+    });
+  });
+
+  const soundRegion = page.getByRole("region", { name: "새 주문 소리" });
+  await expect(soundRegion.getByText("꺼짐", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as typeof window & { __orderChimeStarts?: number }).__orderChimeStarts)).toBe(0);
+
+  await soundRegion.getByRole("button", { name: "켜기" }).click();
+  await expect(soundRegion.getByText("켜짐", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as typeof window & { __orderChimeStarts?: number }).__orderChimeStarts)).toBe(2);
+  await page.evaluate(() => { (window as typeof window & { __orderChimeStarts?: number }).__orderChimeStarts = 0; });
+
+  const insertedMenu = await insertVisibleShopOrder();
+  await page.getByRole("button", { name: "주문 목록 새로고침" }).click();
+  await expect(page.getByText(insertedMenu, { exact: true })).toBeVisible();
+  await expect(page.getByText("새 주문 1건이 들어왔습니다.")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { __orderChimeStarts?: number }).__orderChimeStarts)).toBe(2);
+
+  await page.getByRole("button", { name: "주문 목록 새로고침" }).click();
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as typeof window & { __orderChimeStarts?: number }).__orderChimeStarts)).toBe(2);
+});
+
 test("an old delayed poll cannot overwrite a mutation and a failed poll keeps last-good rows", async ({ page }, testInfo) => {
   await openShopOrders(page);
   const staleSnapshot = await (await page.request.get("/api/shop/meetings/8101/orders")).json();

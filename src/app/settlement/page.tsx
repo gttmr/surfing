@@ -1,11 +1,13 @@
 import Link from "next/link";
-import Image from "next/image";
 import { getSession } from "@/lib/session";
 import { getSettlementGroupsForKakaoId } from "@/lib/settlement";
 import { formatWon } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
-import { SettlementCompletionControl } from "@/components/settlement/SettlementCompletionControl";
+import { PaymentReportControl } from "@/components/settlement/SettlementCompletionControl";
 import { getSettlementChargeLines } from "@/lib/settlement-presentation";
+import { BillingAccountActions } from "@/components/settlement/BillingAccountActions";
+import { MemberDock, MobileAppHeader } from "@/components/ui/MobileShell";
+import { getOvernightMeetingSpan } from "@/lib/meeting-group";
 
 export const dynamic = "force-dynamic";
 
@@ -14,17 +16,11 @@ export default async function SettlementPage() {
   if (!session) {
     return (
       <div className="min-h-screen bg-brand-page text-brand-text">
-        <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
-          <div className="mx-auto flex h-16 w-full max-w-[430px] items-center justify-between px-4">
-            <Link href="/" className="flex h-12 items-center">
-              <Image alt="SDS Surfing logo" className="h-auto w-[78px]" height={716} priority src="/logo.png" width={1148} />
-            </Link>
-          </div>
-        </header>
-        <main className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-center px-4 pb-12 pt-24">
-          <div className="brand-card-soft rounded-3xl p-6 text-center">
-            <h1 className="text-xl font-extrabold text-brand-text">정산 확인</h1>
-            <p className="brand-text-muted mt-2 text-sm">정산 금액을 확인하려면 먼저 로그인해 주세요.</p>
+        <MobileAppHeader context="청구 내역" />
+        <main className="flex min-h-[calc(100dvh-4rem)] flex-col justify-center px-4 py-10">
+          <div className="border-y border-brand-divider py-8 text-center">
+            <h1 className="text-xl font-extrabold text-brand-text">청구 내역을 확인하려면 로그인해 주세요</h1>
+            <p className="brand-text-muted mt-2 text-sm">공개된 금액과 입금 확인 상태를 볼 수 있습니다.</p>
             <a
               href={`/api/auth/kakao?returnTo=${encodeURIComponent("/settlement")}`}
               className="brand-button-primary mt-5 inline-flex rounded-2xl px-5 py-3 text-sm font-bold"
@@ -41,82 +37,119 @@ export default async function SettlementPage() {
 
   return (
     <div className="min-h-screen bg-brand-page text-brand-text">
-      <header className="brand-header-surface fixed inset-x-0 top-0 z-50">
-        <div className="mx-auto flex h-16 w-full max-w-[430px] items-center justify-between px-4">
-          <Link aria-label="프로필로 돌아가기" className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full" href="/profile">
-            <Icon className="text-[21px]" name="arrow_back" />
-          </Link>
-          <p className="text-sm font-extrabold text-brand-text">내 정산</p>
-          <Link aria-label="모임 홈으로 이동" className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full" href="/">
-            <Icon className="text-[21px]" name="home" />
-          </Link>
-        </div>
-      </header>
+      <MobileAppHeader context="청구 내역" />
 
-      <main className="mx-auto flex w-full max-w-[430px] flex-col gap-4 px-4 pb-12 pt-24">
-        <section className="brand-card-soft rounded-3xl p-5">
-          <p className="brand-text-subtle text-xs font-bold">개인 정산 내역</p>
-          <div className="mt-2 flex items-end justify-between gap-4">
-            <h1 className="font-headline text-[1.75rem] font-extrabold tracking-[-0.04em] text-brand-text">모임별로 확인하세요</h1>
-            {settlementMeetings.length > 0 ? <span className="brand-chip-soft shrink-0 rounded-full px-3 py-1 text-xs font-bold">{settlementMeetings.length}건</span> : null}
+      <main className="flex flex-col gap-7 px-4 pb-28 pt-6">
+        <section className="border-b border-brand-divider pb-5">
+          <p className="brand-text-subtle text-xs font-bold">내가 낼 금액</p>
+          <div className="mt-1 flex items-end justify-between gap-4">
+            <h1 className="font-headline text-[1.7rem] font-extrabold tracking-[-0.04em] text-brand-text">모임별 청구 내역</h1>
+            <span className="brand-chip-soft shrink-0 rounded-full px-3 py-1 text-xs font-bold">{settlementMeetings.length}건</span>
           </div>
-          <p className="brand-text-subtle mt-2 text-sm leading-6">본인과 내가 신청한 미연결 동반인 금액을 모임 단위로 묶었습니다.</p>
+          <p className="brand-text-muted mt-2 text-sm leading-6">실제 참석·이용 확인이 끝난 뒤 운영진이 공개한 금액입니다.</p>
         </section>
 
         {settlementMeetings.length === 0 ? (
-          <div className="brand-card-soft rounded-3xl px-5 py-9 text-center">
+          <div className="border-y border-brand-divider px-5 py-10 text-center">
             <Icon className="brand-text-subtle text-[34px]" name="receipt_long" />
-            <p className="text-base font-bold text-brand-text">정산할 항목이 아직 없습니다.</p>
-            <p className="brand-text-muted mt-2 text-sm">운영진이 정산 정보를 입력하면 이 화면에서 확인할 수 있습니다.</p>
-            <Link className="brand-button-secondary mt-5 inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-bold" href="/profile">프로필로 돌아가기</Link>
+            <p className="mt-2 text-base font-bold text-brand-text">공개된 청구가 없습니다</p>
+            <p className="brand-text-muted mt-2 text-sm">모임 후 확인이 끝나면 이곳에 금액이 표시됩니다.</p>
+            <Link className="brand-button-secondary mt-5 inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-sm font-bold" href="/">모임 달력 보기</Link>
           </div>
         ) : (
-          settlementMeetings.map(({ meeting, group, isCompleted }) => (
-            <section key={meeting.id} className="brand-card-soft rounded-3xl p-5">
-              <div className="mb-4 flex items-start justify-between gap-3 border-b border-brand-divider pb-4">
+          settlementMeetings.map(({ meeting, group, paymentStatus, settlementAccount, publicationRevision }) => {
+            const overnightSpan = meeting.overnightGroup ? getOvernightMeetingSpan(meeting.overnightGroup) : null;
+            return <section key={meeting.id} className="border-b border-brand-divider pb-7 last:border-b-0">
+              <div className="mb-5 flex items-start justify-between gap-3">
                 <div>
-                  <p className="brand-text-subtle text-xs font-bold">{meeting.date}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="brand-text-subtle text-xs font-bold">
+                      {overnightSpan
+                        ? `${overnightSpan.startDate}–${overnightSpan.endDate}`
+                        : meeting.date}
+                    </p>
+                    {meeting.overnightGroup ? <span className="brand-chip-accent rounded-full px-2 py-0.5 text-[10px] font-bold">1박 2일 합산</span> : null}
+                  </div>
                   <p className="mt-1 text-base font-extrabold text-brand-text">{meeting.location}</p>
-                  <p className="brand-text-muted mt-1 text-sm">{meeting.startTime}–{meeting.endTime}</p>
+                  {overnightSpan ? (
+                    <p className="brand-text-muted mt-1 text-xs leading-5">
+                      {overnightSpan.startTime} 시작 · {overnightSpan.endTime} 종료
+                    </p>
+                  ) : <p className="brand-text-muted mt-1 text-sm">{meeting.startTime}–{meeting.endTime}</p>}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="brand-text-subtle text-[11px] font-bold">보낼 금액</p>
-                  <p className="mt-1 text-lg font-extrabold text-brand-text">{formatWon(group.totalFee)}</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">회원 부담</p>
+                  <p className="mt-1 text-xl font-extrabold text-brand-text">{formatWon(group.totalFee)}</p>
                 </div>
               </div>
 
-              <SettlementCompletionControl initialCompleted={isCompleted} meetingId={meeting.id} />
-
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {group.items.map((item) => {
                   const chargeLines = getSettlementChargeLines(item);
                   return (
-                    <div key={item.participantId} className="brand-panel-white rounded-2xl p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                    <div key={item.participantId} className="border-t border-brand-divider pt-4 first:border-t-0 first:pt-0">
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
                           <p className="text-sm font-bold text-brand-text">
                             {item.participantName}
                             {item.memberType === "COMPANION" ? " (동반)" : ""}
                           </p>
-                          <dl className="brand-text-subtle mt-2 space-y-1 text-xs leading-5">
+                          <span className="shrink-0 text-sm font-extrabold text-brand-text">{formatWon(item.totalFee)}</span>
+                        </div>
+                          {item.dailyBreakdowns ? (
+                            <div className="mt-3 space-y-2">
+                              {item.dailyBreakdowns.map((day) => (
+                                <div className="rounded-xl border border-brand-divider bg-brand-surface-elevated px-3 py-3" key={day.meetingId}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-xs font-extrabold text-brand-text">{day.label} · {day.date}</p>
+                                      <p className="brand-text-subtle mt-0.5 text-[10px]">기본 참가비 제외</p>
+                                    </div>
+                                    <strong className="shrink-0 text-xs text-brand-text">{formatWon(day.totalFee)}</strong>
+                                  </div>
+                                  <div className="brand-text-muted mt-2 space-y-1 text-xs leading-5">
+                                    {day.surfUsageLines.length > 0
+                                      ? day.surfUsageLines.map((line) => <p key={line.id}>실제 이용 · {line.usageItemName} × {line.quantity}</p>)
+                                      : <p className="brand-text-subtle">실제 이용 없음</p>}
+                                    {day.foodOrders.filter((order) => !order.cancelledAt).map((order) => (
+                                      <p key={order.id}>식음료 · {order.menuNameSnapshot}{order.optionChoiceLabelSnapshot ? ` · ${order.optionChoiceLabelSnapshot}` : ""} × {order.quantity}</p>
+                                    ))}
+                                    {day.adjustments.map((adjustment) => <p key={adjustment.id}>{adjustment.label} · {formatWon(adjustment.amount)}</p>)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                          <p className="brand-text-subtle mt-3 text-[11px] font-bold">청구 구성</p>
+                          <dl className="brand-text-muted mt-2 space-y-1.5 text-xs leading-5">
                             {chargeLines.map((line) => (
-                              <div className="flex gap-2" key={line.key}>
+                              <div className="flex justify-between gap-4" key={line.key}>
                                 <dt>{line.label}</dt>
-                                <dd>{formatWon(line.amount)}</dd>
+                                <dd className="font-semibold">{formatWon(line.amount)}</dd>
                               </div>
                             ))}
                           </dl>
-                        </div>
-                        <span className="text-sm font-extrabold text-brand-text">{formatWon(item.totalFee)}</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </section>
-          ))
+
+              {paymentStatus !== "VERIFIED" && paymentStatus !== "NO_PAYMENT_REQUIRED" ? (
+                <div className="mt-5 rounded-2xl bg-brand-primary-soft p-4">
+                  <BillingAccountActions account={settlementAccount} amount={group.totalFee} />
+                </div>
+              ) : null}
+
+              <PaymentReportControl initialStatus={paymentStatus} meetingId={meeting.id} />
+              {publicationRevision ? (
+                <p className="brand-text-subtle mt-3 text-[11px]">청구 공개본 {publicationRevision} · 공개 당시 금액과 계좌 기준</p>
+              ) : null}
+            </section>;
+          })
         )}
       </main>
+      <MemberDock />
     </div>
   );
 }

@@ -31,15 +31,15 @@ export async function verifyMutationFailures({ page }: AdminPageFixture, testInf
 
   await page.goto("/admin/meetings/8101", { waitUntil: "networkidle" });
   await page.getByRole("tab", { name: "취소됨 2" }).click();
-  const restoreTrigger = page.getByRole("button", { name: /참가 복구/ }).first();
+  const restoreTrigger = page.getByRole("button", { name: /참가 확정/ }).first();
   await page.route("**/api/participants/8834", (route) => route.fulfill({
     status: 404,
     contentType: "application/json",
     body: JSON.stringify({ error: "합성 복구 대상 없음" }),
   }));
   await restoreTrigger.click();
-  const restoreDialog = page.getByRole("dialog", { name: "참가를 복구할까요?" });
-  await restoreDialog.getByRole("button", { name: "참가 복구" }).click();
+  const restoreDialog = page.getByRole("dialog", { name: "참가를 확정할까요?" });
+  await restoreDialog.getByRole("button", { name: "참가 확정" }).click();
   await expect(restoreDialog.getByRole("alert")).toContainText("합성 복구 대상 없음");
   await capture(page, "restore-error-404", testInfo.project.name);
   await restoreDialog.getByRole("button", { name: "돌아가기" }).click();
@@ -76,9 +76,8 @@ export async function verifyRealMeetingCreate({ page }: AdminPageFixture, testIn
   const response = await responsePromise;
   expect(response.status()).toBe(201);
   const meetingId = meetingIdFromBody(await response.json());
-  const createdMeeting = page.getByRole("link").filter({ hasText: location });
-  await createdMeeting.scrollIntoViewIfNeeded();
-  await expect(createdMeeting).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/admin/meetings/${meetingId}$`));
+  await expect(page.getByText(location).first()).toBeVisible();
   await capture(page, "create-success", testInfo.project.name);
   await assertMobileGeometry(page);
   await assertAccessible(page);
@@ -93,13 +92,13 @@ export async function verifyRealParticipantRoundTrip({ page }: AdminPageFixture,
   await page.getByRole("dialog", { name: "참가를 취소할까요?" }).getByRole("button", { name: "참가 취소" }).click();
   expect((await cancelResponsePromise).status()).toBe(200);
   await page.getByRole("tab", { name: "취소됨 1" }).click();
-  await expect(page.getByRole("button", { name: "합성 회원 01 참가 복구" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "합성 회원 01 참가 확정" })).toBeVisible();
   await capture(page, "cancel-success", testInfo.project.name);
 
-  await page.getByRole("button", { name: "합성 회원 01 참가 복구" }).click();
+  await page.getByRole("button", { name: "합성 회원 01 참가 확정" }).click();
   const restoreResponsePromise = page.waitForResponse((response) => response.request().method() === "PUT"
     && new URL(response.url()).pathname === "/api/participants/8838");
-  await page.getByRole("dialog", { name: "참가를 복구할까요?" }).getByRole("button", { name: "참가 복구" }).click();
+  await page.getByRole("dialog", { name: "참가를 확정할까요?" }).getByRole("button", { name: "참가 확정" }).click();
   expect((await restoreResponsePromise).status()).toBe(200);
   await page.getByRole("tab", { name: "참가 확정 1" }).click();
   await expect(page.getByRole("button", { name: "합성 회원 01 참가 취소" })).toBeVisible();

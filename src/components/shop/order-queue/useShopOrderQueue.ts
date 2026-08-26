@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 import type { FulfillmentOrderAction } from "@/lib/fulfillment-order-action";
 import type { AdminMeetingFoodOrdersData, FulfillmentOrderRow } from "@/lib/fulfillment-order-types";
-import type { ShopOrderFilter } from "@/lib/shop-order-queue";
+import { findNewActiveOrderIds, type ShopOrderFilter } from "@/lib/shop-order-queue";
 import type { ShopOrderActionHandler, ShopOrderActionOptions } from "./types";
 
 const ACTION_SUCCESS: Record<FulfillmentOrderAction, string> = {
@@ -49,6 +49,7 @@ export function useShopOrderQueue(input: {
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [newOrderSignal, setNewOrderSignal] = useState({ sequence: 0, count: 0 });
   const [lockedRows, setLockedRows] = useState<Set<string>>(new Set());
   const [visible, setVisible] = useState(true);
   const activeRead = useRef<AbortController | null>(null);
@@ -56,9 +57,16 @@ export function useShopOrderQueue(input: {
   const mutationEpoch = useRef(0);
   const mutationSequence = useRef(0);
   const appliedMutation = useRef(0);
+  const knownOrderIds = useRef(new Set(input.initialData.orderRows.map((row) => row.orderId)));
   const { addToast, removeToast, toasts } = useToast();
 
   const commitData = useCallback((next: AdminMeetingFoodOrdersData) => {
+    const newOrderIds = findNewActiveOrderIds(next.orderRows, knownOrderIds.current);
+    for (const row of next.orderRows) knownOrderIds.current.add(row.orderId);
+    if (newOrderIds.length > 0) {
+      setNewOrderSignal((current) => ({ sequence: current.sequence + 1, count: newOrderIds.length }));
+      setNotice(`새 주문 ${newOrderIds.length}건이 들어왔습니다.`);
+    }
     setData(next);
     setLastUpdatedAt(Date.now());
     setRefreshError(null);
@@ -99,8 +107,10 @@ export function useShopOrderQueue(input: {
     setFilter("active");
     setQuery("");
     setNotice(null);
+    setNewOrderSignal({ sequence: 0, count: 0 });
     setRefreshError(null);
     setLastUpdatedAt(Date.now());
+    knownOrderIds.current = new Set(input.initialData.orderRows.map((row) => row.orderId));
   }, [input.initialData]);
 
   useEffect(() => {
@@ -186,6 +196,7 @@ export function useShopOrderQueue(input: {
     lastUpdatedAt,
     lockedRows,
     mutate,
+    newOrderSignal,
     notice,
     query,
     refresh,

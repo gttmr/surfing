@@ -8,51 +8,85 @@ datasource db {
 }
 
 model Meeting {
-  id                Int           @id @default(autoincrement())
-  date              String        // "2026-03-21"
-  startTime         String        // "10:00"
-  endTime           String        // "12:00"
-  location          String
-  description       String?
-  isOpen            Boolean       @default(true)
-  settlementOpen    Boolean       @default(false)
-  meetingType       String        @default("정기") // 정기 | 비정기
-  createdByKakaoId  String?       // null = admin, otherwise member's kakaoId
-  participants      Participant[]
-  foodOrderItems    ParticipantFoodOrderItem[]
-  foodOrders        ParticipantFoodOrder[]
-  surfUsageItems    SurfUsageItem[]
-  surfUsages        ParticipantSurfUsage[]
-  surfUsageSubmissions ParticipantSurfUsageSubmission[]
-  chargeAdjustments ParticipantChargeAdjustment[]
-  settlementConfirmations SettlementConfirmation[]
-  createdAt         DateTime      @default(now())
+  id                              Int                              @id @default(autoincrement())
+  date                            String // "2026-03-21"
+  startTime                       String // "10:00"
+  endTime                         String // "12:00"
+  location                        String
+  description                     String?
+  isOpen                          Boolean                          @default(true)
+  settlementOpen                  Boolean                          @default(false)
+  billingReviewConfirmedAt        DateTime?
+  billingReviewConfirmedByKakaoId String?
+  billingPublishedAt              DateTime?
+  billingPublishedByKakaoId       String?
+  billingCorrectionReason         String?
+  shopPaidAt                      DateTime?
+  shopPaidAmount                  Int?
+  foodPaidAt                      DateTime?
+  foodPaidAmount                  Int?
+  settlementCompletedAt           DateTime?
+  settlementCompletedByKakaoId    String?
+  settlementNote                  String?
+  meetingType                     String                           @default("정기") // 정기 | 비정기
+  createdByKakaoId                String? // null = admin, otherwise member's kakaoId
+  meetingGroupId                  Int?
+  groupDayIndex                   Int?
+  meetingGroup                    MeetingGroup?                    @relation(fields: [meetingGroupId], references: [id], onDelete: Cascade)
+  participants                    Participant[]
+  foodOrderItems                  ParticipantFoodOrderItem[]
+  foodOrders                      ParticipantFoodOrder[]
+  surfUsageItems                  SurfUsageItem[]
+  surfUsages                      ParticipantSurfUsage[]
+  surfUsageSubmissions            ParticipantSurfUsageSubmission[]
+  chargeAdjustments               ParticipantChargeAdjustment[]
+  settlementConfirmations         SettlementConfirmation[]
+  billingSnapshot                 MeetingBillingSnapshot?
+  createdAt                       DateTime                         @default(now())
+
+  @@unique([meetingGroupId, groupDayIndex])
+  @@index([meetingGroupId])
+}
+
+model MeetingGroup {
+  id               Int       @id @default(autoincrement())
+  kind             String    @default("OVERNIGHT")
+  regularBaseFee   Int       @default(0)
+  companionBaseFee Int       @default(0)
+  lodgingFee       Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  meetings         Meeting[]
 }
 
 model Participant {
-  id               Int        @id @default(autoincrement())
-  meetingId        Int
-  meeting          Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  name             String
-  kakaoId          String
-  user             User?      @relation(fields: [kakaoId], references: [kakaoId])
-  kakaoNickname    String     // 카카오 프로필 닉네임 (참고용)
-  companionId      Int?       // 동반인인 경우 Companion.id
-  companion        Companion? @relation(fields: [companionId], references: [id])
-  note             String?
-  hasLesson        Boolean    @default(false) // 강습 여부
-  hasBus           Boolean    @default(false) // 버스 이용 여부
-  hasRental        Boolean    @default(false) // 장비 대여 여부
-  status           String     @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
-  waitlistPosition Int?
-  cancelledAt      DateTime?
-  isPenalized      Boolean    @default(false) // 취소 시 패널티 적용 여부
-  submittedAt      DateTime   @default(now())
-  foodOrderItems   ParticipantFoodOrderItem[]
-  foodOrders       ParticipantFoodOrder[]
-  surfUsages       ParticipantSurfUsage[]
-  surfUsageSubmissions ParticipantSurfUsageSubmission[]
-  chargeAdjustments ParticipantChargeAdjustment[]
+  id                         Int                              @id @default(autoincrement())
+  meetingId                  Int
+  meeting                    Meeting                          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name                       String
+  kakaoId                    String
+  user                       User?                            @relation(fields: [kakaoId], references: [kakaoId])
+  kakaoNickname              String // 카카오 프로필 닉네임 (참고용)
+  companionId                Int? // 동반인인 경우 Companion.id
+  companion                  Companion?                       @relation(fields: [companionId], references: [id])
+  note                       String?
+  hasLesson                  Boolean                          @default(false) // 강습 여부
+  hasBus                     Boolean                          @default(false) // 버스 이용 여부
+  hasRental                  Boolean                          @default(false) // 장비 대여 여부
+  usesClubLodging            Boolean                          @default(false) // 연결 모임의 공동 숙박 이용 여부
+  status                     String                           @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
+  attendanceStatus           String                           @default("PENDING") // PENDING | ATTENDED | ABSENT
+  attendanceUpdatedAt        DateTime?
+  attendanceUpdatedByKakaoId String?
+  waitlistPosition           Int?
+  cancelledAt                DateTime?
+  isPenalized                Boolean                          @default(false) // 취소 시 패널티 적용 여부
+  submittedAt                DateTime                         @default(now())
+  foodOrderItems             ParticipantFoodOrderItem[]
+  foodOrders                 ParticipantFoodOrder[]
+  surfUsages                 ParticipantSurfUsage[]
+  surfUsageSubmissions       ParticipantSurfUsageSubmission[]
+  chargeAdjustments          ParticipantChargeAdjustment[]
 
   @@unique([meetingId, kakaoId, companionId])
 }
@@ -70,18 +104,18 @@ model ParticipantChargeAdjustment {
 }
 
 model FoodMenuItem {
-  id           Int                        @id @default(autoincrement())
-  categoryId   Int
-  category     FoodMenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  name         String
-  price        Int
+  id              Int                        @id @default(autoincrement())
+  categoryId      Int
+  category        FoodMenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name            String
+  price           Int
   optionGroupName String?
-  isActive     Boolean                    @default(true)
-  displayOrder Int                        @default(0)
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
-  orderItems   ParticipantFoodOrderItem[]
-  optionChoices FoodMenuOptionChoice[]
+  isActive        Boolean                    @default(true)
+  displayOrder    Int                        @default(0)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  orderItems      ParticipantFoodOrderItem[]
+  optionChoices   FoodMenuOptionChoice[]
 }
 
 model FoodMenuCategory {
@@ -120,30 +154,30 @@ model ParticipantFoodOrder {
 }
 
 model ParticipantFoodOrderItem {
-  id                Int                  @id @default(autoincrement())
-  meetingId         Int
-  participantId     Int
-  foodOrderId       Int
-  menuItemId        Int?
-  menuOptionChoiceId Int?
-  menuNameSnapshot  String
-  optionGroupNameSnapshot String?
+  id                        Int                   @id @default(autoincrement())
+  meetingId                 Int
+  participantId             Int
+  foodOrderId               Int
+  menuItemId                Int?
+  menuOptionChoiceId        Int?
+  menuNameSnapshot          String
+  optionGroupNameSnapshot   String?
   optionChoiceLabelSnapshot String?
-  unitPriceSnapshot Int
-  quantity          Int
-  preparingQuantity Int                  @default(0)
-  servedQuantity    Int                  @default(0)
-  cancelledAt       DateTime?
-  cancelledReasonCode String?
-  cancelledReasonText String?
-  cancelledByKakaoId String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  meeting           Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  participant       Participant          @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  menuItem          FoodMenuItem?        @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
-  menuOptionChoice  FoodMenuOptionChoice? @relation(fields: [menuOptionChoiceId], references: [id], onDelete: SetNull)
-  foodOrder         ParticipantFoodOrder @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
+  unitPriceSnapshot         Int
+  quantity                  Int
+  preparingQuantity         Int                   @default(0)
+  servedQuantity            Int                   @default(0)
+  cancelledAt               DateTime?
+  cancelledReasonCode       String?
+  cancelledReasonText       String?
+  cancelledByKakaoId        String?
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  meeting                   Meeting               @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant               Participant           @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  menuItem                  FoodMenuItem?         @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  menuOptionChoice          FoodMenuOptionChoice? @relation(fields: [menuOptionChoiceId], references: [id], onDelete: SetNull)
+  foodOrder                 ParticipantFoodOrder  @relation(fields: [foodOrderId], references: [id], onDelete: Cascade)
 
   @@index([meetingId, participantId])
   @@index([foodOrderId])
@@ -152,16 +186,16 @@ model ParticipantFoodOrderItem {
 }
 
 model UserNotification {
-  id              Int      @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   recipientKakaoId String
-  type            String
-  meetingId       Int?
-  participantId   Int?
-  foodOrderItemId Int?
-  title           String
-  body            String
-  readAt          DateTime?
-  createdAt       DateTime @default(now())
+  type             String
+  meetingId        Int?
+  participantId    Int?
+  foodOrderItemId  Int?
+  title            String
+  body             String
+  readAt           DateTime?
+  createdAt        DateTime  @default(now())
 
   @@index([recipientKakaoId, readAt, createdAt])
   @@index([meetingId])
@@ -170,21 +204,21 @@ model UserNotification {
 }
 
 model SurfUsageItem {
-  id                  Int      @id @default(autoincrement())
+  id                  Int                    @id @default(autoincrement())
   meetingId           Int
   name                String
   description         String?
   serviceType         String
   shopPrice           Int
   memberBillingPolicy String
-  regularMemberPrice  Int      @default(0)
-  isDefault           Boolean  @default(false)
-  isActive            Boolean  @default(true)
-  displayOrder        Int      @default(0)
+  regularMemberPrice  Int                    @default(0)
+  isDefault           Boolean                @default(false)
+  isActive            Boolean                @default(true)
+  displayOrder        Int                    @default(0)
   createdByKakaoId    String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  meeting             Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  meeting             Meeting                @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   usages              ParticipantSurfUsage[]
 
   @@index([meetingId, displayOrder])
@@ -192,7 +226,7 @@ model SurfUsageItem {
 }
 
 model ParticipantSurfUsage {
-  id                          Int       @id @default(autoincrement())
+  id                          Int           @id @default(autoincrement())
   meetingId                   Int
   participantId               Int
   usageItemId                 Int
@@ -201,14 +235,14 @@ model ParticipantSurfUsage {
   serviceTypeSnapshot         String
   shopUnitPriceSnapshot       Int
   memberBillingPolicySnapshot String
-  regularMemberPriceSnapshot  Int       @default(0)
-  source                      String    @default("participant")
+  regularMemberPriceSnapshot  Int           @default(0)
+  source                      String        @default("participant")
   submittedByKakaoId          String?
   note                        String?
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
-  meeting                     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  participant                 Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
+  meeting                     Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant                 Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
   usageItem                   SurfUsageItem @relation(fields: [usageItemId], references: [id], onDelete: Restrict)
 
   @@index([meetingId, participantId])
@@ -216,17 +250,17 @@ model ParticipantSurfUsage {
 }
 
 model ParticipantSurfUsageSubmission {
-  id                 Int      @id @default(autoincrement())
+  id                 Int         @id @default(autoincrement())
   meetingId          Int
   participantId      Int
   submittedByKakaoId String?
-  status             String   @default("SUBMITTED")
+  status             String      @default("SUBMITTED")
   confirmedAt        DateTime?
   confirmedByKakaoId String?
   note               String?
-  submittedAt        DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  meeting            Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  submittedAt        DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  meeting            Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant        Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, participantId])
@@ -235,13 +269,34 @@ model ParticipantSurfUsageSubmission {
 }
 
 model SettlementConfirmation {
-  id              Int      @id @default(autoincrement())
-  meetingId       Int
-  recipientKakaoId String
-  confirmedAt     DateTime @default(now())
-  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id                Int       @id @default(autoincrement())
+  meetingId         Int
+  recipientKakaoId  String
+  confirmedAt       DateTime  @default(now())
+  verifiedAt        DateTime?
+  verifiedByKakaoId String?
+  meeting           Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, recipientKakaoId])
+}
+
+model MeetingBillingSnapshot {
+  id                 Int      @id @default(autoincrement())
+  meetingId          Int      @unique
+  revision           Int      @default(1)
+  accountBankName    String?
+  accountNumber      String?
+  accountHolder      String?
+  memberChargeTotal  Int
+  shopPayableTotal   Int
+  foodPayableTotal   Int
+  clubSupportTotal   Int
+  data               Json
+  publishedAt        DateTime @default(now())
+  publishedByKakaoId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  meeting            Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 }
 
 model Notice {
@@ -254,30 +309,30 @@ model Notice {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  kakaoId      String        @unique
-  name         String?       // 카카오 또는 유저가 정한 이름
-  profileImage String?
+  id                    Int           @id @default(autoincrement())
+  kakaoId               String        @unique
+  name                  String? // 카카오 또는 유저가 정한 이름
+  profileImage          String?
   customProfileImageUrl String?
-  phoneNumber  String?
-  role         String        @default("MEMBER")   // ADMIN, SHOP_OWNER, MEMBER, BANNED
-  memberType   String        @default("REGULAR")  // REGULAR | COMPANION
-  penaltyCount Int           @default(0)          // 누적 패널티 횟수
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  participants Participant[]
-  companions   Companion[]   // 내가 등록한 동반인 목록
+  phoneNumber           String?
+  role                  String        @default("MEMBER") // ADMIN, SHOP_OWNER, MEMBER, BANNED
+  memberType            String        @default("REGULAR") // REGULAR | COMPANION
+  penaltyCount          Int           @default(0) // 누적 패널티 횟수
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  participants          Participant[]
+  companions            Companion[] // 내가 등록한 동반인 목록
 }
 
 model Companion {
-  id             Int           @id @default(autoincrement())
-  name           String
-  ownerKakaoId   String        // 등록한 정회원의 kakaoId
-  owner          User          @relation(fields: [ownerKakaoId], references: [kakaoId])
-  linkedKakaoId  String?       // 카카오 로그인으로 연동된 동반인의 kakaoId
-  archivedAt     DateTime?
-  createdAt      DateTime      @default(now())
-  participants   Participant[]
+  id            Int           @id @default(autoincrement())
+  name          String
+  ownerKakaoId  String // 등록한 정회원의 kakaoId
+  owner         User          @relation(fields: [ownerKakaoId], references: [kakaoId])
+  linkedKakaoId String? // 카카오 로그인으로 연동된 동반인의 kakaoId
+  archivedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  participants  Participant[]
 }
 
 model Setting {

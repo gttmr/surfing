@@ -44,6 +44,7 @@ function normalizeMeetingDetail(data: {
   meetingType: string;
   createdByKakaoId: string | null;
   approvedCount: number;
+  overnightGroup: DetailedMeeting["overnightGroup"];
   participants?: MeetingParticipantItem[];
 }): DetailedMeeting {
   return {
@@ -57,6 +58,7 @@ function normalizeMeetingDetail(data: {
     meetingType: data.meetingType,
     createdByKakaoId: data.createdByKakaoId,
     approvedCount: data.approvedCount,
+    overnightGroup: data.overnightGroup,
     participantsList: (data.participants ?? []).filter((participant) => participant.status !== "CANCELLED"),
   };
 }
@@ -226,7 +228,9 @@ export default function EmbeddedMeetingDetail({
   const participants = sortWithCompanions(meeting.participantsList);
   const normalizedQuery = participantQuery.trim().toLocaleLowerCase("ko-KR");
   const filteredParticipants = normalizedQuery
-    ? participants.filter((participant) => `${participant.name} ${participant.note ?? ""}`.toLocaleLowerCase("ko-KR").includes(normalizedQuery))
+    ? participants.filter((participant) => (
+        isAdmin ? `${participant.name} ${participant.note ?? ""}` : participant.name
+      ).toLocaleLowerCase("ko-KR").includes(normalizedQuery))
     : participants;
   const participantGroups = [
     { id: "approved", label: "참가 확정", participants: filteredParticipants.filter((participant) => participant.status === "APPROVED") },
@@ -299,7 +303,7 @@ export default function EmbeddedMeetingDetail({
                     <p className="text-sm font-bold text-brand-text">{recipient.recipientName}</p>
                     <p className="brand-text-subtle mt-1 text-xs">
                       {recipient.itemCount === 1 ? "1건" : `${recipient.itemCount}건 합산`}
-                      {completed && recipient.completedAt ? ` · ${formatConfirmedAt(recipient.completedAt)} 송금완료` : ""}
+                      {completed && recipient.completedAt ? ` · ${formatConfirmedAt(recipient.completedAt)} 입금 완료` : ""}
                     </p>
                   </div>
                   <span className="text-sm font-extrabold text-brand-text">{formatWon(recipient.totalFee)}</span>
@@ -343,7 +347,7 @@ export default function EmbeddedMeetingDetail({
                 <input
                   className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none"
                   onChange={(event) => setParticipantQuery(event.target.value)}
-                  placeholder="이름 또는 메모로 찾기"
+                  placeholder={isAdmin ? "이름 또는 메모로 찾기" : "이름으로 찾기"}
                   type="search"
                   value={participantQuery}
                 />
@@ -357,7 +361,12 @@ export default function EmbeddedMeetingDetail({
                   <div className="border-t border-brand-divider">
                     {group.participants.map((participant) => {
                       const isCompanion = participant.companionId !== null;
-                      const visibleNote = isCompanion && participant.note?.trim().endsWith("의 동반") ? null : participant.note;
+                      const visibleNote = !isAdmin || (isCompanion && participant.note?.trim().endsWith("의 동반")) ? null : participant.note;
+                      const attendanceLabel = participant.attendanceStatus === "ATTENDED"
+                        ? "참석"
+                        : participant.attendanceStatus === "ABSENT"
+                          ? "불참"
+                          : "참석 예정";
                       return (
                         <div className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-8" : ""}`} key={participant.id}>
                           <ParticipantAvatar participant={participant} />
@@ -365,9 +374,10 @@ export default function EmbeddedMeetingDetail({
                             <div className="flex flex-wrap items-center gap-1.5">
                               <p className="font-semibold text-brand-text">{participant.name}</p>
                               {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                              {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
-                              {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
-                              {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여</span> : null}
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${participant.attendanceStatus === "ATTENDED" ? "brand-chip-success" : participant.attendanceStatus === "ABSENT" ? "brand-chip-dimmed" : "brand-chip-soft"}`}>{attendanceLabel}</span>
+                              {isAdmin && participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
+                              {isAdmin && participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
+                              {isAdmin && participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여</span> : null}
                             </div>
                             {visibleNote ? <p className="brand-text-muted mt-1 text-sm">{visibleNote}</p> : null}
                           </div>
@@ -389,7 +399,7 @@ export default function EmbeddedMeetingDetail({
             </div>
           )}
 
-          {participants.length ? (
+          {isAdmin && participants.length ? (
             <div className="brand-card-soft rounded-2xl px-4 py-3">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="brand-panel-white rounded-xl px-3 py-2.5">
@@ -411,22 +421,22 @@ export default function EmbeddedMeetingDetail({
       ) : (
         <div className="brand-card-soft space-y-4 rounded-2xl p-3.5">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="text-base font-extrabold text-brand-text">정산 현황</h3>
+            <h3 className="text-base font-extrabold text-brand-text">입금 현황</h3>
             <Link
               href={`/admin/meetings/${meetingId}/settlement`}
               className="brand-button-primary shrink-0 rounded-full px-3 py-1.5 text-xs font-bold"
             >
-              정산 관리
+              청구·입금 관리
             </Link>
           </div>
 
           {loadingSettlementStatus && !settlementStatus ? (
             <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
-              정산 현황을 불러오는 중...
+              입금 현황을 불러오는 중...
             </div>
           ) : settlementStatusError && !settlementStatus ? (
             <div className="brand-panel-white rounded-2xl px-4 py-6 text-center">
-              <p className="text-sm font-semibold text-brand-text">정산 현황을 불러오지 못했습니다.</p>
+              <p className="text-sm font-semibold text-brand-text">입금 현황을 불러오지 못했습니다.</p>
               <button
                 type="button"
                 onClick={() => { void fetchSettlementStatus(false); }}
@@ -439,27 +449,27 @@ export default function EmbeddedMeetingDetail({
             <>
               <div className="grid grid-cols-3 gap-2">
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">정산 대기</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">입금 필요</p>
                   <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(pendingTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">송금완료 금액</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">입금 완료 금액</p>
                   <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(completedTotalFee)}</p>
                 </div>
                 <div className="brand-panel-white rounded-2xl px-3 py-3 text-center">
-                  <p className="brand-text-subtle text-[11px] font-bold">송금완료 인원</p>
+                  <p className="brand-text-subtle text-[11px] font-bold">입금 완료 인원</p>
                   <p className="mt-1 text-sm font-extrabold text-brand-text">{settlementStatus.summary.completedCount}</p>
                 </div>
               </div>
 
               {!settlementStatus.meeting.settlementOpen ? (
                 <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
-                  정산이 아직 열리지 않았습니다. 정산 관리에서 열면 여기서 확인 현황을 볼 수 있습니다.
+                  청구 내역이 아직 공개되지 않았습니다. 청구 검토에서 공개하면 여기서 입금 현황을 볼 수 있습니다.
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <SettlementRecipientList title="정산 대기" recipients={pendingRecipients} completed={false} />
-                  <SettlementRecipientList title="송금완료" recipients={completedRecipients} completed={true} />
+                  <SettlementRecipientList title="입금 필요" recipients={pendingRecipients} completed={false} />
+                  <SettlementRecipientList title="입금 완료" recipients={completedRecipients} completed={true} />
                 </div>
               )}
             </>

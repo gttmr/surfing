@@ -9,6 +9,8 @@ import {
   SETTLEMENT_ACCOUNT_HOLDER_KEY,
   SETTLEMENT_ACCOUNT_NUMBER_KEY,
   SETTLEMENT_BANK_NAME_KEY,
+  DEFAULT_PRICING_SETTINGS,
+  PRICING_SETTING_KEYS,
 } from "@/lib/settings";
 
 export async function GET() {
@@ -20,6 +22,7 @@ export async function GET() {
           SETTLEMENT_BANK_NAME_KEY,
           SETTLEMENT_ACCOUNT_NUMBER_KEY,
           SETTLEMENT_ACCOUNT_HOLDER_KEY,
+          ...Object.values(PRICING_SETTING_KEYS),
         ],
       },
     },
@@ -30,6 +33,7 @@ export async function GET() {
     [SETTLEMENT_BANK_NAME_KEY]: DEFAULT_SETTLEMENT_BANK_NAME,
     [SETTLEMENT_ACCOUNT_NUMBER_KEY]: DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
     [SETTLEMENT_ACCOUNT_HOLDER_KEY]: DEFAULT_SETTLEMENT_ACCOUNT_HOLDER,
+    ...DEFAULT_PRICING_SETTINGS,
   };
 
   for (const setting of settings) {

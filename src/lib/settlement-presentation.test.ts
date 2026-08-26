@@ -42,5 +42,27 @@ test("settlement lines reconcile every displayed component to the authoritative 
   }));
 
   assert.equal(lines.reduce((sum, line) => sum + line.amount, 0), 17_250);
-  assert.deepEqual(lines.at(-1), { key: "reconciliation", label: "기타 정산", amount: 750 });
+  assert.deepEqual(lines.at(-1), { key: "reconciliation", label: "기타 청구", amount: 750 });
+});
+
+test("settlement lines keep a zero-won actual usage line when confirmed usage exists", () => {
+  const lines = getSettlementChargeLines(chargeInput({
+    surfUsageLines: [{
+      id: 9,
+      participantId: 1,
+      participantType: "REGULAR",
+      usageItemId: 4,
+      usageItemName: "샤워",
+      serviceType: "SHOWER",
+      quantity: 1,
+      shopUnitPrice: 5_000,
+      memberBillingPolicy: "REGULAR_FREE_COMPANION_SHOP",
+      regularMemberUnitPrice: 0,
+      confirmed: true,
+    }],
+    surfUsageMemberFee: 0,
+    totalFee: 0,
+  }));
+
+  assert.deepEqual(lines, [{ key: "surf-usage", label: "실제 이용 · 회원 부담", amount: 0 }]);
 });

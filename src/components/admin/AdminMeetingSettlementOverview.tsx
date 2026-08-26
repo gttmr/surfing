@@ -3,62 +3,44 @@ import { formatWon } from "@/lib/format";
 
 export function AdminMeetingSettlementOverview({
   data,
-  showAmounts,
   reloading,
 }: {
   readonly data: AdminSettlementData;
-  readonly showAmounts: boolean;
   readonly reloading: boolean;
 }) {
-  const pageTotal = data.recipients.reduce((total, recipient) => total + recipient.totalFee, 0);
-  const pendingCount = data.recipients.filter((recipient) => !recipient.completed).length;
-  const completedCount = data.recipients.length - pendingCount;
-
   return (
-    <section className="brand-card-soft rounded-3xl p-5">
+    <section className="brand-admin-section overflow-hidden">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-extrabold text-brand-text">정산 현황</h2>
-          <p className="brand-text-muted mt-1 text-xs">
-            {showAmounts ? "페이지 전체 금액과 수신자별 처리 상태를 한 번에 확인합니다." : "정산을 열면 금액을 확인할 수 있습니다."}
+        <div className="brand-admin-section-header w-full px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-extrabold text-brand-text">{data.meeting.overnightGroup ? "1박 2일 합산 금액" : "금액 구분"}</h2>
+            {reloading ? <span className="brand-text-subtle text-xs">갱신 중</span> : null}
+          </div>
+          <p className="brand-text-muted mt-1 break-keep text-xs">
+            {data.meeting.overnightGroup
+              ? "기본 참가비와 선택한 숙박비는 한 번, 두 날짜의 실제 이용·식음료·조정은 모두 합산했습니다."
+              : "받을 돈과 지급할 돈을 합치지 않고 각각 확인합니다."}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className={`${showAmounts ? "brand-chip-dark" : "brand-chip-soft"} rounded-full px-2 py-1 text-xs font-bold`}>
-            {showAmounts ? "정산 오픈" : "정산 준비 중"}
-          </span>
-          {reloading ? <span className="brand-text-subtle text-xs">갱신 중...</span> : null}
-        </div>
       </div>
-
-      <div className="brand-panel-strong mt-4 rounded-3xl p-4">
-        <p className="brand-text-subtle text-xs font-bold">페이지 전체 정산</p>
-        <p className="mt-1 text-[1.7rem] font-extrabold tracking-[-0.04em] text-brand-text">
-          {showAmounts ? formatWon(pageTotal) : "금액 비공개"}
-        </p>
-        <p className="brand-text-muted mt-1 text-xs">
-          {showAmounts
-            ? `수신자 ${data.recipients.length}명 · 정산 대기 ${pendingCount}명 · 송금 완료 ${completedCount}명`
-            : "정산 준비 중 · 금액 비공개"}
-        </p>
-      </div>
-
-      {showAmounts && data.surfUsageSummary.shopChargeAmount > 0 ? (
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="brand-panel-white rounded-2xl px-3 py-3">
-            <p className="brand-text-subtle text-[11px] font-bold">샵 청구</p>
-            <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(data.surfUsageSummary.shopChargeAmount)}</p>
-          </div>
-          <div className="brand-panel-white rounded-2xl px-3 py-3">
-            <p className="brand-text-subtle text-[11px] font-bold">회원 청구</p>
-            <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(data.surfUsageSummary.memberChargeAmount)}</p>
-          </div>
-          <div className="brand-panel-white rounded-2xl px-3 py-3">
-            <p className="brand-text-subtle text-[11px] font-bold">운영 부담</p>
-            <p className="mt-1 text-sm font-extrabold text-brand-text">{formatWon(data.surfUsageSummary.operationsCoveredAmount)}</p>
-          </div>
+      <dl className="grid grid-cols-2 gap-px bg-brand-divider">
+        <div className="bg-brand-surface-elevated px-4 py-4">
+          <dt className="brand-text-subtle text-xs font-bold">회원에게 받을 금액</dt>
+          <dd className="mt-1 text-lg font-extrabold text-brand-text">{formatWon(data.billing.totals.memberChargeTotal)}</dd>
         </div>
-      ) : null}
+        <div className="bg-brand-surface-elevated px-4 py-4">
+          <dt className="brand-text-subtle text-xs font-bold">샵에 지급할 금액</dt>
+          <dd className="mt-1 text-lg font-extrabold text-brand-text">{formatWon(data.billing.totals.shopPayableTotal)}</dd>
+        </div>
+        <div className="bg-brand-surface-elevated px-4 py-4">
+          <dt className="brand-text-subtle text-xs font-bold">식음료 지급액</dt>
+          <dd className="mt-1 text-lg font-extrabold text-brand-text">{formatWon(data.billing.totals.foodPayableTotal)}</dd>
+        </div>
+        <div className="bg-brand-surface-elevated px-4 py-4">
+          <dt className="brand-text-subtle text-xs font-bold">동호회 지원액</dt>
+          <dd className="mt-1 text-lg font-extrabold text-brand-text">{formatWon(data.billing.totals.clubSupportTotal)}</dd>
+        </div>
+      </dl>
     </section>
   );
 }

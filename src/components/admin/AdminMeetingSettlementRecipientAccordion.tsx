@@ -13,6 +13,7 @@ export function AdminMeetingSettlementRecipientAccordion({
   participants,
   expanded,
   showAmounts,
+  editable,
   drafts,
   submittingFor,
   onToggle,
@@ -24,6 +25,7 @@ export function AdminMeetingSettlementRecipientAccordion({
   readonly participants: readonly AdminSettlementParticipant[];
   readonly expanded: boolean;
   readonly showAmounts: boolean;
+  readonly editable: boolean;
   readonly drafts: Readonly<Record<number, SettlementDraft>>;
   readonly submittingFor: number | null;
   readonly onToggle: () => void;
@@ -46,9 +48,7 @@ export function AdminMeetingSettlementRecipientAccordion({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate text-sm font-bold text-brand-text">{recipient.recipientName}</p>
-              <span className={`${recipient.completed ? "brand-chip-dark" : "brand-chip-soft"} shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold`}>
-                {recipient.completed ? "송금 완료" : "정산 대기"}
-              </span>
+              <span className="brand-chip-soft shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold">청구 대상</span>
             </div>
             <p className="brand-text-subtle mt-1 text-xs">
               {showAmounts ? `${recipient.items.length}명 참가분` : "금액 비공개"}
@@ -65,14 +65,15 @@ export function AdminMeetingSettlementRecipientAccordion({
 
       {expanded ? (
         <div className="border-t border-brand-divider px-4 pb-4 pt-4" id={detailsId}>
-          {!showAmounts ? <p className="brand-text-muted mb-4 text-xs">정산 준비 중 · 금액 비공개</p> : null}
+          {!showAmounts ? <p className="brand-text-muted mb-4 text-xs">청구 준비 중 · 금액 비공개</p> : null}
           <div className="divide-y divide-brand-divider">
             {participants.map((participant, index) => (
               <div key={participant.id} className={index === 0 ? "" : "pt-5"}>
                 <AdminMeetingSettlementParticipant
                   participant={participant}
                   showAmounts={showAmounts}
-                  draft={drafts[participant.id] ?? { label: "", amount: "" }}
+                  editable={editable}
+                  draft={drafts[participant.id] ?? { label: "", amount: "", direction: "increase" }}
                   submitting={submittingFor === participant.id}
                   onDraftChange={onDraftChange}
                   onAddAdjustment={onAddAdjustment}

@@ -17,7 +17,8 @@ test("R09 filters upcoming and past meetings and distinguishes empty search resu
   await expect(page.getByText("합성 서핑 해변 A")).toBeVisible();
   const meetingOperationsLink = page.getByRole("link", { name: /합성 서핑 해변 A 모임 운영/ });
   await expect(meetingOperationsLink).toHaveAttribute("href", "/admin/meetings/8101");
-  await expect(meetingOperationsLink.locator("span").filter({ hasText: "모임 운영" }).first()).toBeVisible();
+  await expect(meetingOperationsLink.getByText("입금 확인", { exact: true })).toBeVisible();
+  await expect(meetingOperationsLink.getByText("다음 할 일", { exact: true })).toBeVisible();
   await capture(page, "list-upcoming", testInfo.project.name);
 
   // When the admin selects the past workspace
@@ -121,6 +122,28 @@ test("R10 exposes counted tabs, participant search, and read-only expansion", as
   await assertAccessible(page);
 });
 
+test("R10 workflow actions lead to the named settlement or on-page task", async ({ page }) => {
+  await page.goto("/admin/meetings/8101", { waitUntil: "networkidle" });
+
+  const nextAction = page.getByRole("link").filter({ hasText: "다음 할 일" }).first();
+  await expect(nextAction).toHaveAttribute("href", "/admin/meetings/8101/settlement");
+  await expect(page.getByText("공개 전 확인 항목", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/입금$/).first()).toBeVisible();
+
+  await page.goto("/admin/meetings/8102", { waitUntil: "networkidle" });
+  await page.locator("summary").filter({ hasText: "공개 전 확인 항목" }).click();
+  const registrationCheck = page.getByText("참가 신청 마감", { exact: true }).locator("..");
+  const attendanceCheck = page.getByText("실제 참석 확인", { exact: true }).locator("..");
+  await expect(registrationCheck.getByRole("link", { name: "확인" })).toHaveAttribute(
+    "href",
+    "/admin/meetings/8102#meeting-operations"
+  );
+  await expect(attendanceCheck.getByRole("link", { name: "확인" })).toHaveAttribute(
+    "href",
+    "/admin/meetings/8102#participants"
+  );
+});
+
 test("R10 participant cancellation requires a named consequence and restores trigger focus", async ({ page }, testInfo) => {
   // Given an approved participant
   let participantWrites = 0;
@@ -186,6 +209,7 @@ test("R10 every participant tab has a distinct empty state", async ({ page }, te
       description: null,
       isOpen: true,
       meetingType: "정기",
+      overnightGroup: null,
       participants: [],
       approvedCount: 0,
     }),
@@ -223,18 +247,18 @@ test("R10 participant restore and meeting delete require action-specific confirm
   await page.getByRole("tab", { name: "취소됨 2" }).click();
 
   // When restore is requested
-  const restoreTrigger = page.getByRole("button", { name: /참가 복구/ }).first();
+  const restoreTrigger = page.getByRole("button", { name: /참가 확정/ }).first();
   await restoreTrigger.click();
 
   // Then restore names the meeting and approval consequence, and cancel restores focus
-  const restoreDialog = page.getByRole("dialog", { name: "참가를 복구할까요?" });
+  const restoreDialog = page.getByRole("dialog", { name: "참가를 확정할까요?" });
   await expect(restoreDialog.getByRole("button", { name: "닫기" })).toBeFocused();
   await expect(restoreDialog).toContainText("합성 서핑 해변 A");
-  await expect(restoreDialog).toContainText("참가 확정 상태로 복구합니다");
+  await expect(restoreDialog).toContainText("참가를 확정합니다");
   const restoreParticipantName = restoreDialog.locator('[data-dialog-chunk="participant-name"]');
   const restoreAction = restoreDialog.locator('[data-dialog-chunk="participant-action"]');
   await expect(restoreParticipantName).toHaveText("합성 회원 34님");
-  await expect(restoreAction).toHaveText("참가 확정 상태로 복구합니다");
+  await expect(restoreAction).toHaveText("참가를 확정합니다");
   await assertDialogChunkFitsParagraph(restoreParticipantName);
   await assertDialogChunkFitsParagraph(restoreAction);
   await capture(page, "restore-confirmation", testInfo.project.name);

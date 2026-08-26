@@ -71,47 +71,48 @@ test("admin fulfillment and settlement workspaces keep the operational hierarchy
   await page.unroute("**/api/admin/meetings/8101/orders");
 
   await page.goto("/admin/meetings/8101/settlement", { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "정산 현황" })).toBeVisible();
-  await expect(page.getByText("페이지 전체 정산", { exact: true })).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "정산 대기" })).toBeVisible();
-
-  const pendingRecipient = page.getByRole("button", { name: /합성 회원 01/ }).first();
-  await pendingRecipient.click();
-  await expect(pendingRecipient).toHaveAttribute("aria-expanded", "true");
-  const adjustmentLabel = `${testInfo.project.name} 현장 조정`;
-  await page.getByLabel(/조정 항목명/).first().fill(adjustmentLabel);
-  await page.getByLabel(/조정 금액/).first().fill("-500");
-  const addResponse = page.waitForResponse((response) => response.request().method() === "POST"
-    && new URL(response.url()).pathname === "/api/admin/meetings/8101/settlement");
-  await page.getByRole("button", { name: "조정 추가", exact: true }).first().click();
-  expect((await addResponse).status()).toBe(201);
-  await expect(page.getByText(adjustmentLabel, { exact: true })).toBeVisible();
-  const adjustmentRow = page.locator("div.brand-card-soft").filter({ hasText: adjustmentLabel });
-  await adjustmentRow.getByRole("button", { name: "삭제", exact: true }).click();
-  const adjustmentDialog = page.getByRole("dialog", { name: "정산 항목을 삭제할까요?" });
-  await expect(adjustmentDialog).toContainText(adjustmentLabel);
-  await capture(page, "settlement-adjustment-confirmation", testInfo.project.name);
-  const deleteResponse = page.waitForResponse((response) => response.request().method() === "DELETE"
-    && /\/api\/admin\/meetings\/8101\/settlement\/\d+$/.test(new URL(response.url()).pathname));
-  await adjustmentDialog.getByRole("button", { name: "정산 항목 삭제", exact: true }).click();
-  expect((await deleteResponse).status()).toBe(200);
-  await expect(page.getByText(adjustmentLabel, { exact: true })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "입금 현황", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "회원 입금 현황" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "최종 정산" })).toBeVisible();
+  await expect(page.getByText(/회원 공개됨/)).toBeVisible();
+  await expect(page.getByLabel(/조정 항목명/)).toHaveCount(0);
+  const lockedAdjustmentResponse = await page.request.post("/api/admin/meetings/8101/settlement", {
+    data: { participantId: 8801, label: `${testInfo.project.name} 공개 후 조정`, amount: -500 },
+  });
+  expect(lockedAdjustmentResponse.status()).toBe(409);
+  await capture(page, "billing-payment-status", testInfo.project.name);
 
   await page.goto("/admin/meetings/8102/settlement", { waitUntil: "networkidle" });
-  await expect(page.getByText("정산 준비 중", { exact: true })).toBeVisible();
-  await expect(page.getByText("금액 비공개").first()).toBeVisible();
-  await page.getByRole("button", { name: "정산 열기", exact: true }).click();
-  const openDialog = page.getByRole("dialog", { name: "정산을 열까요?" });
-  await expect(openDialog).toContainText("참가자와 수신자");
-  await capture(page, "settlement-open-confirmation", testInfo.project.name);
-  await openDialog.getByRole("button", { name: "돌아가기", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "청구 검토" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "청구 공개 준비" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "회원별 청구 항목" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "청구 내역 공개", exact: true })).toBeDisabled();
+  await expect(page.getByText("준비 항목을 모두 완료해야 공개할 수 있습니다.")).toBeVisible();
+
+  const billingRecipient = page.locator("article").filter({ hasText: "합성 회원 03" }).first();
+  await billingRecipient.getByRole("button").first().click();
+  const adjustmentName = page.getByLabel("미연동 합성 동반인 조정 항목명");
+  const adjustmentAmount = page.getByLabel("미연동 합성 동반인 조정 금액");
+  await expect(adjustmentAmount).toHaveAttribute("inputmode", "numeric");
+  const deductButton = page.getByRole("button", { name: "청구에서 차감 −" }).first();
+  await deductButton.click();
+  await expect(deductButton).toHaveAttribute("aria-pressed", "true");
+  await adjustmentName.fill("안드로이드 차감 확인");
+  await adjustmentAmount.fill("5000");
+  await page.getByRole("button", { name: "조정 추가" }).first().click();
+  await expect(page.getByText("안드로이드 차감 확인")).toBeVisible();
+  await expect(page.locator("div.brand-card-soft").filter({ hasText: "안드로이드 차감 확인" })).toContainText("-5,000원");
+  await capture(page, "billing-readiness-gate", testInfo.project.name);
 
   await page.goto("/admin/meetings/8103/settlement", { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "송금 완료" })).toBeVisible();
-  const completedRecipient = page.getByRole("button", { name: /합성 회원 01/ }).first();
-  await completedRecipient.click();
-  await expect(completedRecipient).toHaveAttribute("aria-expanded", "true");
-  await capture(page, "settlement-completed-recipient", testInfo.project.name);
+  await expect(page.getByRole("heading", { name: "입금 현황", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "회원 입금 현황" })).toBeVisible();
+  const reportedRecipient = page.locator("details").filter({ hasText: "합성 회원 01" }).first();
+  await reportedRecipient.locator("summary").click();
+  await expect(reportedRecipient).toContainText("납부 없음");
+  await expect(reportedRecipient).toContainText("입금 확인이 필요하지 않습니다.");
+  await expect(reportedRecipient.getByRole("button", { name: "계좌 입금 확인" })).toHaveCount(0);
+  await capture(page, "billing-reported-recipient", testInfo.project.name);
   await assertMobileGeometry(page);
   await assertAccessible(page);
 });

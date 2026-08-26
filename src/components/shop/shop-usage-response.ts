@@ -73,7 +73,13 @@ function isMeeting(value: unknown): boolean {
     && typeof value.date === "string"
     && typeof value.startTime === "string"
     && typeof value.endTime === "string"
-    && typeof value.location === "string";
+    && typeof value.location === "string"
+    && isRecord(value.actualUsageReview)
+    && (value.actualUsageReview.state === "WAITING"
+      || value.actualUsageReview.state === "OPEN"
+      || value.actualUsageReview.state === "LOCKED")
+    && typeof value.actualUsageReview.editable === "boolean"
+    && typeof value.actualUsageReview.reason === "string";
 }
 
 function isSummary(value: unknown): boolean {
