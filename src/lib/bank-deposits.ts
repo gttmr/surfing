@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAdminSettlementData } from "@/lib/admin-page-data";
@@ -15,7 +15,8 @@ import {
   verifyPaymentOperations,
 } from "@/lib/payment-verification";
 
-export const BANK_WEBHOOK_TOKEN_HASH_KEY = "bank_webhook_token_hash";
+// 여러 폰이 같은 입금 알림을 전달할 수 있으므로 이 시간 안의 같은 문구는 한 건으로 본다.
+const DUPLICATE_WINDOW_MS = 3 * 60 * 1000;
 
 type OpenCandidates = {
   readonly candidates: DepositCandidate[];
@@ -26,25 +27,25 @@ function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-// ── 웹훅 토큰 ──────────────────────────────────────────────
+// ── 알림 전달 폰 ────────────────────────────────────────────
 
-export async function rotateBankWebhookToken(): Promise<string> {
+export async function registerBankWebhookDevice(label: string): Promise<string> {
   const token = randomBytes(24).toString("base64url");
-  await prisma.setting.upsert({
-    where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY },
-    create: { key: BANK_WEBHOOK_TOKEN_HASH_KEY, value: sha256(token) },
-    update: { value: sha256(token) },
-  });
+  await prisma.bankWebhookDevice.create({ data: { label, tokenHash: sha256(token) } });
   return token;
 }
 
-export async function isValidBankWebhookToken(provided: string | null): Promise<boolean> {
-  if (!provided) return false;
-  const stored = await prisma.setting.findUnique({ where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY } });
-  if (!stored) return false;
-  const expected = Buffer.from(stored.value);
-  const actual = Buffer.from(sha256(provided));
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+export async function revokeBankWebhookDevice(deviceId: number): Promise<void> {
+  await prisma.bankWebhookDevice.updateMany({ where: { id: deviceId, revokedAt: null }, data: { revokedAt: new Date() } });
+}
+
+/** 유효한 토큰이면 폰의 마지막 수신 시각을 갱신하고 id 를 반환한다. */
+export async function authenticateBankWebhookDevice(token: string | null): Promise<number | null> {
+  if (!token) return null;
+  const device = await prisma.bankWebhookDevice.findUnique({ where: { tokenHash: sha256(token) } });
+  if (!device || device.revokedAt) return null;
+  await prisma.bankWebhookDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+  return device.id;
 }
 
 // ── 대조 대상 ──────────────────────────────────────────────
@@ -247,27 +248,42 @@ export async function ingestDepositNotification(input: {
   readonly title: string | null;
   readonly text: string;
   readonly depositedAt: Date;
+  readonly deviceId: number | null;
 }): Promise<IngestResult> {
   const parsed = parseDepositNotification(input.title, input.text);
   if (parsed.kind === "ignored") return "ignored";
 
-  // 같은 알림이 두 번 전달되는 경우를 막는다(같은 문구 + 같은 분).
-  const minute = Math.floor(input.depositedAt.getTime() / 60_000);
-  const dedupeKey = sha256(`${input.title ?? ""}\n${input.text}\n${minute}`);
-
-  const { count } = await prisma.bankDeposit.createMany({
-    data: {
-      dedupeKey,
-      rawTitle: input.title,
-      rawText: input.text,
-      depositorName: parsed.kind === "deposit" ? parsed.depositorName : null,
-      amount: parsed.kind === "deposit" ? parsed.amount : null,
-      depositedAt: input.depositedAt,
-      status: parsed.kind === "deposit" ? "UNMATCHED" : "UNPARSED",
-    },
-    skipDuplicates: true,
+  const rawTitle = input.title;
+  const stored = await prisma.$transaction(async (tx) => {
+    // 같은 문구를 동시에 받은 요청끼리 순서를 정해 중복 저장을 막는다.
+    const lockKey = createHash("sha256").update(`${rawTitle ?? ""}\n${input.text}`).digest().readInt32BE(0);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+    const duplicate = await tx.bankDeposit.findFirst({
+      where: {
+        rawTitle,
+        rawText: input.text,
+        depositedAt: {
+          gte: new Date(input.depositedAt.getTime() - DUPLICATE_WINDOW_MS),
+          lte: new Date(input.depositedAt.getTime() + DUPLICATE_WINDOW_MS),
+        },
+      },
+      select: { id: true },
+    });
+    if (duplicate) return false;
+    await tx.bankDeposit.create({
+      data: {
+        rawTitle,
+        rawText: input.text,
+        depositorName: parsed.kind === "deposit" ? parsed.depositorName : null,
+        amount: parsed.kind === "deposit" ? parsed.amount : null,
+        depositedAt: input.depositedAt,
+        status: parsed.kind === "deposit" ? "UNMATCHED" : "UNPARSED",
+        sourceDeviceId: input.deviceId,
+      },
+    });
+    return true;
   });
-  if (count === 0) return "duplicate";
+  if (!stored) return "duplicate";
 
   if (parsed.kind !== "deposit") return "unparsed";
   await autoMatchPendingDeposits();
@@ -289,8 +305,7 @@ export type BankDepositView = {
 };
 
 export type BankDepositDashboard = {
-  readonly webhookConfigured: boolean;
-  readonly lastReceivedAt: string | null;
+  readonly devices: readonly { id: number; label: string; createdAt: string; lastSeenAt: string | null }[];
   readonly unpaidByMeeting: readonly { meetingId: number; meetingLabel: string; recipients: readonly DepositCandidate[] }[];
   readonly needsReview: readonly BankDepositView[];
   readonly matched: readonly BankDepositView[];
@@ -301,9 +316,8 @@ export type BankDepositDashboard = {
 const RECENT_LIMIT = 50;
 
 export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
-  const [token, latest, open, aliases, deposits] = await Promise.all([
-    prisma.setting.findUnique({ where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY }, select: { id: true } }),
-    prisma.bankDeposit.findFirst({ orderBy: { receivedAt: "desc" }, select: { receivedAt: true } }),
+  const [devices, open, aliases, deposits] = await Promise.all([
+    prisma.bankWebhookDevice.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "asc" } }),
     getOpenDepositCandidates(),
     prisma.depositorAlias.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.bankDeposit.findMany({ orderBy: { depositedAt: "desc" }, take: RECENT_LIMIT, include: { matches: true } }),
@@ -355,8 +369,12 @@ export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
 
   const views = deposits.map(toView);
   return {
-    webhookConfigured: token !== null,
-    lastReceivedAt: latest?.receivedAt.toISOString() ?? null,
+    devices: devices.map((device) => ({
+      id: device.id,
+      label: device.label,
+      createdAt: device.createdAt.toISOString(),
+      lastSeenAt: device.lastSeenAt?.toISOString() ?? null,
+    })),
     unpaidByMeeting: [...unpaid.values()],
     needsReview: views.filter((view) => view.status === "UNMATCHED" || view.status === "REVIEW"),
     matched: views.filter((view) => view.status === "MATCHED"),
@@ -374,7 +392,6 @@ export async function addManualDeposit(depositorName: string, amount: number): P
   const now = new Date();
   await prisma.bankDeposit.create({
     data: {
-      dedupeKey: `manual:${randomBytes(12).toString("hex")}`,
       rawText: `직접 입력: ${depositorName} ${amount.toLocaleString("ko-KR")}원`,
       depositorName,
       amount,

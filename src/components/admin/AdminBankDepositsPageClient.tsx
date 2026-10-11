@@ -101,50 +101,98 @@ function ReviewCard({
   );
 }
 
+// 폰이 이 시간 넘게 아무것도 보내지 않으면 연결 상태를 확인하라고 표시한다.
+const DEVICE_STALE_MS = 14 * 24 * 60 * 60 * 1000;
+
 function WebhookSetup({
   dashboard,
   endpoint,
   token,
   busy,
-  onRotate,
+  onRegister,
+  onRevoke,
 }: {
   readonly dashboard: BankDepositDashboard;
   readonly endpoint: string;
   readonly token: string | null;
   readonly busy: boolean;
-  readonly onRotate: () => void;
+  readonly onRegister: (label: string) => Promise<boolean>;
+  readonly onRevoke: (deviceId: number) => void;
 }) {
+  const [label, setLabel] = useState("");
+  const [now] = useState(() => Date.now());
   return (
-    <details className="brand-panel-white rounded-2xl px-4 py-3" open={!dashboard.webhookConfigured}>
+    <details className="brand-panel-white rounded-2xl px-4 py-3" open={dashboard.devices.length === 0}>
       <summary className="flex min-h-11 cursor-pointer items-center justify-between text-sm font-extrabold text-brand-text">
-        입금 알림 연결
-        <span className="brand-text-subtle text-xs font-semibold">
-          {dashboard.lastReceivedAt ? `마지막 수신 ${formatRelativeTimeKo(dashboard.lastReceivedAt)}` : dashboard.webhookConfigured ? "수신 기록 없음" : "미설정"}
-        </span>
+        입금 알림 전달 폰
+        <span className="brand-text-subtle text-xs font-semibold">{dashboard.devices.length > 0 ? `${dashboard.devices.length}대 연결` : "미설정"}</span>
       </summary>
-      <ol className="brand-text-muted mt-2 list-decimal space-y-1.5 pl-5 text-xs leading-relaxed">
-        <li>정산 계좌 주인의 안드로이드 폰에 MacroDroid 앱을 설치합니다.</li>
+      <p className="brand-text-muted mt-1 text-xs leading-relaxed">
+        정산 계좌 입금 알림을 받는 안드로이드 폰마다 등록합니다. 여러 대가 같은 알림을 보내도 한 건으로 기록되니, 2~3대를 등록해 두면 한 폰이 꺼져 있어도 놓치지 않습니다.
+      </p>
+
+      {dashboard.devices.length > 0 ? (
+        <ul className="mt-2 divide-y divide-brand-divider">
+          {dashboard.devices.map((device) => {
+            const stale = !device.lastSeenAt || now - new Date(device.lastSeenAt).getTime() > DEVICE_STALE_MS;
+            return (
+              <li className="flex min-h-12 items-center justify-between gap-3 text-sm" key={device.id}>
+                <span className="min-w-0">
+                  <span className="block truncate font-bold text-brand-text">{device.label}</span>
+                  <span className={`block text-xs ${stale ? "text-brand-danger" : "brand-text-subtle"}`}>
+                    {device.lastSeenAt ? `마지막 수신 ${formatRelativeTimeKo(device.lastSeenAt)}` : "아직 수신 없음"}
+                  </span>
+                </span>
+                <button
+                  className="brand-link shrink-0 text-xs font-bold disabled:opacity-50"
+                  disabled={busy}
+                  onClick={() => onRevoke(device.id)}
+                  type="button"
+                >
+                  연결 끊기
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {token ? (
+        <div className="brand-alert-info mt-3 rounded-xl px-3 py-2 text-xs">
+          <p className="font-bold">새 폰 토큰 (이 화면을 벗어나면 다시 볼 수 없습니다)</p>
+          <p className="mt-1 select-all break-all font-mono">{token}</p>
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex gap-2">
+        <input
+          aria-label="폰 이름"
+          className="brand-input min-w-0 flex-1 rounded-xl px-3 py-2 text-sm"
+          maxLength={30}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder="예: 윤성 폰"
+          value={label}
+        />
+        <button
+          className="brand-button-primary shrink-0 rounded-xl px-4 text-sm font-bold disabled:opacity-50"
+          disabled={busy || !label.trim()}
+          onClick={() => void onRegister(label).then((ok) => ok && setLabel(""))}
+          type="button"
+        >
+          폰 등록
+        </button>
+      </div>
+
+      <ol className="brand-text-muted mt-3 list-decimal space-y-1.5 pl-5 text-xs leading-relaxed">
+        <li>폰에 MacroDroid 앱을 설치하고 알림 접근 권한을 허용합니다.</li>
         <li>트리거: 알림 수신 → 은행 앱 선택 → 내용에 &lsquo;입금&rsquo; 포함.</li>
         <li>
           동작: HTTP 요청 → POST <span className="break-all font-mono">{endpoint}</span>
         </li>
-        <li>헤더: <span className="font-mono">Authorization: Bearer (아래 토큰)</span></li>
+        <li>헤더: <span className="font-mono">Authorization: Bearer (그 폰의 토큰)</span></li>
         <li>본문(form): <span className="font-mono">title</span>=알림 제목, <span className="font-mono">text</span>=알림 내용</li>
+        <li>배터리 최적화에서 MacroDroid 를 제외해야 백그라운드에서 끊기지 않습니다.</li>
       </ol>
-      {token ? (
-        <div className="brand-alert-info mt-3 rounded-xl px-3 py-2 text-xs">
-          <p className="font-bold">새 토큰 (이 화면을 벗어나면 다시 볼 수 없습니다)</p>
-          <p className="mt-1 select-all break-all font-mono">{token}</p>
-        </div>
-      ) : null}
-      <button
-        className="brand-button-secondary mt-3 min-h-11 w-full rounded-xl text-sm font-bold disabled:opacity-50"
-        disabled={busy}
-        onClick={onRotate}
-        type="button"
-      >
-        {dashboard.webhookConfigured ? "토큰 다시 발급 (기존 연결 끊김)" : "토큰 발급"}
-      </button>
     </details>
   );
 }
@@ -373,7 +421,14 @@ export function AdminBankDepositsPageClient({
           </details>
         ) : null}
 
-        <WebhookSetup busy={busy} dashboard={dashboard} endpoint={webhookEndpoint} onRotate={() => void run({ action: "rotate-token" })} token={token} />
+        <WebhookSetup
+          busy={busy}
+          dashboard={dashboard}
+          endpoint={webhookEndpoint}
+          onRegister={(label) => run({ action: "register-device", label }, "폰을 등록했습니다.")}
+          onRevoke={(deviceId) => void run({ action: "revoke-device", deviceId }, "연결을 끊었습니다.")}
+          token={token}
+        />
       </div>
       {toasts.map((toast) => (
         <Toast key={toast.id} message={toast.message} onClose={() => removeToast(toast.id)} type={toast.type} />

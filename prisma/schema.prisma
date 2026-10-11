@@ -350,7 +350,6 @@ model DeletedKakaoId {
 // 정산 계좌 입금 알림(안드로이드 알림 전달)으로 들어온 입금 기록
 model BankDeposit {
   id               Int                @id @default(autoincrement())
-  dedupeKey        String             @unique
   rawTitle         String?
   rawText          String
   depositorName    String?
@@ -360,9 +359,11 @@ model BankDeposit {
   status           String             @default("UNMATCHED") // UNMATCHED(자동 대조 대기) | REVIEW(운영진 확인 필요) | MATCHED | IGNORED | UNPARSED
   matchedByKakaoId String? // "bank-auto" = 자동 대조
   matchedAt        DateTime?
+  sourceDeviceId   Int? // 처음 전달한 폰
   matches          BankDepositMatch[]
 
   @@index([status, depositedAt])
+  @@index([rawText, depositedAt])
 }
 
 // 입금 1건이 여러 모임 청구를 한 번에 낸 경우를 위해 분리
@@ -384,4 +385,14 @@ model DepositorAlias {
   depositorName String   @unique
   kakaoId       String
   createdAt     DateTime @default(now())
+}
+
+// 입금 알림을 전달하는 운영진 폰(안드로이드). 폰마다 토큰을 따로 발급해 개별로 끊을 수 있다.
+model BankWebhookDevice {
+  id         Int       @id @default(autoincrement())
+  label      String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
 }

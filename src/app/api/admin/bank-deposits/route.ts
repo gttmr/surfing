@@ -8,7 +8,8 @@ import {
   applyDepositMatch,
   autoMatchPendingDeposits,
   getBankDepositDashboard,
-  rotateBankWebhookToken,
+  registerBankWebhookDevice,
+  revokeBankWebhookDevice,
   undoDepositMatch,
 } from "@/lib/bank-deposits";
 
@@ -81,8 +82,17 @@ export async function POST(req: NextRequest) {
         await prisma.depositorAlias.deleteMany({ where: { id: aliasId } });
         break;
       }
-      case "rotate-token":
-        return NextResponse.json({ token: await rotateBankWebhookToken(), dashboard: await getBankDepositDashboard() });
+      case "register-device": {
+        const label = typeof body.label === "string" ? body.label.trim().slice(0, 30) : "";
+        if (!label) return error("폰 이름을 입력해 주세요.");
+        return NextResponse.json({ token: await registerBankWebhookDevice(label), dashboard: await getBankDepositDashboard() });
+      }
+      case "revoke-device": {
+        const deviceId = positiveInt(body.deviceId);
+        if (!deviceId) return error("연결을 끊을 폰을 선택해 주세요.");
+        await revokeBankWebhookDevice(deviceId);
+        break;
+      }
       default:
         return error("알 수 없는 요청입니다.");
     }

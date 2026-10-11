@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ingestDepositNotification, isValidBankWebhookToken } from "@/lib/bank-deposits";
+import { authenticateBankWebhookDevice, ingestDepositNotification } from "@/lib/bank-deposits";
 
 // 정산 계좌 폰(안드로이드)의 자동화 앱이 은행 입금 알림을 전달하는 웹훅.
-// 인증: Authorization: Bearer <토큰> 또는 X-Webhook-Token 헤더. 토큰은 /admin/deposits 에서 발급한다.
+// 인증: Authorization: Bearer <토큰> 또는 X-Webhook-Token 헤더. 토큰은 /admin/deposits 에서 폰마다 발급한다.
+// 여러 폰이 같은 알림을 보내도 3분 안의 같은 문구는 한 건으로 저장된다.
 // 본문: JSON 또는 form 형식의 { title, text, time? }. time 은 epoch ms 또는 ISO 문자열.
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -40,7 +41,8 @@ async function readFields(req: NextRequest): Promise<Record<string, unknown> | n
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isValidBankWebhookToken(readToken(req)))) {
+  const deviceId = await authenticateBankWebhookDevice(readToken(req));
+  if (!deviceId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,6 +53,6 @@ export async function POST(req: NextRequest) {
   const text = typeof fields.text === "string" ? fields.text.trim() : "";
   if (!text && !title) return NextResponse.json({ error: "알림 내용이 비어 있습니다." }, { status: 400 });
 
-  const result = await ingestDepositNotification({ title: title || null, text, depositedAt: parseTime(fields.time) });
+  const result = await ingestDepositNotification({ title: title || null, text, depositedAt: parseTime(fields.time), deviceId });
   return NextResponse.json({ ok: true, result });
 }
