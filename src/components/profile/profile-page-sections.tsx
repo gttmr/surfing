@@ -312,9 +312,9 @@ export function PersonalJourneyLinks({
   if (!canAccessAdminPortal && !canAccessShopPortal) return null;
 
   const links = [
-    { href: "/", icon: "calendar_month", label: "회원 화면", detail: "모임 참가와 청구 확인" },
+    { href: "/?view=member", icon: "calendar_month", label: "회원 화면", detail: "모임 참가와 청구 확인" },
     ...(canAccessShopPortal
-      ? [{ href: "/shop", icon: "storefront", label: "샵 운영", detail: "주문과 실제 이용 확인" }]
+      ? [{ href: "/shop", icon: "storefront", label: "샵 운영", detail: "주문판과 장비 수량 확인" }]
       : []),
     ...(canAccessAdminPortal
       ? [{ href: "/admin", icon: "admin_panel_settings", label: "관리자", detail: "모임과 청구 운영" }]

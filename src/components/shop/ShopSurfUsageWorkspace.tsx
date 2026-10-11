@@ -279,8 +279,17 @@ export function ShopSurfUsageWorkspace({
         </div>
       ) : null}
 
+      {data.meeting.actualUsageReview.editable && !allConfirmed && data.summary.approvedCount > 0 ? (
+        <div className="brand-panel-white scroll-mt-24 rounded-2xl p-4" id="count-check">
+          <p className="text-sm font-extrabold text-brand-text">샵 수량 확인</p>
+          <p className="brand-text-muted mt-1 break-keep text-xs leading-5">
+            이용 기록이 {data.summary.missingCount + data.summary.reviewCount}명 남았습니다. 모두 확정되면 여기서 항목별 합계를 확인합니다.
+          </p>
+        </div>
+      ) : null}
+
       {data.meeting.actualUsageReview.editable && allConfirmed ? (
-        <div className={`${data.meeting.shopUsageCheckedAt ? "brand-panel-white" : "brand-highlight-panel"} rounded-2xl p-4`}>
+        <div className={`${data.meeting.shopUsageCheckedAt ? "brand-panel-white" : "brand-highlight-panel"} scroll-mt-24 rounded-2xl p-4`} id="count-check">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-extrabold text-brand-text">샵 수량 확인</p>
             {data.meeting.shopUsageCheckedAt ? <span className="brand-chip-success rounded-full px-2.5 py-1 text-xs font-bold">확인 완료</span> : null}

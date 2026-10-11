@@ -1,26 +1,50 @@
 "use client";
 
+import Link from "next/link";
 import { ShopLayout } from "@/components/shop/ShopLayout";
 import { ShopMeetingPicker } from "@/components/shop/ShopMeetingPicker";
 import { ShopOrderQueue } from "@/components/shop/order-queue/ShopOrderQueue";
+import { Icon } from "@/components/ui/Icon";
 import type { AdminMeetingFoodOrdersData, ShopMeetingOption } from "@/lib/food-ordering-data";
+import { DAY_KO } from "@/lib/format";
+import type { PendingShopCountCheck } from "@/lib/shop-count-checks";
+
+function shortDate(date: string) {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}/${Number(day)}(${DAY_KO[new Date(`${date}T12:00:00`).getDay()]})`;
+}
 
 export function ShopDashboardPageClient({
   meetings,
   selectedMeetingId,
   initialData,
+  pendingCountChecks,
 }: {
   meetings: ShopMeetingOption[];
   selectedMeetingId: number | null;
   initialData: AdminMeetingFoodOrdersData | null;
+  pendingCountChecks: readonly PendingShopCountCheck[];
 }) {
   return (
     <ShopLayout>
-      <header className="mb-4">
-        <p className="brand-text-subtle text-xs font-bold">FOOD ORDERS</p>
-        <h1 className="mt-1 font-headline text-[1.7rem] font-extrabold tracking-[-0.03em] text-brand-text">식음료 주문</h1>
-        <p className="brand-text-muted mt-1 break-keep text-sm">접수·준비·제공 상태만 이 화면에서 처리합니다.</p>
-      </header>
+      {pendingCountChecks.length > 0 ? (
+        <div className="mb-4 space-y-2">
+          {pendingCountChecks.map((check) => (
+            <Link
+              className="brand-highlight-panel flex min-h-14 items-center justify-between gap-3 rounded-2xl px-4 py-3"
+              href={`/shop/usage?meetingId=${check.meetingId}#count-check`}
+              key={check.meetingId}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-extrabold text-brand-text">{shortDate(check.date)} 장비 수량 확인</span>
+                <span className="brand-text-muted block truncate text-xs">{check.location} · 합계가 맞는지만 봐 주세요</span>
+              </span>
+              <Icon className="text-[20px] text-brand-primary" name="arrow_forward" />
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
       <ShopMeetingPicker
         meetings={meetings}
         selectedMeetingId={selectedMeetingId}
