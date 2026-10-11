@@ -87,10 +87,16 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await expect(page.getByText("00:00", { exact: false })).toHaveCount(0);
     const participantTab = page.getByRole("tab", { name: /내 참가/ });
     if (await participantTab.getAttribute("aria-selected") !== "true") await participantTab.click();
-    // 장비는 사전 신청하지 않고 현장 이용으로 기록한다.
-    await expect(page.getByRole("checkbox", { name: /장비 대여/ })).toHaveCount(0);
+    // 첫째 날 "장비 대여 필요"(강습 안 함일 때만 표시)가 먼저, 둘째 날 장비 선택이 뒤에 나온다.
+    const rentalChecks = page.getByRole("checkbox", { name: /장비 대여 필요/ });
+    await expect(rentalChecks).toHaveCount(2);
+    await rentalChecks.last().click();
+    await expect(page.getByText("첫 장비 대여일로 동호회 지원이 적용됩니다.", { exact: true })).toBeVisible();
+    await expect(page.getByText("30,000원", { exact: true }).last()).toBeVisible();
+    await rentalChecks.first().click();
+    await expect(page.getByText("60,000원", { exact: true })).toBeVisible();
     await page.getByRole("checkbox", { name: /동호회 숙소 이용/ }).click();
-    await expect(page.getByText("80,000원", { exact: true })).toBeVisible();
+    await expect(page.getByText("110,000원", { exact: true })).toBeVisible();
     const signupResponse = page.waitForResponse((response) => response.request().method() === "POST"
       && new URL(response.url()).pathname === "/api/participants/overnight");
     await page.getByRole("button", { name: "참가 신청하기", exact: true }).click();
@@ -104,7 +110,7 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     });
     expect(signedUp).toHaveLength(2);
     expect(signedUp.every((participant) => participant.usesClubLodging)).toBe(true);
-    expect(signedUp.every((participant) => !participant.hasRental)).toBe(true);
+    expect(signedUp.find((participant) => participant.meetingId === day2MeetingId)?.hasRental).toBe(true);
 
     await useAuth(context, "password-admin");
     await page.goto(`/admin/meetings/${day2MeetingId}/settlement`, { waitUntil: "networkidle" });

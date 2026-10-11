@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatWon } from "@/lib/format";
+import { Icon } from "@/components/ui/Icon";
 import type { SignupBurdenPreview } from "@/lib/signup-pricing";
 
 export function KakaoIcon() {
@@ -124,11 +125,13 @@ export function ShopOptionChoice({
   trailing?: ReactNode;
   burden?: SignupBurdenPreview;
 }) {
-  // 사전 신청은 강사 인원 준비에 필요한 강습 여부만 받는다. 장비·슈트·샤워는 현장 실제 이용으로 기록한다.
-  // 예전에 "장비만"으로 신청한 기록(value === "rental")은 "강습 안 함"으로 보인다.
+  // 강습은 강사 인원 준비에, 장비 대여 필요는 성수기 장비 수량 안내와 현장 이용 기록의 기본값에 쓴다.
+  // 강습 패키지에 장비가 포함되므로 장비 체크는 "강습 안 함"일 때만 보인다.
+  const lessonSelected = value === "lesson";
+  const rentalSelected = value === "rental";
   const choices = [
     { lesson: true, label: "강습 신청", amount: (burden?.baseFee ?? 0) + (burden?.lessonFee ?? 0) },
-    { lesson: false, label: "강습 안 함", amount: burden?.baseFee ?? 0 },
+    { lesson: false, label: "강습 안 함", amount: (burden?.baseFee ?? 0) + (rentalSelected ? burden?.rentalFee ?? 0 : 0) },
   ];
 
   return (
@@ -140,11 +143,11 @@ export function ShopOptionChoice({
       <div className="grid grid-cols-2 gap-2">
         {choices.map((choice) => (
           <button
-            aria-pressed={(value === "lesson") === choice.lesson}
-            className={`${segmentedButtonClass((value === "lesson") === choice.lesson, disabled)} flex-col px-1.5 text-sm leading-5`}
+            aria-pressed={lessonSelected === choice.lesson}
+            className={`${segmentedButtonClass(lessonSelected === choice.lesson, disabled)} flex-col px-1.5 text-sm leading-5`}
             disabled={disabled}
             key={choice.label}
-            onClick={() => onChange(choice.lesson ? "lesson" : null)}
+            onClick={() => onChange(choice.lesson ? "lesson" : rentalSelected ? "rental" : null)}
             type="button"
           >
             <span>{choice.label}</span>
@@ -152,7 +155,25 @@ export function ShopOptionChoice({
           </button>
         ))}
       </div>
-      <p className="brand-text-subtle text-[11px] leading-5">장비 대여·슈트·샤워는 현장에서 이용한 만큼 기록되어 청구됩니다. 예상 금액은 참가비와 강습비 기준입니다.</p>
+      {!lessonSelected ? (
+        <button
+          aria-checked={rentalSelected}
+          className={`brand-select-card flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left ${rentalSelected ? "brand-select-card-active" : ""}`}
+          disabled={disabled}
+          onClick={() => onChange(rentalSelected ? null : "rental")}
+          role="checkbox"
+          type="button"
+        >
+          <span className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${rentalSelected ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+            {rentalSelected ? <Icon className="text-[16px]" name="check" /> : null}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-brand-text">장비 대여 필요</span>
+            <span className="brand-text-subtle block text-[11px]">보드·슈트 · 샵 준비 수량 안내용</span>
+          </span>
+        </button>
+      ) : null}
+      <p className="brand-text-subtle text-[11px] leading-5">예상 회원 부담입니다. 최종 청구는 현장에서 실제 이용한 만큼 기록되어 정해집니다.</p>
     </div>
   );
 }

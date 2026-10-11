@@ -40,6 +40,8 @@ export function ShopSurfUsageWorkspace({
   const [lockedParticipant, setLockedParticipant] = useState<ShopUsageLockedParticipant | null>(null);
   const [actionError, setActionError] = useState<ShopUsageActionError | null>(null);
   const [pendingViewChange, setPendingViewChange] = useState<ShopUsagePendingViewChange | null>(null);
+  const [fillDialogOpen, setFillDialogOpen] = useState(false);
+  const [filling, setFilling] = useState(false);
   const { addToast, removeToast, toasts } = useToast();
   const appliedInitialDataRef = useRef(initialData);
   const currentMeetingId = data.meeting.id;
@@ -202,8 +204,55 @@ export function ShopSurfUsageWorkspace({
     }
   }
 
+  async function fillFromSignup() {
+    setFilling(true);
+    try {
+      const response = await fetch(usageEndpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fill-from-signup" }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok || !isShopMeetingSurfUsageData(payload)) {
+        addToast(shopUsageErrorMessage(payload, "이용 내역을 채우지 못했습니다."), "error");
+        return;
+      }
+      const filled = (payload as { filled?: number }).filled ?? 0;
+      commitServerData(payload, true);
+      setFilter("confirmed");
+      addToast(`${filled}명을 신청 내용대로 채웠습니다. 다르게 이용한 사람만 고쳐 주세요.`, "success");
+    } catch {
+      addToast("이용 내역을 채우지 못했습니다.", "error");
+    } finally {
+      setFilling(false);
+      setFillDialogOpen(false);
+    }
+  }
+
+  const canFillFromSignup = data.meeting.actualUsageReview.editable && data.summary.missingCount > 0;
+
   return (
     <section className="space-y-5">
+      {canFillFromSignup ? (
+        <div className="brand-highlight-panel rounded-2xl p-4">
+          <p className="text-sm font-extrabold text-brand-text">미입력 {data.summary.missingCount}명을 신청 내용대로 채울 수 있어요</p>
+          <p className="brand-text-muted mt-1 break-keep text-xs leading-5">
+            강습 신청 → 강습 패키지, 장비 대여 필요 → 장비대여로 기록하고 확정합니다. 그 뒤 샤워·슈트 등 다르게 이용한 사람만 고치면 됩니다.
+          </p>
+          <button
+            className="brand-button-primary mt-3 min-h-11 w-full rounded-xl text-sm font-bold disabled:opacity-50"
+            disabled={filling || dirtyParticipantIds.length > 0}
+            onClick={() => setFillDialogOpen(true)}
+            type="button"
+          >
+            신청 내용으로 한 번에 채우기
+          </button>
+          {dirtyParticipantIds.length > 0 ? (
+            <p className="brand-text-subtle mt-2 text-xs">편집 중인 참가자를 저장하거나 취소한 뒤 사용할 수 있습니다.</p>
+          ) : null}
+        </div>
+      ) : null}
+
       <ShopUsageParticipantReview
         actionError={actionError}
         dirtyParticipantIds={dirtyParticipantIds}
@@ -252,6 +301,22 @@ export function ShopSurfUsageWorkspace({
           </button>
           <button className="brand-button-danger-solid rounded-2xl px-3 py-3 text-sm font-bold" onClick={discardChanges} type="button">
             변경 버리기
+          </button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        description={`아직 입력하지 않은 ${data.summary.missingCount}명을 신청 내용대로 기록하고 확정합니다. 이미 입력한 참가자와 불참자는 바뀌지 않습니다.`}
+        onClose={() => { if (!filling) setFillDialogOpen(false); }}
+        open={fillDialogOpen}
+        title="신청 내용으로 채울까요?"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <button className="brand-button-secondary rounded-2xl px-3 py-3 text-sm font-bold" disabled={filling} onClick={() => setFillDialogOpen(false)} type="button">
+            돌아가기
+          </button>
+          <button className="brand-button-primary rounded-2xl px-3 py-3 text-sm font-bold" disabled={filling} onClick={() => void fillFromSignup()} type="button">
+            {filling ? "채우는 중" : "채우기"}
           </button>
         </div>
       </Dialog>

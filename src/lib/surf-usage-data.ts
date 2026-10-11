@@ -194,9 +194,9 @@ function getParticipantType(companionId: number | null) {
 }
 
 function getRequestedOptionLabel(participant: { hasLesson: boolean; hasRental: boolean }) {
-  if (participant.hasLesson) return "강습+장비";
-  if (participant.hasRental) return "장비만";
-  return "이용 안 함";
+  if (participant.hasLesson) return "강습";
+  if (participant.hasRental) return "장비 대여";
+  return "장비 없음";
 }
 
 function getRequestedServiceType(participant: { hasLesson: boolean; hasRental: boolean }): SurfUsageServiceType | null {
@@ -847,6 +847,76 @@ export async function confirmShopParticipantSurfUsage(
       confirmedAt: new Date(),
       confirmedByKakaoId: actorKakaoId,
     },
+  });
+}
+
+/**
+ * 아직 이용 내역이 없는 참가자를 신청 내용(강습 → 강습 패키지, 장비 대여 필요 → 장비대여)으로 채우고 확정한다.
+ * 운영진은 이후 다르게 이용한 사람만 고친다. 불참자와 이미 입력된 참가자는 건드리지 않는다.
+ * 채운 참가자 수를 반환한다.
+ */
+export async function fillMissingSurfUsageFromSignup(meetingId: number, actorKakaoId: string | null): Promise<number> {
+  await requireActualUsageReviewOpen(meetingId);
+
+  const [usageItems, participants] = await Promise.all([
+    ensureMeetingSurfUsageItems(meetingId),
+    prisma.participant.findMany({
+      where: {
+        meetingId,
+        status: "APPROVED",
+        attendanceStatus: { not: "ABSENT" },
+        surfUsageSubmissions: { none: {} },
+      },
+      select: { id: true, hasLesson: true, hasRental: true },
+    }),
+  ]);
+  if (participants.length === 0) return 0;
+
+  const itemFor = (serviceType: SurfUsageServiceType) =>
+    usageItems.find((item) => item.isActive && item.serviceType === serviceType && item.isDefault)
+    ?? usageItems.find((item) => item.isActive && item.serviceType === serviceType)
+    ?? null;
+
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    let filled = 0;
+    for (const participant of participants) {
+      // 다른 운영진이 그사이 입력했다면 제출 기록이 이미 있으므로 건너뛴다.
+      const { count } = await tx.participantSurfUsageSubmission.createMany({
+        data: [{
+          meetingId,
+          participantId: participant.id,
+          status: "CONFIRMED",
+          submittedByKakaoId: actorKakaoId,
+          submittedAt: now,
+          confirmedAt: now,
+          confirmedByKakaoId: actorKakaoId,
+        }],
+        skipDuplicates: true,
+      });
+      if (count === 0) continue;
+      filled += 1;
+
+      const serviceType = getRequestedServiceType(participant);
+      const usageItem = serviceType ? itemFor(serviceType) : null;
+      if (!usageItem) continue;
+      await tx.participantSurfUsage.create({
+        data: {
+          meetingId,
+          participantId: participant.id,
+          usageItemId: usageItem.id,
+          quantity: 1,
+          usageItemNameSnapshot: usageItem.name,
+          serviceTypeSnapshot: usageItem.serviceType,
+          shopUnitPriceSnapshot: usageItem.shopPrice,
+          memberBillingPolicySnapshot: usageItem.memberBillingPolicy,
+          regularMemberPriceSnapshot: usageItem.regularMemberPrice,
+          source: "signup",
+          submittedByKakaoId: actorKakaoId,
+        },
+      });
+    }
+    return filled;
   });
 }
 

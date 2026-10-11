@@ -3,6 +3,7 @@ import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { canAccessShopPortalFromRequest } from "@/lib/auth";
 import {
   confirmShopParticipantSurfUsage,
+  fillMissingSurfUsageFromSignup,
   getShopMeetingSurfUsageData,
   saveShopParticipantSurfUsage,
 } from "@/lib/surf-usage-data";
@@ -37,6 +38,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const participantId = Number(body?.participantId);
   const action = typeof body?.action === "string" ? body.action : "";
+
+  if (action === "fill-from-signup") {
+    if (!Number.isInteger(meetingId)) return NextResponse.json({ error: "잘못된 모임입니다." }, { status: 400 });
+    try {
+      const session = await getActiveSessionFromRequest(req);
+      const filled = await fillMissingSurfUsageFromSignup(meetingId, session?.kakaoId ?? null);
+      const data = await getShopMeetingSurfUsageData(meetingId);
+      return NextResponse.json({ ...data, filled });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "이용 내역을 채우지 못했습니다." },
+        { status: 400 }
+      );
+    }
+  }
 
   if (!Number.isInteger(meetingId) || !Number.isInteger(participantId)) {
     return NextResponse.json({ error: "participantId가 필요합니다." }, { status: 400 });

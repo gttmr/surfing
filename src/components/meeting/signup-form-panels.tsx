@@ -87,16 +87,17 @@ function DailyMeetingActivity({ meetingId, overnightDays }: { readonly meetingId
   );
 }
 
-// day2Label / onDay2Rental 은 둘째 날 장비 선택을 없애면서 쓰지 않는다. 호출부 정리는 1박 구조 개편 때 함께 한다.
 function OvernightChoices({
   day2HasRental,
   usesClubLodging,
   disabled,
+  day2Label,
   day1HasLesson,
   day1HasRental,
   lodgingFee,
   participantType,
   pricingPreview,
+  onDay2Rental,
   onLodging,
 }: {
   readonly day2HasRental: boolean;
@@ -120,8 +121,19 @@ function OvernightChoices({
     usesClubLodging,
     lodgingFee,
   });
-  // 장비는 현장 실제 이용으로 기록하므로 둘째 날 장비 대여는 사전에 받지 않는다(기존 선택값은 유지).
+  const day2Description = participantType === "REGULAR" && !day1Option
+    ? "첫 장비 대여일로 동호회 지원이 적용됩니다."
+    : participantType === "REGULAR"
+      ? "첫날 지원을 사용하면 둘째 날은 샵 가격을 부담합니다."
+      : "둘째 날에도 샵 장비 대여비가 반영됩니다.";
   const choices = [
+    {
+      key: "day2-rental",
+      checked: day2HasRental,
+      label: `${day2Label} 장비 대여 필요`,
+      description: day2Description,
+      onChange: onDay2Rental,
+    },
     {
       key: "lodging",
       checked: usesClubLodging,
@@ -162,7 +174,7 @@ function OvernightChoices({
       >
         <span>
           <span className="block text-xs font-bold text-brand-text">현재 예상 금액</span>
-          <span className="brand-text-subtle mt-0.5 block text-[11px]">참가비·강습·숙박 기준 (장비는 현장 이용분 추가)</span>
+          <span className="brand-text-subtle mt-0.5 block text-[11px]">선택한 참가·장비·숙박 비용 기준</span>
         </span>
         <strong className="brand-estimate-value shrink-0 text-lg font-extrabold tabular-nums text-brand-primary" key={estimate.totalAmount}>
           {formatWon(estimate.totalAmount)}
