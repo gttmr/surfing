@@ -5,6 +5,7 @@ import { findInitialView, normalizeSelectedDate } from "@/lib/home-view";
 import type {
   DetailedMeeting,
   HomeUser,
+  MyMeetingParticipation,
   NoticeItem,
   SignupInitialData,
   UserNotificationItem,
@@ -159,6 +160,7 @@ export default async function SchedulePageContent({
   let signupPricingPreview = DEFAULT_SIGNUP_PRICING_PREVIEW;
   const initialMeetingDetailsById: Record<number, DetailedMeeting> = {};
   const initialSignupDataByMeetingId: Record<number, SignupInitialData> = {};
+  const myParticipationByMeetingId: Record<number, MyMeetingParticipation> = {};
 
   try {
     // P0: session validation runs in parallel with all other queries
@@ -175,6 +177,7 @@ export default async function SchedulePageContent({
       regularCompanions,
       linkedCompanion,
       userNotifications,
+      myUpcomingParticipations,
     ] = await Promise.all([
       session ? isSessionUserActive(session.kakaoId) : false,
       session
@@ -241,11 +244,26 @@ export default async function SchedulePageContent({
             take: 20,
           })
         : Promise.resolve([]),
+      session
+        ? prisma.participant.findMany({
+            where: { kakaoId: session.kakaoId, companionId: null, meeting: { date: { gte: getTodayInSeoul() } } },
+            select: { meetingId: true, status: true, waitlistPosition: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const sessionUser = session && isActive ? session : null;
 
     isAdmin = !!(sessionUser && dbUser?.role === "ADMIN");
+
+    if (sessionUser) {
+      for (const participation of myUpcomingParticipations) {
+        myParticipationByMeetingId[participation.meetingId] = {
+          status: participation.status,
+          waitlistPosition: participation.waitlistPosition,
+        };
+      }
+    }
 
     if (sessionUser && dbUser) {
       userForClient = {
@@ -469,6 +487,7 @@ export default async function SchedulePageContent({
       initialSelectedDate={initialSelectedDate}
       initialSettlementAccount={null}
       initialSignupDataByMeetingId={initialSignupDataByMeetingId}
+      myParticipationByMeetingId={myParticipationByMeetingId}
       initialUserNotifications={userNotificationsForClient}
       isAdmin={isAdmin}
       meetings={meetingsForClient}

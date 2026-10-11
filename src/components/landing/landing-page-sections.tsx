@@ -6,6 +6,7 @@ import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { pickSurfAvatarEmoji } from "@/lib/avatar-emoji";
 import type { MeetingWithCounts } from "@/lib/types";
 import type {
+  MyMeetingParticipation,
   HomeUser,
   NoticeItem,
   SettlementSummary,
@@ -476,5 +477,83 @@ export function MeetingTabs({
     >
       {children}
     </Tabs>
+  );
+}
+
+const UPCOMING_LIMIT = 3;
+const UPCOMING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", weekday: "short" });
+
+export function getUpcomingMeetings(meetings: readonly MeetingWithCounts[], today: string): MeetingWithCounts[] {
+  return meetings
+    .filter((meeting) => meeting.date >= today)
+    .filter((meeting) => !meeting.overnightGroup || meeting.overnightGroup.days[0]?.id === meeting.id)
+    .slice(0, UPCOMING_LIMIT);
+}
+
+function upcomingStatus(meeting: MeetingWithCounts, participation: MyMeetingParticipation | undefined) {
+  if (participation?.status === "APPROVED") return { label: "신청 완료", className: "brand-chip-success" };
+  if (participation?.status === "WAITLISTED") {
+    return { label: `대기 ${participation.waitlistPosition ?? ""}번`.trim(), className: "brand-chip-preparing" };
+  }
+  if (!meeting.isOpen) return { label: "신청 마감", className: "brand-chip-dimmed" };
+  return { label: "신청 가능", className: "brand-chip-soft" };
+}
+
+/** 홈 첫 화면: 다가오는 모임과 내 신청 상태를 달력보다 먼저 보여준다. */
+export function UpcomingMeetings({
+  meetings,
+  today,
+  selectedDate,
+  myParticipationByMeetingId,
+  showStatus,
+  onSelect,
+}: {
+  meetings: readonly MeetingWithCounts[];
+  today: string;
+  selectedDate: string | null;
+  myParticipationByMeetingId: Record<number, MyMeetingParticipation>;
+  showStatus: boolean;
+  onSelect: (date: string) => void;
+}) {
+  const upcoming = getUpcomingMeetings(meetings, today);
+
+  return (
+    <section aria-labelledby="upcoming-meetings-title">
+      <h2 className="mb-3 font-headline text-lg font-extrabold tracking-[-0.03em]" id="upcoming-meetings-title">다가오는 모임</h2>
+      {upcoming.length === 0 ? (
+        <p className="brand-card-soft brand-text-muted rounded-2xl px-4 py-6 text-center text-sm">예정된 모임이 없습니다.</p>
+      ) : (
+        <ul className="space-y-2">
+          {upcoming.map((meeting) => {
+            const status = upcomingStatus(meeting, myParticipationByMeetingId[meeting.id]);
+            const selected = selectedDate === meeting.date;
+            const lastDay = meeting.overnightGroup?.days[meeting.overnightGroup.days.length - 1];
+            const dateLabel = lastDay
+              ? `${UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`))} – ${UPCOMING_DATE_FORMATTER.format(new Date(`${lastDay.date}T12:00:00`))}`
+              : UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`));
+            return (
+              <li key={meeting.id}>
+                <button
+                  aria-current={selected ? "true" : undefined}
+                  className={`brand-select-card ${selected ? "brand-select-card-active" : ""} flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left`}
+                  onClick={() => onSelect(meeting.date)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-base font-extrabold text-brand-text">{dateLabel}</span>
+                    <span className="brand-text-muted mt-0.5 block truncate text-xs">
+                      {meeting.startTime} · {meeting.location} · {meeting.approvedCount}명
+                    </span>
+                  </span>
+                  {showStatus ? (
+                    <span className={`${status.className} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>{status.label}</span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

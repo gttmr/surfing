@@ -35,6 +35,9 @@ test.setTimeout(60_000);
 
 test("R01 public home exposes a single-stop Korean calendar", async ({ page }, testInfo) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "다가오는 모임" })).toBeVisible();
+  // 달력은 "전체 일정 · 지난 모임" 아래에 접혀 있다.
+  await page.locator("summary").filter({ hasText: "전체 일정 · 지난 모임" }).click();
   const grid = page.getByRole("grid", { name: /모임 달력/ });
   await expect(grid).toBeVisible();
   const tabbableDates = grid.locator('[role="gridcell"][tabindex="0"]');
@@ -75,7 +78,8 @@ test("R01 member finds dense participants, billing, empty state, and drives cale
   expect(billing.pending.every((item) => item.paymentStatus === "PAYMENT_REQUIRED" || item.paymentStatus === "REPORTED")).toBe(true);
 
   await page.goto(`/?date=${dense?.date}`);
-  await expect(page.getByText("지금 할 일")).toBeVisible();
+  // 다가오는 모임은 카드가 선택 상태를 보여주므로 별도 요약 헤더가 없다.
+  await expect(page.locator('section[aria-labelledby="upcoming-meetings-title"] button[aria-current="true"]')).toHaveCount(1);
   const selectedMeeting = page.locator('section[aria-labelledby="selected-meeting-title"]');
   await expect(selectedMeeting.getByRole("link", { name: /청구/ })).toHaveCount(0);
   const pendingBilling = page.getByRole("alert", { name: "입금이 필요한 청구가 있습니다" });
@@ -98,6 +102,7 @@ test("R01 member finds dense participants, billing, empty state, and drives cale
     await expect(alertTrigger).toBeFocused();
   }
 
+  await page.locator("summary").filter({ hasText: "전체 일정 · 지난 모임" }).click();
   const selectedDate = page.getByRole("gridcell", { selected: true });
   await selectedDate.focus();
   await selectedDate.press("ArrowRight");
