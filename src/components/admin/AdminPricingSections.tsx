@@ -3,9 +3,10 @@ import {
   MAX_PRICING_COMPONENT,
   parsePricingAmount,
   type PricingInputErrors,
+  type PricingInputKey,
 } from "@/lib/admin-pricing-settings";
 import type { AdminPricingState } from "@/lib/admin-page-data";
-import { PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
+import { PRICING_SETTING_KEYS } from "@/lib/settings";
 
 const PRICING_FIELDS = [
   {
@@ -38,8 +39,8 @@ type PricingInputProps = {
   readonly disabled: boolean;
   readonly error: string | undefined;
   readonly label: string;
-  readonly name: PricingSettingKey | "foodOrderSupportCap";
-  readonly onChange: (key: PricingSettingKey | "foodOrderSupportCap", value: string) => void;
+  readonly name: PricingInputKey;
+  readonly onChange: (key: PricingInputKey, value: string) => void;
   readonly value: string;
 };
 
@@ -170,6 +171,38 @@ export function AdminFoodSupportSection({
             <p className="text-xs font-bold text-brand-text">회원 부담 미리보기</p>
             <p className="brand-text-muted mt-2 text-sm">참가자별 식음료 주문 금액에서 최대 <strong className="text-brand-text">{formatWon(draft.foodOrderSupportCap)}</strong>까지 지원됩니다.</p>
           </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function AdminCompanySupportSection({
+  dirty,
+  disabled,
+  draft,
+  editing,
+  error,
+  onChange,
+  onToggleEditing,
+  snapshot,
+}: FoodSupportSectionProps) {
+  return (
+    <section className="brand-admin-section overflow-hidden">
+      <AdminSettingSectionHeader
+        contentId="company-support-editor"
+        disabled={disabled}
+        dirty={dirty}
+        editing={editing}
+        onToggleEditing={onToggleEditing}
+        roleLabel="정산 수지에 반영"
+        summary={`정회원 1명당 ${formatWon(snapshot.companySupportPerRegular)}`}
+        title="회사 지원금"
+      />
+      {editing ? (
+        <div className="space-y-4 px-4 py-5" id="company-support-editor">
+          <PricingInput description="모임마다 참가 확정된 정회원 1명당 회사에서 받는 금액(동반인 제외)" disabled={disabled} error={error} label="정회원 1명당 지원금" name="companySupportPerRegular" onChange={onChange} value={draft.companySupportPerRegular} />
+          <p className="brand-text-muted text-sm">회원 청구 금액에는 영향을 주지 않고, 모임별 정산 화면의 수지 계산에만 쓰입니다.</p>
         </div>
       ) : null}
     </section>

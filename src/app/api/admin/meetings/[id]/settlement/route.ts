@@ -125,7 +125,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (requestedAction === "record-payout") {
-    const payoutType = "payoutType" in payload && (payload.payoutType === "shop" || payload.payoutType === "food")
+    const payoutType = "payoutType" in payload
+      && (payload.payoutType === "shop" || payload.payoutType === "food" || payload.payoutType === "shop-total")
       ? payload.payoutType
       : null;
     const amount = "amount" in payload ? Number(payload.amount) : Number.NaN;
@@ -142,9 +143,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     await prisma.meeting.update({
       where: { id: meetingId },
-      data: payoutType === "shop"
-        ? { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
-        : { foodPaidAt: new Date(), foodPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
+      // 장비와 식음료는 같은 샵에 한 번에 지급하므로 "shop-total"은 합계를 장비 지급란에 기록하고 식음료 지급도 함께 끝낸다.
+      data: payoutType === "shop-total"
+        ? { shopPaidAt: new Date(), shopPaidAmount: amount, foodPaidAt: new Date(), foodPaidAmount: 0, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
+        : payoutType === "shop"
+          ? { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
+          : { foodPaidAt: new Date(), foodPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
     });
     return NextResponse.json({ action: requestedAction, data: await getAdminSettlementData(meetingId) });
   }
@@ -157,8 +161,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const blockers = [
       data.verifiedRecipientCount < data.recipients.length ? "회원 입금 확인" : null,
-      data.billing.totals.shopPayableTotal > 0 && !data.billing.shopPayout.paidAt ? "샵 지급 기록" : null,
-      data.billing.totals.foodPayableTotal > 0 && !data.billing.foodPayout.paidAt ? "식음료 지급 기록" : null,
+      !data.billing.shopTotal.complete ? "샵 지급 기록" : null,
     ].filter((item): item is string => item !== null);
     if (blockers.length > 0) {
       return NextResponse.json({

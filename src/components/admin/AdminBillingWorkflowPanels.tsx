@@ -202,28 +202,20 @@ function PayoutRow({
 export function AdminFinalSettlementPanel({
   data,
   shopDraft,
-  foodDraft,
   working,
   onShopDraft,
-  onFoodDraft,
   onRecordShop,
-  onRecordFood,
   onRequestComplete,
 }: {
   readonly data: AdminSettlementData;
   readonly shopDraft: string;
-  readonly foodDraft: string;
   readonly working: string | null;
   readonly onShopDraft: (value: string) => void;
-  readonly onFoodDraft: (value: string) => void;
   readonly onRecordShop: () => void;
-  readonly onRecordFood: () => void;
   readonly onRequestComplete: () => void;
 }) {
   const paymentsComplete = data.verifiedRecipientCount >= data.recipients.length;
-  const shopComplete = data.billing.totals.shopPayableTotal === 0 || Boolean(data.billing.shopPayout.paidAt);
-  const foodComplete = data.billing.totals.foodPayableTotal === 0 || Boolean(data.billing.foodPayout.paidAt);
-  const canComplete = paymentsComplete && shopComplete && foodComplete;
+  const canComplete = paymentsComplete && data.billing.shopTotal.complete;
 
   return (
     <section className="brand-admin-section overflow-hidden">
@@ -231,7 +223,7 @@ export function AdminFinalSettlementPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-extrabold text-brand-text">최종 정산</h2>
-            <p className="brand-text-muted mt-1 text-xs">회원 입금과 외부 지급이 모두 끝난 뒤 모임 장부를 닫습니다.</p>
+            <p className="brand-text-muted mt-1 text-xs">회원 입금 확인과 샵 지급이 끝나면 모임 장부를 닫습니다.</p>
           </div>
           <span className={`${data.billing.settlementCompletedAt ? "brand-chip-success" : "brand-chip-soft"} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>{data.billing.settlementCompletedAt ? "완료" : "진행 중"}</span>
         </div>
@@ -241,8 +233,7 @@ export function AdminFinalSettlementPanel({
           <div><p className="text-sm font-bold text-brand-text">회원 입금</p><p className="brand-text-subtle mt-0.5 text-xs">{data.verifiedRecipientCount}/{data.recipients.length}명 확인</p></div>
           <Icon className={paymentsComplete ? "text-brand-success" : "text-brand-text-subtle"} name={paymentsComplete ? "check_circle" : "radio_button_unchecked"} />
         </div>
-        <PayoutRow amount={data.billing.totals.shopPayableTotal} draft={shopDraft} label="샵 지급" paidAmount={data.billing.shopPayout.amount} paidAt={data.billing.shopPayout.paidAt} working={working === "shop"} onChange={onShopDraft} onRecord={onRecordShop} />
-        <PayoutRow amount={data.billing.totals.foodPayableTotal} draft={foodDraft} label="식음료 지급" paidAmount={data.billing.foodPayout.amount} paidAt={data.billing.foodPayout.paidAt} working={working === "food"} onChange={onFoodDraft} onRecord={onRecordFood} />
+        <PayoutRow amount={data.billing.shopTotal.payable} draft={shopDraft} label="샵 지급 (장비+식음료)" paidAmount={data.billing.shopTotal.paidAmount} paidAt={data.billing.shopTotal.complete ? data.billing.shopTotal.paidAt : null} working={working === "shop-total"} onChange={onShopDraft} onRecord={onRecordShop} />
       </div>
       <div className="border-t border-brand-divider px-4 py-4">
         {data.billing.settlementCompletedAt ? (
@@ -254,7 +245,7 @@ export function AdminFinalSettlementPanel({
         ) : (
           <>
             <button className="brand-button-primary min-h-11 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50" disabled={!canComplete || Boolean(working)} onClick={onRequestComplete} type="button">최종 정산 완료</button>
-            {!canComplete ? <p className="brand-text-subtle mt-2 text-center text-xs">입금 확인과 실제 지급 기록을 모두 완료해 주세요.</p> : null}
+            {!canComplete ? <p className="brand-text-subtle mt-2 text-center text-xs">회원 입금 확인과 샵 지급 기록을 모두 완료해 주세요.</p> : null}
           </>
         )}
       </div>

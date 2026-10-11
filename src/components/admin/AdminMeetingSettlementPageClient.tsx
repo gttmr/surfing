@@ -56,8 +56,7 @@ export function AdminMeetingSettlementPageClient({
   const [adjustmentDeleteTarget, setAdjustmentDeleteTarget] = useState<AdjustmentDeleteTarget>(null);
   const [correctionReason, setCorrectionReason] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
-  const [shopPayoutDraft, setShopPayoutDraft] = useState(String(initialData.billing.shopPayout.amount ?? initialData.billing.totals.shopPayableTotal));
-  const [foodPayoutDraft, setFoodPayoutDraft] = useState(String(initialData.billing.foodPayout.amount ?? initialData.billing.totals.foodPayableTotal));
+  const [shopPayoutDraft, setShopPayoutDraft] = useState(String(initialData.billing.shopTotal.paidAmount ?? initialData.billing.shopTotal.payable));
   const [lodgingParticipantIds, setLodgingParticipantIds] = useState<number[]>([]);
   const [lodgingLabel, setLodgingLabel] = useState("공동 숙박비");
   const [lodgingAmount, setLodgingAmount] = useState("");
@@ -236,16 +235,16 @@ export function AdminMeetingSettlementPageClient({
     setWorkingRecipient(null);
   }
 
-  async function handlePayout(type: "shop" | "food", draft: string) {
-    const amount = Number(draft);
-    if (!Number.isInteger(amount) || amount < 0) {
+  async function handleShopPayout(draft: string) {
+    const amount = Number(draft.replace(/[^\d]/g, ""));
+    if (!draft.trim() || !Number.isInteger(amount) || amount < 0) {
       addToast("실제 지급액을 0원 이상의 숫자로 입력해 주세요.", "error");
       return;
     }
     await runWorkflowAction(
-      type,
-      { action: "record-payout", payoutType: type, amount },
-      type === "shop" ? "샵 실제 지급액을 기록했습니다." : "식음료 실제 지급액을 기록했습니다."
+      "shop-total",
+      { action: "record-payout", payoutType: "shop-total", amount },
+      "샵 지급액(장비+식음료)을 기록했습니다."
     );
   }
 
@@ -360,10 +359,7 @@ export function AdminMeetingSettlementPageClient({
             <AdminPaymentStatusPanel data={data} onVerify={(recipient, verified) => void handlePaymentVerification(recipient, verified)} workingRecipient={workingRecipient} />
             <AdminFinalSettlementPanel
               data={data}
-              foodDraft={foodPayoutDraft}
-              onFoodDraft={setFoodPayoutDraft}
-              onRecordFood={() => void handlePayout("food", foodPayoutDraft)}
-              onRecordShop={() => void handlePayout("shop", shopPayoutDraft)}
+              onRecordShop={() => void handleShopPayout(shopPayoutDraft)}
               onRequestComplete={() => setWorkflowDialog("complete")}
               onShopDraft={setShopPayoutDraft}
               shopDraft={shopPayoutDraft}

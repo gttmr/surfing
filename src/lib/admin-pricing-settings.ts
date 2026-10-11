@@ -1,7 +1,7 @@
 import type { AdminPricingState, AdminSettingsFormData } from "@/lib/admin-page-data";
 import { PRICING_SETTING_KEYS, type PricingSettingKey } from "@/lib/settings";
 
-export type PricingInputKey = PricingSettingKey | "foodOrderSupportCap";
+export type PricingInputKey = PricingSettingKey | "foodOrderSupportCap" | "companySupportPerRegular";
 export type PricingInputErrors = Partial<Record<PricingInputKey, string>>;
 export type SettingsInputErrors = Partial<Record<keyof AdminSettingsFormData, string>>;
 
@@ -13,6 +13,7 @@ export const PRICING_AMOUNT_KEYS = [
   PRICING_SETTING_KEYS.regularRentalFee,
   PRICING_SETTING_KEYS.companionRentalFee,
   "foodOrderSupportCap",
+  "companySupportPerRegular",
 ] as const satisfies readonly PricingInputKey[];
 
 export const MEMBER_FEE_KEYS = [
@@ -78,6 +79,7 @@ export function validatePricingDraft(draft: AdminPricingState): PricingValidatio
   const regularRentalFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.regularRentalFee]);
   const companionRentalFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.companionRentalFee]);
   const foodOrderSupportCap = parsePricingAmount(draft.foodOrderSupportCap);
+  const companySupportPerRegular = parsePricingAmount(draft.companySupportPerRegular);
 
   if (
     regularBaseFee === null ||
@@ -86,7 +88,8 @@ export function validatePricingDraft(draft: AdminPricingState): PricingValidatio
     companionLessonFee === null ||
     regularRentalFee === null ||
     companionRentalFee === null ||
-    foodOrderSupportCap === null
+    foodOrderSupportCap === null ||
+    companySupportPerRegular === null
   ) {
     return {
       valid: false,
@@ -105,6 +108,7 @@ export function validatePricingDraft(draft: AdminPricingState): PricingValidatio
       [PRICING_SETTING_KEYS.regularRentalFee]: String(regularRentalFee),
       [PRICING_SETTING_KEYS.companionRentalFee]: String(companionRentalFee),
       foodOrderSupportCap: String(foodOrderSupportCap),
+      companySupportPerRegular: String(companySupportPerRegular),
     },
   };
 }

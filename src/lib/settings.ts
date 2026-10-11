@@ -5,6 +5,8 @@ export const SETTLEMENT_BANK_NAME_KEY = "settlement_bank_name";
 export const SETTLEMENT_ACCOUNT_NUMBER_KEY = "settlement_account_number";
 export const SETTLEMENT_ACCOUNT_HOLDER_KEY = "settlement_account_holder";
 export const FOOD_ORDER_SUPPORT_CAP_KEY = "food_order_support_cap";
+/** 회사가 모임마다 정회원 1명당 지원하는 금액. 회원 청구와 무관하게 정산 수지에만 쓴다. */
+export const COMPANY_SUPPORT_PER_REGULAR_KEY = "company_support_per_regular";
 
 export const DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE = [
   "강습(장비 포함)은 정회원 1만원, 동반인은 추가 5만원,",
@@ -16,6 +18,7 @@ export const DEFAULT_SETTLEMENT_BANK_NAME = "";
 export const DEFAULT_SETTLEMENT_ACCOUNT_NUMBER = "";
 export const DEFAULT_SETTLEMENT_ACCOUNT_HOLDER = "";
 export const DEFAULT_FOOD_ORDER_SUPPORT_CAP = "10000";
+export const DEFAULT_COMPANY_SUPPORT_PER_REGULAR = "50000";
 
 export const PRICING_SETTING_KEYS = {
   regularBaseFee: "pricing_regular_base_fee",

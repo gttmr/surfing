@@ -30,6 +30,8 @@ import {
   DEFAULT_SETTLEMENT_ACCOUNT_NUMBER,
   DEFAULT_SETTLEMENT_BANK_NAME,
   FOOD_ORDER_SUPPORT_CAP_KEY,
+  COMPANY_SUPPORT_PER_REGULAR_KEY,
+  DEFAULT_COMPANY_SUPPORT_PER_REGULAR,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
   PRICING_SETTING_KEYS,
   SETTLEMENT_ACCOUNT_HOLDER_KEY,
@@ -101,6 +103,7 @@ export type AdminSettingsFormData = {
 
 export type AdminPricingState = Record<PricingSettingKey, string> & {
   foodOrderSupportCap: string;
+  companySupportPerRegular: string;
 };
 
 export type AdminMeetingParticipant = {
@@ -239,6 +242,17 @@ export type AdminSettlementData = {
     };
     shopPayout: { paidAt: string | null; amount: number | null };
     foodPayout: { paidAt: string | null; amount: number | null };
+    /** 장비와 식음료는 같은 샵에 한 번에 지급한다. */
+    shopTotal: {
+      payable: number;
+      paidAt: string | null;
+      paidAmount: number | null;
+      complete: boolean;
+    };
+    /** 회사가 정회원 1명당 지원하는 금액(회원 청구와 무관, 정산 수지에만 반영). */
+    companySupport: { perRegular: number; regularCount: number; total: number };
+    /** 회원 입금 + 회사 지원 − 샵 지급 */
+    balance: number;
     settlementCompletedAt: string | null;
     settlementNote: string | null;
   };
@@ -849,6 +863,16 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
     0
   );
   const legacyAccount = meeting.billingSnapshot ? null : await getAdminSettingsFormData();
+  const companySupportSetting = await prisma.setting.findUnique({ where: { key: COMPANY_SUPPORT_PER_REGULAR_KEY } });
+  const companySupportPerRegular = Math.max(0, Number(companySupportSetting?.value ?? DEFAULT_COMPANY_SUPPORT_PER_REGULAR) || 0);
+  const regularCount = participants.filter((participant) => participant.companionId === null).length;
+  const memberChargeTotal = meeting.billingSnapshot?.memberChargeTotal
+    ?? recipients.reduce((total, recipient) => total + recipient.totalFee, 0);
+  const shopPayableTotal = meeting.billingSnapshot?.shopPayableTotal ?? effectiveSurfUsageSummary.shopChargeAmount;
+  const shopComplete = shopPayableTotal === 0 || Boolean(meeting.shopPaidAt);
+  const foodComplete = foodPayableTotal === 0 || Boolean(meeting.foodPaidAt);
+  const shopPaidTimes = [meeting.shopPaidAt, meeting.foodPaidAt].filter((value): value is Date => value !== null);
+  const shopTotalPaid = shopPaidTimes.length > 0;
 
   return {
     meeting: {
@@ -880,10 +904,8 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
         accountHolder: meeting.billingSnapshot?.accountHolder ?? legacyAccount?.settlementAccountHolder ?? "",
       },
       totals: {
-        memberChargeTotal: meeting.billingSnapshot?.memberChargeTotal
-          ?? recipients.reduce((total, recipient) => total + recipient.totalFee, 0),
-        shopPayableTotal: meeting.billingSnapshot?.shopPayableTotal
-          ?? effectiveSurfUsageSummary.shopChargeAmount,
+        memberChargeTotal,
+        shopPayableTotal,
         foodPayableTotal,
         clubSupportTotal: meeting.billingSnapshot?.clubSupportTotal
           ?? effectiveSurfUsageSummary.operationsCoveredAmount + foodSupportTotal,
@@ -896,6 +918,20 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
         paidAt: meeting.foodPaidAt?.toISOString() ?? null,
         amount: meeting.foodPaidAmount,
       },
+      shopTotal: {
+        payable: shopPayableTotal + foodPayableTotal,
+        paidAt: shopTotalPaid
+          ? new Date(Math.max(...shopPaidTimes.map((value) => value.getTime()))).toISOString()
+          : null,
+        paidAmount: shopTotalPaid ? (meeting.shopPaidAmount ?? 0) + (meeting.foodPaidAmount ?? 0) : null,
+        complete: shopComplete && foodComplete,
+      },
+      companySupport: {
+        perRegular: companySupportPerRegular,
+        regularCount,
+        total: companySupportPerRegular * regularCount,
+      },
+      balance: memberChargeTotal + companySupportPerRegular * regularCount - (shopPayableTotal + foodPayableTotal),
       settlementCompletedAt: meeting.settlementCompletedAt?.toISOString() ?? null,
       settlementNote: meeting.settlementNote,
     },
@@ -980,5 +1016,7 @@ export async function getAdminPricingState(): Promise<AdminPricingState> {
       DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionRentalFee],
     foodOrderSupportCap:
       settings[FOOD_ORDER_SUPPORT_CAP_KEY] ?? DEFAULT_FOOD_ORDER_SUPPORT_CAP,
+    companySupportPerRegular:
+      settings[COMPANY_SUPPORT_PER_REGULAR_KEY] ?? DEFAULT_COMPANY_SUPPORT_PER_REGULAR,
   };
 }

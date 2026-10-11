@@ -8,6 +8,7 @@ import {
   saveFailureMessage,
 } from "@/components/admin/AdminSettingControls";
 import {
+  AdminCompanySupportSection,
   AdminFoodSupportSection,
   AdminMemberFeesSection,
 } from "@/components/admin/AdminPricingSections";
@@ -20,11 +21,12 @@ import {
 } from "@/lib/admin-pricing-settings";
 import type { AdminPricingState } from "@/lib/admin-page-data";
 import {
+  COMPANY_SUPPORT_PER_REGULAR_KEY,
   FOOD_ORDER_SUPPORT_CAP_KEY,
   PRICING_SETTING_KEYS,
 } from "@/lib/settings";
 
-type PricingSection = "memberFees" | "foodSupport";
+type PricingSection = "memberFees" | "foodSupport" | "companySupport";
 
 export function AdminPricingPageClient({
   initialPricing,
@@ -41,7 +43,8 @@ export function AdminPricingPageClient({
 
   const memberFeesDirty = MEMBER_FEE_KEYS.some((key) => snapshot[key] !== draft[key]);
   const foodSupportDirty = snapshot.foodOrderSupportCap !== draft.foodOrderSupportCap;
-  const dirtySectionCount = Number(memberFeesDirty) + Number(foodSupportDirty);
+  const companySupportDirty = snapshot.companySupportPerRegular !== draft.companySupportPerRegular;
+  const dirtySectionCount = Number(memberFeesDirty) + Number(foodSupportDirty) + Number(companySupportDirty);
 
   function toggleEditing(section: PricingSection) {
     if (saving) return;
@@ -71,7 +74,11 @@ export function AdminPricingPageClient({
     if (!validation.valid) {
       setErrors(validation.errors);
       setSaveError(null);
-      setEditingSection(validation.firstKey === "foodOrderSupportCap" ? "foodSupport" : "memberFees");
+      setEditingSection(
+        validation.firstKey === "foodOrderSupportCap"
+          ? "foodSupport"
+          : validation.firstKey === "companySupportPerRegular" ? "companySupport" : "memberFees"
+      );
       window.requestAnimationFrame(() => document.getElementById(`pricing-${validation.firstKey}`)?.focus());
       return;
     }
@@ -92,6 +99,7 @@ export function AdminPricingPageClient({
             [PRICING_SETTING_KEYS.regularRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.regularRentalFee],
             [PRICING_SETTING_KEYS.companionRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.companionRentalFee],
             [FOOD_ORDER_SUPPORT_CAP_KEY]: nextSnapshot.foodOrderSupportCap,
+            [COMPANY_SUPPORT_PER_REGULAR_KEY]: nextSnapshot.companySupportPerRegular,
           },
         }),
       });
@@ -152,6 +160,16 @@ export function AdminPricingPageClient({
             error={errors.foodOrderSupportCap}
             onChange={updateValue}
             onToggleEditing={() => toggleEditing("foodSupport")}
+            snapshot={snapshot}
+          />
+          <AdminCompanySupportSection
+            dirty={companySupportDirty}
+            disabled={saving}
+            draft={draft}
+            editing={editingSection === "companySupport"}
+            error={errors.companySupportPerRegular}
+            onChange={updateValue}
+            onToggleEditing={() => toggleEditing("companySupport")}
             snapshot={snapshot}
           />
           <AdminSettingActionBar dirtySectionCount={dirtySectionCount} onDiscard={discardDraft} saving={saving} />
