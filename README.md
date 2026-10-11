@@ -31,6 +31,23 @@ npm install
 npm run dev
 ```
 
+## 로컬 개발 모드 (카카오 로그인 우회)
+운영 DB를 건드리지 않도록 로컬 PostgreSQL(127.0.0.1:54329/surfing_dev)에 운영 데이터 사본을 올려 개발한다.
+
+```bash
+npm run db:backup:prod   # 운영 DB → ~/surfing-backups/<타임스탬프>/ (읽기 전용)
+npm run dev:db:restore   # 가장 최근 백업을 로컬 DB에 덮어쓰기 (경로 인자로 특정 백업 지정 가능)
+npm run dev
+```
+
+- `.env.development.local`에 로컬 DB 주소와 `DEV_AUTH_BYPASS="1"`을 둔다 (git 미추적).
+- 우회가 켜지면 모든 카카오 로그인 버튼이 `/dev/login`으로 이동하고, 기존 회원을 골라 로그인하거나 새 회원으로 가입할 수 있다.
+- 관리자 화면은 ADMIN 회원으로 로그인하면 자동 인증된다. 비밀번호 로그인은 `.env.development.local`의 `ADMIN_PASSWORD`를 쓴다.
+- 우회는 `next dev` + `DEV_AUTH_BYPASS=1` + loopback DB 조건이 모두 맞을 때만 켜진다. Vercel 배포나 원격 DB 연결에서는 항상 꺼진다.
+- 백업은 `supabase login` 후 `supabase link --project-ref vkskxsbybvkcxsyockxz`가 되어 있어야 한다.
+- 스키마만 있는 빈 DB가 필요하면 `npm run dev:db:reset`.
+- 백업 복구: `pg_restore --no-owner --no-privileges -d <대상 DB URL> ~/surfing-backups/<타임스탬프>/public.dump`
+
 ## 배포 전 확인
 - `DATABASE_URL`
 - `SESSION_SECRET`

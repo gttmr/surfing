@@ -55,3 +55,8 @@ prisma/migrations/
 /.omo/
 /tests/.auth/
 /.tmp/qa/
+/.tmp/dev-db/
+
+# supabase cli link state
+/supabase/.temp/
+.env*
