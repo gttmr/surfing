@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminOvernightFeesSection } from "@/components/admin/AdminOvernightFeesSection";
 import { AdminMeetingParticipants, type ParticipantAction, type ParticipantTab } from "@/components/admin/AdminMeetingParticipants";
 import { isAdminMeetingDetail, meetingResponseError } from "@/components/admin/admin-meeting-response";
 import { Dialog } from "@/components/ui/Dialog";
@@ -34,6 +35,8 @@ const PARTICIPANT_ACTION_COPY: Record<ParticipantAction, { readonly title: strin
   cancel: { title: "참가를 취소할까요?", button: "참가 취소", toast: "참가를 취소 상태로 변경했습니다" },
   attended: { title: "참석으로 되돌릴까요?", button: "참석으로 되돌리기", toast: "참석으로 되돌렸습니다" },
   absent: { title: "불참으로 처리할까요?", button: "불참 처리", toast: "불참으로 처리했습니다" },
+  "lodging-on": { title: "숙박비를 청구할까요?", button: "숙박 포함", toast: "숙박 대상에 추가했습니다" },
+  "lodging-off": { title: "숙박비를 빼 줄까요?", button: "숙박 제외", toast: "숙박 대상에서 뺐습니다" },
 };
 
 const PARTICIPANT_ACTION_DESCRIPTION: Record<ParticipantAction, { readonly action: string; readonly consequence: string }> = {
@@ -41,6 +44,8 @@ const PARTICIPANT_ACTION_DESCRIPTION: Record<ParticipantAction, { readonly actio
   cancel: { action: "참가를 취소합니다", consequence: "패널티와 다른 참가자 상태는 바뀌지 않습니다." },
   attended: { action: "참석으로 되돌립니다", consequence: "실제 이용 확인 대상에 다시 포함됩니다." },
   absent: { action: "불참으로 처리합니다", consequence: "참가비는 그대로 청구되고, 실제 이용 확인 대상에서만 빠집니다." },
+  "lodging-on": { action: "숙박 대상에 추가합니다", consequence: "1인 숙박비가 일정 전체에 한 번 청구됩니다." },
+  "lodging-off": { action: "숙박 대상에서 뺍니다", consequence: "숙박비가 청구되지 않습니다." },
 };
 
 function nextActionLabel(operations: AdminSettlementData): string {
@@ -311,8 +316,17 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
           </div>
         </section>
 
+        {meeting.overnightGroup ? (
+          <AdminOvernightFeesSection
+            groupId={meeting.overnightGroup.id}
+            initialFees={meeting.overnightGroup}
+            locked={initialOperations.meeting.settlementOpen || Boolean(initialOperations.readiness.checks.find((check) => check.id === "billing-reviewed")?.complete)}
+            onSaved={(message, type) => addToast(message, type)}
+          />
+        ) : null}
+
         <div className="scroll-mt-4" id="participants">
-          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
+          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} overnight={overnightDays.length === 2} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
         </div>
 
         <button className="brand-inline-danger mx-auto flex min-h-11 items-center gap-1 rounded-xl px-4 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">

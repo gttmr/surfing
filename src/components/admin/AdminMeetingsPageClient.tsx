@@ -1,5 +1,6 @@
 "use client";
 
+import type { OvernightFeeDefaults } from "@/lib/meeting-group";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -15,6 +16,7 @@ type AdminMeetingsPageClientProps = {
   readonly initialShowCreate?: boolean;
   readonly initialCreateDate?: string;
   readonly initialCreateType?: string;
+  readonly overnightFeeDefaults?: OvernightFeeDefaults;
 };
 
 export function AdminMeetingsPageClient({
@@ -22,6 +24,7 @@ export function AdminMeetingsPageClient({
   initialShowCreate = false,
   initialCreateDate = "",
   initialCreateType = "정기",
+  overnightFeeDefaults,
 }: AdminMeetingsPageClientProps) {
   const [meetings, setMeetings] = useState<AdminMeetingListItem[]>([...initialMeetings]);
   const [creating, setCreating] = useState(initialShowCreate);
@@ -80,7 +83,7 @@ export function AdminMeetingsPageClient({
         </header>
 
         {creating ? (
-          <AdminMeetingCreateForm initialDate={initialCreateDate} initialType={initialCreateType} onCancel={() => setCreating(false)} onCreated={handleCreated} />
+          <AdminMeetingCreateForm overnightFeeDefaults={overnightFeeDefaults} initialDate={initialCreateDate} initialType={initialCreateType} onCancel={() => setCreating(false)} onCreated={handleCreated} />
         ) : (
           <section className="brand-admin-section overflow-hidden">
             <div className="brand-admin-section-header space-y-3 px-4 py-4">

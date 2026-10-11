@@ -74,3 +74,42 @@ export async function POST(req: NextRequest) {
     meetings: created.meetings,
   }, { status: 201 });
 }
+
+// 1박 요금 수정. 청구가 공개되기 전까지만 바꿀 수 있다(공개 후에는 청구 정정 절차).
+export async function PATCH(req: NextRequest) {
+  if (!await isAdminAuthenticated()) {
+    return NextResponse.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+  }
+
+  const body: unknown = await req.json().catch(() => null);
+  const value = typeof body === "object" && body !== null ? body as Record<string, unknown> : {};
+  const groupId = Number(value.groupId);
+  const fees = {
+    regularBaseFee: Number(value.regularBaseFee),
+    companionBaseFee: Number(value.companionBaseFee),
+    lodgingFee: Number(value.lodgingFee),
+  };
+  if (!Number.isInteger(groupId)) return NextResponse.json({ error: "1박 모임을 찾을 수 없습니다." }, { status: 400 });
+  if (Object.values(fees).some((fee) => !Number.isSafeInteger(fee) || fee < 0 || fee > 10_000_000)) {
+    return NextResponse.json({ error: "금액은 0원 이상의 정수로 입력해 주세요." }, { status: 400 });
+  }
+
+  const result = await runSerializableTransaction(async (tx) => {
+    const group = await tx.meetingGroup.findUnique({
+      where: { id: groupId },
+      include: { meetings: { select: { settlementOpen: true, billingReviewConfirmedAt: true } } },
+    });
+    if (!group) return { error: "1박 모임을 찾을 수 없습니다.", status: 404 } as const;
+    if (group.meetings.some((meeting) => meeting.settlementOpen || meeting.billingReviewConfirmedAt)) {
+      return { error: "청구 검토가 시작되어 1박 요금을 바꿀 수 없습니다. 청구 정정 후 수정해 주세요.", status: 409 } as const;
+    }
+    return { group: await tx.meetingGroup.update({ where: { id: groupId }, data: fees }) } as const;
+  });
+
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json({
+    regularBaseFee: result.group.regularBaseFee,
+    companionBaseFee: result.group.companionBaseFee,
+    lodgingFee: result.group.lodgingFee,
+  });
+}

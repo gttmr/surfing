@@ -9,6 +9,7 @@ import {
   addDaysToDate,
   validateOvernightMeetingSpan,
   type OvernightMeetingGroupSummary,
+  type OvernightFeeDefaults,
 } from "@/lib/meeting-group";
 import { validateMeetingCreate, type MeetingCreateErrors, type MeetingCreateField } from "@/lib/meeting-create-form";
 
@@ -17,6 +18,7 @@ type CreateFormProps = {
   readonly initialType: string;
   readonly onCancel: () => void;
   readonly onCreated: (meeting: AdminMeetingListItem) => void;
+  readonly overnightFeeDefaults?: OvernightFeeDefaults;
 };
 
 type MeetingMode = "SINGLE" | "OVERNIGHT";
@@ -78,7 +80,7 @@ function createdListItem(meeting: CreatedMeeting, overnightGroup: OvernightMeeti
   };
 }
 
-export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onCreated }: CreateFormProps) {
+export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onCreated, overnightFeeDefaults }: CreateFormProps) {
   const [mode, setMode] = useState<MeetingMode>("SINGLE");
   const [date, setDate] = useState(initialDate);
   const [startTime, setStartTime] = useState("");
@@ -86,9 +88,14 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
   const [location, setLocation] = useState("");
   const [meetingType, setMeetingType] = useState(initialType);
   const [description, setDescription] = useState("");
-  const [regularBaseFee, setRegularBaseFee] = useState("0");
-  const [companionBaseFee, setCompanionBaseFee] = useState("0");
-  const [lodgingFee, setLodgingFee] = useState("0");
+  // 1박 참가비는 둘째 날을 포함한 총액이다. 당일 참가비 + 둘째 날 참가비로 미리 채운다.
+  const [regularBaseFee, setRegularBaseFee] = useState(() => String(
+    overnightFeeDefaults ? overnightFeeDefaults.regularDayFee + overnightFeeDefaults.day2Fee : 0
+  ));
+  const [companionBaseFee, setCompanionBaseFee] = useState(() => String(
+    overnightFeeDefaults ? overnightFeeDefaults.companionDayFee + overnightFeeDefaults.day2Fee : 0
+  ));
+  const [lodgingFee, setLodgingFee] = useState(() => String(overnightFeeDefaults?.lodgingFee ?? 0));
   const [errors, setErrors] = useState<MeetingCreateErrors>({});
   const [baseFeeErrors, setBaseFeeErrors] = useState<{ regular?: string; companion?: string; lodging?: string }>({});
   const [submitError, setSubmitError] = useState("");
@@ -222,15 +229,18 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
               startTime={startTime}
             />
             <div>
-              <p className="text-base font-extrabold text-brand-text">전체 참가비</p>
-              <p className="brand-text-subtle mt-1 break-keep text-xs">기본 참가비는 이틀을 합쳐 한 번만 청구됩니다.</p>
+              <p className="text-base font-extrabold text-brand-text">1박 참가비 (총액)</p>
+              <p className="brand-text-subtle mt-1 break-keep text-xs">
+                회원에게 공지하는 둘째 날 포함 금액이며 한 번만 청구됩니다.
+                {overnightFeeDefaults ? ` 기본값은 당일 참가비 + 둘째 날 ${overnightFeeDefaults.day2Fee.toLocaleString("ko-KR")}원입니다.` : ""}
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <WonField error={baseFeeErrors.regular} id="admin-overnight-regular-fee" label="회원 기본 참가비" onChange={(value) => { setRegularBaseFee(value); setBaseFeeErrors((current) => ({ ...current, regular: undefined })); }} value={regularBaseFee} />
-              <WonField error={baseFeeErrors.companion} id="admin-overnight-companion-fee" label="동반인 기본 참가비" onChange={(value) => { setCompanionBaseFee(value); setBaseFeeErrors((current) => ({ ...current, companion: undefined })); }} value={companionBaseFee} />
+              <WonField error={baseFeeErrors.regular} id="admin-overnight-regular-fee" label="정회원 1박 참가비" onChange={(value) => { setRegularBaseFee(value); setBaseFeeErrors((current) => ({ ...current, regular: undefined })); }} value={regularBaseFee} />
+              <WonField error={baseFeeErrors.companion} id="admin-overnight-companion-fee" label="동반인 1박 참가비" onChange={(value) => { setCompanionBaseFee(value); setBaseFeeErrors((current) => ({ ...current, companion: undefined })); }} value={companionBaseFee} />
             </div>
             <WonField error={baseFeeErrors.lodging} id="admin-overnight-lodging-fee" label="1인 숙박비" onChange={(value) => { setLodgingFee(value); setBaseFeeErrors((current) => ({ ...current, lodging: undefined })); }} value={lodgingFee} />
-            <p className="brand-text-subtle -mt-2 break-keep text-xs">숙소를 선택한 정회원과 동반인에게 각각 한 번 청구됩니다.</p>
+            <p className="brand-text-subtle -mt-2 break-keep text-xs">숙박 대상자에게만 한 번 청구됩니다. 신청 후에도 운영진이 사람별로 바꿀 수 있습니다.</p>
             <div className="brand-panel-soft rounded-2xl px-4 py-3 text-xs">
               <p className="font-extrabold text-brand-text">등록되는 일정</p>
               <p className="brand-text-muted mt-1 break-keep">{date || "시작일"} {startTime || "--:--"} 시작 · {secondDate || "종료일"} {endTime || "--:--"} 종료</p>

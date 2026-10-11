@@ -38,8 +38,8 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await page.getByLabel("시작 시간").fill("07:00");
     await page.getByLabel("종료 시간").fill("16:00");
     await page.getByLabel("장소").fill(location);
-    await page.getByLabel("회원 기본 참가비").fill("30000");
-    await page.getByLabel("동반인 기본 참가비").fill("50000");
+    await page.getByLabel("정회원 1박 참가비").fill("30000");
+    await page.getByLabel("동반인 1박 참가비").fill("50000");
     await page.getByLabel("1인 숙박비").fill("50000");
 
     const creationResponse = page.waitForResponse((response) => response.request().method() === "POST"

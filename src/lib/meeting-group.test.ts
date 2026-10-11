@@ -90,7 +90,7 @@ test("overnight creation requires consecutive valid days and non-negative group 
     ],
   }, "2026-08-26");
 
-  assert.equal(errors.regularBaseFee, "회원 기본 참가비는 0원 이상의 정수로 입력해 주세요.");
+  assert.equal(errors.regularBaseFee, "정회원 1박 참가비는 0원 이상의 정수로 입력해 주세요.");
   assert.equal(errors.lodgingFee, "1인 숙박비는 0원 이상의 정수로 입력해 주세요.");
   assert.equal(errors.days, "둘째 날은 첫째 날 바로 다음 날짜여야 합니다.");
   assert.equal(hasOvernightMeetingCreateErrors(errors), true);

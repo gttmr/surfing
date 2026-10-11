@@ -8,7 +8,7 @@ import type { AdminMeetingParticipant } from "@/lib/admin-page-data";
 import type { ParticipantStatus } from "@/lib/types";
 
 export type ParticipantTab = "approved" | "waitlisted" | "cancelled" | "all";
-export type ParticipantAction = "approve" | "cancel" | "attended" | "absent";
+export type ParticipantAction = "approve" | "cancel" | "attended" | "absent" | "lodging-on" | "lodging-off";
 
 type ParticipantActionRequest = {
   readonly action: ParticipantAction;
@@ -21,6 +21,8 @@ type AdminMeetingParticipantsProps = {
   readonly onRequestAction: (request: ParticipantActionRequest) => void;
   readonly participants: readonly AdminMeetingParticipant[];
   readonly attendanceLocked?: boolean;
+  /** 1박 모임이면 숙박 표시와 숙박 변경 버튼을 보여준다. */
+  readonly overnight?: boolean;
 };
 
 const STATUS_GROUPS = [
@@ -58,7 +60,7 @@ function formatShortTime(value: string) {
   return new Date(value).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function ParticipantCard({ attendanceLocked, participant, onRequestAction }: { readonly attendanceLocked: boolean; readonly participant: AdminMeetingParticipant; readonly onRequestAction: (request: ParticipantActionRequest) => void }) {
+function ParticipantCard({ attendanceLocked, overnight, participant, onRequestAction }: { readonly attendanceLocked: boolean; readonly overnight: boolean; readonly participant: AdminMeetingParticipant; readonly onRequestAction: (request: ParticipantActionRequest) => void }) {
   const status = participantStatus(participant.status);
   const companion = participant.companionId !== null;
   const approved = participant.status === "APPROVED";
@@ -77,6 +79,7 @@ function ParticipantCard({ attendanceLocked, participant, onRequestAction }: { r
               {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습</span> : null}
               {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비</span> : null}
               {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
+              {overnight && participant.usesClubLodging ? <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">숙박</span> : null}
               {absent ? <span className="brand-chip-dimmed rounded px-1.5 py-0.5 text-[10px] font-bold">불참</span> : null}
               {participant.isPenalized ? <span className="brand-chip-danger rounded px-1.5 py-0.5 text-[10px] font-bold">패널티</span> : null}
               {!approved && status ? <StatusBadge size="sm" status={status} waitlistPosition={participant.waitlistPosition} /> : null}
@@ -101,6 +104,15 @@ function ParticipantCard({ attendanceLocked, participant, onRequestAction }: { r
                 {absent ? "참석으로 되돌리기" : "불참 처리"}
               </button>
             ) : null}
+            {overnight && approved && !attendanceLocked ? (
+              <button
+                className="brand-button-secondary min-h-11 rounded-xl px-2 text-xs font-bold"
+                onClick={() => onRequestAction({ action: participant.usesClubLodging ? "lodging-off" : "lodging-on", participant })}
+                type="button"
+              >
+                {participant.usesClubLodging ? "숙박 제외" : "숙박 포함"}
+              </button>
+            ) : null}
             {participant.status !== "CANCELLED" ? (
               <button aria-label={`${participant.name} 참가 취소`} className="brand-button-danger min-h-11 rounded-xl px-2 text-xs font-bold" onClick={() => onRequestAction({ action: "cancel", participant })} type="button">참가 취소</button>
             ) : null}
@@ -117,13 +129,15 @@ function ParticipantCard({ attendanceLocked, participant, onRequestAction }: { r
   );
 }
 
-function HeadcountSummary({ participants }: { readonly participants: readonly AdminMeetingParticipant[] }) {
+function HeadcountSummary({ overnight, participants }: { readonly overnight: boolean; readonly participants: readonly AdminMeetingParticipant[] }) {
   const approved = participants.filter((participant) => participant.status === "APPROVED");
   const items = [
     { label: "확정", value: approved.length },
     { label: "강습", value: approved.filter((participant) => participant.hasLesson).length },
     { label: "동반", value: approved.filter((participant) => participant.companionId !== null).length },
-    { label: "대기", value: participants.filter((participant) => participant.status === "WAITLISTED").length },
+    overnight
+      ? { label: "숙박", value: approved.filter((participant) => participant.usesClubLodging).length }
+      : { label: "대기", value: participants.filter((participant) => participant.status === "WAITLISTED").length },
   ];
   return (
     <dl className="grid grid-cols-4 gap-2 px-4 pt-4 text-center">
@@ -137,7 +151,7 @@ function HeadcountSummary({ participants }: { readonly participants: readonly Ad
   );
 }
 
-export function AdminMeetingParticipants({ activeTab, attendanceLocked = false, onChangeTab, onRequestAction, participants }: AdminMeetingParticipantsProps) {
+export function AdminMeetingParticipants({ activeTab, attendanceLocked = false, overnight = false, onChangeTab, onRequestAction, participants }: AdminMeetingParticipantsProps) {
   const [query, setQuery] = useState("");
   const counts = useMemo(() => ({
     approved: participants.filter((participant) => participant.status === "APPROVED").length,
@@ -157,7 +171,7 @@ export function AdminMeetingParticipants({ activeTab, attendanceLocked = false, 
 
   return (
     <section className="brand-admin-section overflow-hidden">
-      <HeadcountSummary participants={participants} />
+      <HeadcountSummary overnight={overnight} participants={participants} />
       <div className="px-4 pt-4">
         <Tabs
           activeId={activeTab}
@@ -191,7 +205,7 @@ export function AdminMeetingParticipants({ activeTab, attendanceLocked = false, 
                       <span>{group.label} <span className="brand-text-subtle ml-1 text-xs">{groupedParticipants.length}명</span></span>
                       <Icon className="brand-text-subtle text-[20px]" name="expand_more" />
                     </summary>
-                    <div className="mt-3 space-y-2">{groupedParticipants.map((participant) => <ParticipantCard attendanceLocked={attendanceLocked} key={participant.id} onRequestAction={onRequestAction} participant={participant} />)}</div>
+                    <div className="mt-3 space-y-2">{groupedParticipants.map((participant) => <ParticipantCard attendanceLocked={attendanceLocked} key={participant.id} overnight={overnight} onRequestAction={onRequestAction} participant={participant} />)}</div>
                   </details>
                 );
               })}
