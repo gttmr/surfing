@@ -85,6 +85,9 @@ export type AdminMeetingListItem = {
   workflowStage: MeetingWorkflowStage;
   workflowLabel: string;
   nextAction: string;
+  lessonCount: number;
+  recipientCount: number;
+  verifiedRecipientCount: number;
 };
 
 export type AdminSettingsFormData = {
@@ -309,6 +312,10 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       _count: {
         select: { participants: { where: { status: "APPROVED" } } },
       },
+      participants: {
+        where: { status: "APPROVED", hasLesson: true },
+        select: { id: true },
+      },
     },
   });
 
@@ -339,10 +346,10 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
     const nextActionByStage: Record<MeetingWorkflowStage, string> = {
       RECRUITING: "참가 현황 보기",
       UPCOMING: "모임 준비 확인",
-      ACTUALS_REVIEW: "참석·이용 확인",
-      BILLING_REVIEW: "청구 검토",
-      PAYMENT_CONFIRMATION: "입금 확인",
-      FINAL_SETTLEMENT: "최종 정산",
+      ACTUALS_REVIEW: "이용 확인 후 청구 공개",
+      BILLING_REVIEW: "청구 공개",
+      PAYMENT_CONFIRMATION: "남은 입금 확인하기",
+      FINAL_SETTLEMENT: "샵·식음료 지급 기록하고 마감",
       COMPLETED: "완료 보고서 보기",
     };
     return {
@@ -359,6 +366,9 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       workflowStage,
       workflowLabel: MEETING_WORKFLOW_LABELS[workflowStage],
       nextAction: nextActionByStage[workflowStage],
+      lessonCount: meeting.participants.length,
+      recipientCount: snapshot?.recipients.length ?? meeting.settlementConfirmations.length,
+      verifiedRecipientCount: verifiedRecipientIds.size,
     };
   });
 }
