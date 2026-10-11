@@ -265,10 +265,14 @@ test("companion panel distinguishes linked, waiting, empty, and dense states", a
 test("settlement groups multiple meetings and provides an empty return path", async ({ context, page }, testInfo) => {
   await authenticate(context, "member");
   await page.goto("/settlement", { waitUntil: "networkidle" });
-  await expect(page.getByText("2건")).toBeVisible();
-  await expect(page.getByText("회원 부담", { exact: true })).toHaveCount(2);
+  // 낼 돈이 맨 위에, 정산된 청구는 '지난 청구'로 접혀 있다.
+  await expect(page.getByRole("heading", { level: 1, name: "27,750원" })).toBeVisible();
+  await expect(page.getByText("입금할 청구 1건")).toBeVisible();
+  await expect(page.getByRole("link", { name: "토스로 27,750원 보내기" })).toBeVisible();
   await expect(page.getByText("합성 서핑 해변 A")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "지난 청구" })).toBeVisible();
   await expect(page.getByText("합성 서핑 해변 C")).toBeVisible();
+  await page.locator("section").filter({ hasText: "합성 서핑 해변 A" }).locator("summary").filter({ hasText: "청구 상세 보기" }).click();
   await expect(page.getByText("식음료", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("식음료 지원", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("입금 필요", { exact: true })).toBeVisible();
