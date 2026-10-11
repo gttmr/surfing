@@ -86,8 +86,8 @@ test("admin fulfillment and settlement workspaces keep the operational hierarchy
   await expect(page.getByRole("heading", { name: "청구 검토" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "청구 공개 준비" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "회원별 청구 항목" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "청구 내역 공개", exact: true })).toBeDisabled();
-  await expect(page.getByText("준비 항목을 모두 완료해야 공개할 수 있습니다.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "금액 확인하고 청구 공개", exact: true })).toBeDisabled();
+  await expect(page.getByText("위 준비 항목을 모두 완료해야 공개할 수 있습니다.")).toBeVisible();
 
   const billingRecipient = page.locator("article").filter({ hasText: "합성 회원 03" }).first();
   await billingRecipient.getByRole("button").first().click();
