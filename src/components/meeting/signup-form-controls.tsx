@@ -124,33 +124,35 @@ export function ShopOptionChoice({
   trailing?: ReactNode;
   burden?: SignupBurdenPreview;
 }) {
+  // 사전 신청은 강사 인원 준비에 필요한 강습 여부만 받는다. 장비·슈트·샤워는 현장 실제 이용으로 기록한다.
+  // 예전에 "장비만"으로 신청한 기록(value === "rental")은 "강습 안 함"으로 보인다.
   const choices = [
-    { value: "lesson" as const, label: "강습+장비", amount: (burden?.baseFee ?? 0) + (burden?.lessonFee ?? 0) },
-    { value: "rental" as const, label: "장비만", amount: (burden?.baseFee ?? 0) + (burden?.rentalFee ?? 0) },
-    { value: null, label: "이용 안 함", amount: burden?.baseFee ?? 0 },
+    { lesson: true, label: "강습 신청", amount: (burden?.baseFee ?? 0) + (burden?.lessonFee ?? 0) },
+    { lesson: false, label: "강습 안 함", amount: burden?.baseFee ?? 0 },
   ];
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-brand-text">이용 예정</p>
+        <p className="text-sm font-semibold text-brand-text">강습</p>
         {trailing}
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {choices.map((choice) => (
           <button
-            className={`${segmentedButtonClass(value === choice.value, disabled)} flex-col px-1.5 text-xs leading-4`}
+            aria-pressed={(value === "lesson") === choice.lesson}
+            className={`${segmentedButtonClass((value === "lesson") === choice.lesson, disabled)} flex-col px-1.5 text-sm leading-5`}
             disabled={disabled}
             key={choice.label}
-            onClick={() => onChange(choice.value)}
+            onClick={() => onChange(choice.lesson ? "lesson" : null)}
             type="button"
           >
             <span>{choice.label}</span>
-            {burden ? <span className="mt-0.5 text-[10px] font-semibold opacity-80">예상 {formatWon(choice.amount)}</span> : null}
+            {burden ? <span className="mt-0.5 text-[11px] font-semibold opacity-80">예상 {formatWon(choice.amount)}</span> : null}
           </button>
         ))}
       </div>
-      <p className="brand-text-subtle text-[11px] leading-5">예상 회원 부담입니다. 모임 후 실제 이용 확인 결과에 따라 최종 청구가 달라질 수 있습니다.</p>
+      <p className="brand-text-subtle text-[11px] leading-5">장비 대여·슈트·샤워는 현장에서 이용한 만큼 기록되어 청구됩니다. 예상 금액은 참가비와 강습비 기준입니다.</p>
     </div>
   );
 }

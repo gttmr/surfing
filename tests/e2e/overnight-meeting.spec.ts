@@ -67,7 +67,7 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await expect(page).toHaveURL(new RegExp(`/admin/meetings/${day1MeetingId}$`));
     await expect(page.getByText("1박 2일", { exact: true })).toBeVisible();
     await expect(page.getByText("07:00 시작 · 16:00 종료", { exact: false })).toBeVisible();
-    await expect(page.getByText("0/6 확인", { exact: true })).toBeVisible();
+    await expect(page.getByText("0/4 확인", { exact: true })).toBeVisible();
     await expect(page.getByText("23:59", { exact: false })).toHaveCount(0);
     await expect(page.getByText("00:00", { exact: false })).toHaveCount(0);
     const dayTabs = page.getByRole("tablist", { name: "운영 날짜 선택" });
@@ -79,21 +79,18 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await page.goto("/?date=2098-09-12", { waitUntil: "networkidle" });
     await expect(page.getByText("1박 2일 · 정기", { exact: true })).toBeVisible();
     await expect(page.getByText(`07:00 시작 · 16:00 종료 · ${location}`, { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "이용 안 함 예상 30,000원" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "강습+장비 예상 40,000원" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "강습 안 함 예상 30,000원" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "강습 신청 예상 40,000원" })).toBeVisible();
     await expect(page.getByText("현재 예상 금액").first()).toBeVisible();
     await expect(page.getByText("30,000원", { exact: true }).last()).toBeVisible();
     await expect(page.getByText("23:59", { exact: false })).toHaveCount(0);
     await expect(page.getByText("00:00", { exact: false })).toHaveCount(0);
     const participantTab = page.getByRole("tab", { name: /내 참가/ });
     if (await participantTab.getAttribute("aria-selected") !== "true") await participantTab.click();
-    await page.getByRole("checkbox", { name: /장비 대여/ }).click();
-    await expect(page.getByText("첫 장비 대여일로 동호회 지원이 적용됩니다.", { exact: true })).toBeVisible();
-    await expect(page.getByText("30,000원", { exact: true }).last()).toBeVisible();
-    await page.getByRole("button", { name: "장비만 예상 30,000원" }).click();
-    await expect(page.getByText("60,000원", { exact: true })).toBeVisible();
+    // 장비는 사전 신청하지 않고 현장 이용으로 기록한다.
+    await expect(page.getByRole("checkbox", { name: /장비 대여/ })).toHaveCount(0);
     await page.getByRole("checkbox", { name: /동호회 숙소 이용/ }).click();
-    await expect(page.getByText("110,000원", { exact: true })).toBeVisible();
+    await expect(page.getByText("80,000원", { exact: true })).toBeVisible();
     const signupResponse = page.waitForResponse((response) => response.request().method() === "POST"
       && new URL(response.url()).pathname === "/api/participants/overnight");
     await page.getByRole("button", { name: "참가 신청하기", exact: true }).click();
@@ -107,7 +104,7 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     });
     expect(signedUp).toHaveLength(2);
     expect(signedUp.every((participant) => participant.usesClubLodging)).toBe(true);
-    expect(signedUp.find((participant) => participant.meetingId === day2MeetingId)?.hasRental).toBe(true);
+    expect(signedUp.every((participant) => !participant.hasRental)).toBe(true);
 
     await useAuth(context, "password-admin");
     await page.goto(`/admin/meetings/${day2MeetingId}/settlement`, { waitUntil: "networkidle" });
