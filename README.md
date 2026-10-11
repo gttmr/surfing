@@ -48,6 +48,15 @@ npm run dev
 - 스키마만 있는 빈 DB가 필요하면 `npm run dev:db:reset`.
 - 백업 복구: `pg_restore --no-owner --no-privileges -d <대상 DB URL> ~/surfing-backups/<타임스탬프>/public.dump`
 
+## 입금 대조 (`/admin/deposits`)
+정산 계좌 주인의 안드로이드 폰이 은행 입금 알림을 `POST /api/bank/deposits`로 전달하면 미확인 청구와 자동으로 맞춘다.
+
+- 자동 확인은 "이름(또는 기억한 입금자명) + 금액이 정확히 일치하는 청구가 1건" 또는 "한 사람의 미확인 청구 합계와 정확히 일치"일 때만 한다. 나머지는 `확인 필요`에 후보와 함께 남는다.
+- 자동 확인된 입금은 `verifiedByKakaoId = "bank-auto"`로 기록되며 `되돌리기`로 취소할 수 있다. 되돌린 입금은 다시 자동 확인되지 않는다.
+- 청구 재공개·조정 등으로 입금 확인이 풀리면, 다음 알림 수신이나 화면 진입 때 연결된 입금을 풀고 다시 대조한다.
+- 웹훅 인증은 화면에서 발급한 토큰(`Authorization: Bearer ...`)이며 DB에는 해시만 저장한다. 같은 문구의 알림이 같은 분 안에 다시 오면 중복으로 버린다.
+- 알림 문구 해석은 `src/lib/bank-deposit-parse.ts`. 실제 은행 알림 문구가 다르면 원문이 `BankDeposit.rawText`에 남으니 그 문구로 테스트를 추가하고 패턴을 고친다.
+
 ## 배포 전 확인
 - `DATABASE_URL`
 - `SESSION_SECRET`

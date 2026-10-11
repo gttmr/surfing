@@ -1,0 +1,386 @@
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { getAdminSettlementData } from "@/lib/admin-page-data";
+import { parseDepositNotification } from "@/lib/bank-deposit-parse";
+import {
+  matchDeposit,
+  normalizeDepositorName,
+  type DepositCandidate,
+} from "@/lib/bank-deposit-match";
+import {
+  BANK_AUTO_ACTOR,
+  billingDateLabel,
+  unverifyPaymentOperations,
+  verifyPaymentOperations,
+} from "@/lib/payment-verification";
+
+export const BANK_WEBHOOK_TOKEN_HASH_KEY = "bank_webhook_token_hash";
+
+type OpenCandidates = {
+  readonly candidates: DepositCandidate[];
+  readonly dateLabels: ReadonlyMap<number, string>;
+};
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+// ── 웹훅 토큰 ──────────────────────────────────────────────
+
+export async function rotateBankWebhookToken(): Promise<string> {
+  const token = randomBytes(24).toString("base64url");
+  await prisma.setting.upsert({
+    where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY },
+    create: { key: BANK_WEBHOOK_TOKEN_HASH_KEY, value: sha256(token) },
+    update: { value: sha256(token) },
+  });
+  return token;
+}
+
+export async function isValidBankWebhookToken(provided: string | null): Promise<boolean> {
+  if (!provided) return false;
+  const stored = await prisma.setting.findUnique({ where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY } });
+  if (!stored) return false;
+  const expected = Buffer.from(stored.value);
+  const actual = Buffer.from(sha256(provided));
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+// ── 대조 대상 ──────────────────────────────────────────────
+
+/** 청구 공개 후 정산이 끝나지 않은 모임의 미확인 청구 */
+export async function getOpenDepositCandidates(): Promise<OpenCandidates> {
+  const meetings = await prisma.meeting.findMany({
+    where: {
+      settlementOpen: true,
+      settlementCompletedAt: null,
+      OR: [{ meetingGroupId: null }, { groupDayIndex: 1 }],
+    },
+    select: { id: true },
+    orderBy: { date: "asc" },
+  });
+
+  const candidates: DepositCandidate[] = [];
+  const dateLabels = new Map<number, string>();
+  for (const { id } of meetings) {
+    const data = await getAdminSettlementData(id);
+    if (!data) continue;
+    const dateLabel = billingDateLabel(data.meeting);
+    dateLabels.set(data.meeting.id, dateLabel);
+    for (const recipient of data.recipients) {
+      if (recipient.totalFee <= 0 || recipient.verified) continue;
+      candidates.push({
+        meetingId: data.meeting.id,
+        meetingLabel: `${dateLabel} ${data.meeting.location}`,
+        recipientKakaoId: recipient.recipientKakaoId,
+        recipientName: recipient.recipientName,
+        totalFee: recipient.totalFee,
+      });
+    }
+  }
+  return { candidates, dateLabels };
+}
+
+async function getAliasMap(): Promise<Map<string, string>> {
+  const aliases = await prisma.depositorAlias.findMany();
+  return new Map(aliases.map((alias) => [alias.depositorName, alias.kakaoId]));
+}
+
+// ── 입금 연결 ──────────────────────────────────────────────
+
+export class DepositMatchError extends Error {
+  readonly name = "DepositMatchError";
+}
+
+export async function applyDepositMatch(input: {
+  readonly depositId: number;
+  readonly targets: readonly Pick<DepositCandidate, "meetingId" | "recipientKakaoId">[];
+  readonly actorKakaoId: string;
+  readonly rememberDepositorName?: boolean;
+  readonly open?: OpenCandidates;
+}): Promise<void> {
+  const deposit = await prisma.bankDeposit.findUnique({ where: { id: input.depositId } });
+  if (!deposit) throw new DepositMatchError("입금 기록을 찾을 수 없습니다.");
+  if (deposit.status === "MATCHED") throw new DepositMatchError("이미 확인된 입금입니다.");
+
+  const open = input.open ?? (await getOpenDepositCandidates());
+  const targets = input.targets.map((target) => {
+    const candidate = open.candidates.find(
+      (item) => item.meetingId === target.meetingId && item.recipientKakaoId === target.recipientKakaoId,
+    );
+    if (!candidate) throw new DepositMatchError("이미 확인됐거나 청구 대상이 아닌 회원입니다.");
+    return candidate;
+  });
+  if (targets.length === 0) throw new DepositMatchError("연결할 청구를 선택해 주세요.");
+
+  const now = new Date();
+  const operations: Prisma.PrismaPromise<unknown>[] = targets.flatMap((target) => [
+    ...verifyPaymentOperations({
+      meetingId: target.meetingId,
+      recipientKakaoId: target.recipientKakaoId,
+      actorKakaoId: input.actorKakaoId,
+      dateLabel: open.dateLabels.get(target.meetingId) ?? "",
+      totalFee: target.totalFee,
+      verifiedAt: now,
+    }),
+    prisma.bankDepositMatch.create({
+      data: {
+        depositId: deposit.id,
+        meetingId: target.meetingId,
+        recipientKakaoId: target.recipientKakaoId,
+        amount: target.totalFee,
+      },
+    }),
+  ]);
+  operations.push(
+    prisma.bankDeposit.update({
+      where: { id: deposit.id },
+      data: { status: "MATCHED", matchedByKakaoId: input.actorKakaoId, matchedAt: now },
+    }),
+  );
+
+  const recipientIds = new Set(targets.map((target) => target.recipientKakaoId));
+  if (input.rememberDepositorName && deposit.depositorName && recipientIds.size === 1) {
+    const depositorName = normalizeDepositorName(deposit.depositorName);
+    const kakaoId = targets[0].recipientKakaoId;
+    operations.push(
+      prisma.depositorAlias.upsert({
+        where: { depositorName },
+        create: { depositorName, kakaoId },
+        update: { kakaoId },
+      }),
+    );
+  }
+
+  await prisma.$transaction(operations);
+}
+
+export async function undoDepositMatch(depositId: number): Promise<void> {
+  const matches = await prisma.bankDepositMatch.findMany({ where: { depositId } });
+  if (matches.length === 0) throw new DepositMatchError("연결된 청구가 없습니다.");
+  await prisma.$transaction(
+    matches.flatMap((match) => [...unverifyPaymentOperations(match.meetingId, match.recipientKakaoId)]),
+  );
+}
+
+/**
+ * 청구 재공개·조정·회원 삭제 등으로 입금 확인이 풀린 청구에 연결된 입금을 다시 대조 대기로 돌린다.
+ * 그 경로들이 SettlementConfirmation 을 지우므로, 확인 기록이 사라진 연결만 정리한다.
+ */
+async function releaseStaleMatches(): Promise<void> {
+  const matches = await prisma.bankDepositMatch.findMany({
+    select: { id: true, depositId: true, meetingId: true, recipientKakaoId: true },
+  });
+  if (matches.length === 0) return;
+  const verified = await prisma.settlementConfirmation.findMany({
+    where: { verifiedAt: { not: null }, meetingId: { in: [...new Set(matches.map((match) => match.meetingId))] } },
+    select: { meetingId: true, recipientKakaoId: true },
+  });
+  const verifiedKeys = new Set(verified.map((row) => `${row.meetingId}:${row.recipientKakaoId}`));
+  const staleDepositIds = [
+    ...new Set(
+      matches
+        .filter((match) => !verifiedKeys.has(`${match.meetingId}:${match.recipientKakaoId}`))
+        .map((match) => match.depositId),
+    ),
+  ];
+  if (staleDepositIds.length === 0) return;
+
+  // 한 입금이 여러 청구를 냈다면 일부만 풀려도 전체를 다시 대조한다.
+  await prisma.$transaction(
+    staleDepositIds.flatMap((depositId) => {
+      const siblings = matches.filter((match) => match.depositId === depositId);
+      return [
+        ...siblings.map((match) =>
+          prisma.settlementConfirmation.updateMany({
+            where: { meetingId: match.meetingId, recipientKakaoId: match.recipientKakaoId },
+            data: { verifiedAt: null, verifiedByKakaoId: null },
+          }),
+        ),
+        prisma.bankDepositMatch.deleteMany({ where: { depositId } }),
+        prisma.bankDeposit.update({
+          where: { id: depositId },
+          data: { status: "UNMATCHED", matchedByKakaoId: null, matchedAt: null },
+        }),
+      ];
+    }),
+  );
+}
+
+/** 확인 대기 중인 입금을 오래된 순으로 다시 자동 대조한다. 자동 확인된 건수를 반환한다. */
+export async function autoMatchPendingDeposits(): Promise<number> {
+  await releaseStaleMatches();
+  const pending = await prisma.bankDeposit.findMany({
+    where: { status: "UNMATCHED", amount: { not: null } },
+    orderBy: { depositedAt: "asc" },
+  });
+  if (pending.length === 0) return 0;
+
+  const aliases = await getAliasMap();
+  let open = await getOpenDepositCandidates();
+  let matched = 0;
+  for (const deposit of pending) {
+    const result = matchDeposit({ depositorName: deposit.depositorName, amount: deposit.amount! }, open.candidates, aliases);
+    if (result.kind !== "auto") continue;
+    try {
+      await applyDepositMatch({ depositId: deposit.id, targets: result.targets, actorKakaoId: BANK_AUTO_ACTOR, open });
+      matched += 1;
+      open = await getOpenDepositCandidates();
+    } catch (error) {
+      // 동시에 들어온 다른 입금이 먼저 같은 청구를 가져간 경우: 이 입금은 확인 대기로 남긴다.
+      if (!(error instanceof DepositMatchError) && !isUniqueViolation(error)) throw error;
+    }
+  }
+  return matched;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+// ── 알림 수신 ──────────────────────────────────────────────
+
+export type IngestResult = "ignored" | "duplicate" | "unparsed" | "stored";
+
+export async function ingestDepositNotification(input: {
+  readonly title: string | null;
+  readonly text: string;
+  readonly depositedAt: Date;
+}): Promise<IngestResult> {
+  const parsed = parseDepositNotification(input.title, input.text);
+  if (parsed.kind === "ignored") return "ignored";
+
+  // 같은 알림이 두 번 전달되는 경우를 막는다(같은 문구 + 같은 분).
+  const minute = Math.floor(input.depositedAt.getTime() / 60_000);
+  const dedupeKey = sha256(`${input.title ?? ""}\n${input.text}\n${minute}`);
+
+  const { count } = await prisma.bankDeposit.createMany({
+    data: {
+      dedupeKey,
+      rawTitle: input.title,
+      rawText: input.text,
+      depositorName: parsed.kind === "deposit" ? parsed.depositorName : null,
+      amount: parsed.kind === "deposit" ? parsed.amount : null,
+      depositedAt: input.depositedAt,
+      status: parsed.kind === "deposit" ? "UNMATCHED" : "UNPARSED",
+    },
+    skipDuplicates: true,
+  });
+  if (count === 0) return "duplicate";
+
+  if (parsed.kind !== "deposit") return "unparsed";
+  await autoMatchPendingDeposits();
+  return "stored";
+}
+
+// ── 운영진 화면 데이터 ──────────────────────────────────────
+
+export type BankDepositView = {
+  readonly id: number;
+  readonly depositorName: string | null;
+  readonly amount: number | null;
+  readonly depositedAt: string;
+  readonly status: string;
+  readonly matchedAutomatically: boolean;
+  readonly rawText: string;
+  readonly matches: readonly { meetingLabel: string; recipientName: string; amount: number }[];
+  readonly suggestions: readonly DepositCandidate[];
+};
+
+export type BankDepositDashboard = {
+  readonly webhookConfigured: boolean;
+  readonly lastReceivedAt: string | null;
+  readonly unpaidByMeeting: readonly { meetingId: number; meetingLabel: string; recipients: readonly DepositCandidate[] }[];
+  readonly needsReview: readonly BankDepositView[];
+  readonly matched: readonly BankDepositView[];
+  readonly unrecognized: readonly BankDepositView[];
+  readonly aliases: readonly { id: number; depositorName: string; memberName: string }[];
+};
+
+const RECENT_LIMIT = 50;
+
+export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
+  const [token, latest, open, aliases, deposits] = await Promise.all([
+    prisma.setting.findUnique({ where: { key: BANK_WEBHOOK_TOKEN_HASH_KEY }, select: { id: true } }),
+    prisma.bankDeposit.findFirst({ orderBy: { receivedAt: "desc" }, select: { receivedAt: true } }),
+    getOpenDepositCandidates(),
+    prisma.depositorAlias.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.bankDeposit.findMany({ orderBy: { depositedAt: "desc" }, take: RECENT_LIMIT, include: { matches: true } }),
+  ]);
+
+  const kakaoIds = new Set([
+    ...aliases.map((alias) => alias.kakaoId),
+    ...deposits.flatMap((deposit) => deposit.matches.map((match) => match.recipientKakaoId)),
+  ]);
+  const meetingIds = new Set(deposits.flatMap((deposit) => deposit.matches.map((match) => match.meetingId)));
+  const [users, meetings] = await Promise.all([
+    prisma.user.findMany({ where: { kakaoId: { in: [...kakaoIds] } }, select: { kakaoId: true, name: true } }),
+    prisma.meeting.findMany({ where: { id: { in: [...meetingIds] } }, select: { id: true, date: true, location: true } }),
+  ]);
+  const userName = new Map(users.map((user) => [user.kakaoId, user.name ?? "(이름 없음)"]));
+  const meetingLabel = new Map(meetings.map((meeting) => [meeting.id, `${meeting.date} ${meeting.location}`]));
+  const aliasMap = new Map(aliases.map((alias) => [alias.depositorName, alias.kakaoId]));
+
+  const toView = (deposit: (typeof deposits)[number]): BankDepositView => {
+    const reviewable = deposit.status === "UNMATCHED" || deposit.status === "REVIEW";
+    return {
+      id: deposit.id,
+      depositorName: deposit.depositorName,
+      amount: deposit.amount,
+      depositedAt: deposit.depositedAt.toISOString(),
+      status: deposit.status,
+      matchedAutomatically: deposit.matchedByKakaoId === BANK_AUTO_ACTOR,
+      rawText: [deposit.rawTitle, deposit.rawText].filter(Boolean).join(" / "),
+      matches: deposit.matches.map((match) => ({
+        meetingLabel: meetingLabel.get(match.meetingId) ?? `모임 #${match.meetingId}`,
+        recipientName: userName.get(match.recipientKakaoId) ?? match.recipientKakaoId,
+        amount: match.amount,
+      })),
+      suggestions: reviewable && deposit.amount !== null
+        ? (() => {
+            const result = matchDeposit({ depositorName: deposit.depositorName, amount: deposit.amount }, open.candidates, aliasMap);
+            return result.kind === "auto" ? result.targets : result.suggestions;
+          })()
+        : [],
+    };
+  };
+
+  const unpaid = new Map<number, { meetingId: number; meetingLabel: string; recipients: DepositCandidate[] }>();
+  for (const candidate of open.candidates) {
+    const entry = unpaid.get(candidate.meetingId) ?? { meetingId: candidate.meetingId, meetingLabel: candidate.meetingLabel, recipients: [] };
+    entry.recipients.push(candidate);
+    unpaid.set(candidate.meetingId, entry);
+  }
+
+  const views = deposits.map(toView);
+  return {
+    webhookConfigured: token !== null,
+    lastReceivedAt: latest?.receivedAt.toISOString() ?? null,
+    unpaidByMeeting: [...unpaid.values()],
+    needsReview: views.filter((view) => view.status === "UNMATCHED" || view.status === "REVIEW"),
+    matched: views.filter((view) => view.status === "MATCHED"),
+    unrecognized: views.filter((view) => view.status === "UNPARSED" || view.status === "IGNORED"),
+    aliases: aliases.map((alias) => ({
+      id: alias.id,
+      depositorName: alias.depositorName,
+      memberName: userName.get(alias.kakaoId) ?? alias.kakaoId,
+    })),
+  };
+}
+
+/** 알림이 누락된 입금을 운영진이 직접 기록한다. */
+export async function addManualDeposit(depositorName: string, amount: number): Promise<void> {
+  const now = new Date();
+  await prisma.bankDeposit.create({
+    data: {
+      dedupeKey: `manual:${randomBytes(12).toString("hex")}`,
+      rawText: `직접 입력: ${depositorName} ${amount.toLocaleString("ko-KR")}원`,
+      depositorName,
+      amount,
+      depositedAt: now,
+      status: "UNMATCHED",
+    },
+  });
+  await autoMatchPendingDeposits();
+}

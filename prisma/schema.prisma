@@ -346,3 +346,42 @@ model DeletedKakaoId {
   kakaoId   String   @unique
   deletedAt DateTime @default(now())
 }
+
+// 정산 계좌 입금 알림(안드로이드 알림 전달)으로 들어온 입금 기록
+model BankDeposit {
+  id               Int                @id @default(autoincrement())
+  dedupeKey        String             @unique
+  rawTitle         String?
+  rawText          String
+  depositorName    String?
+  amount           Int?
+  depositedAt      DateTime
+  receivedAt       DateTime           @default(now())
+  status           String             @default("UNMATCHED") // UNMATCHED(자동 대조 대기) | REVIEW(운영진 확인 필요) | MATCHED | IGNORED | UNPARSED
+  matchedByKakaoId String? // "bank-auto" = 자동 대조
+  matchedAt        DateTime?
+  matches          BankDepositMatch[]
+
+  @@index([status, depositedAt])
+}
+
+// 입금 1건이 여러 모임 청구를 한 번에 낸 경우를 위해 분리
+model BankDepositMatch {
+  id               Int         @id @default(autoincrement())
+  depositId        Int
+  meetingId        Int
+  recipientKakaoId String
+  amount           Int
+  deposit          BankDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, recipientKakaoId])
+  @@index([depositId])
+}
+
+// 은행 입금자명 → 회원 연결 (가족 명의, 별명 등)
+model DepositorAlias {
+  id            Int      @id @default(autoincrement())
+  depositorName String   @unique
+  kakaoId       String
+  createdAt     DateTime @default(now())
+}

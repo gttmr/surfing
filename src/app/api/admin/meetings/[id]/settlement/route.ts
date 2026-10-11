@@ -6,6 +6,7 @@ import { getAdminSettingsFormData, getAdminSettlementData } from "@/lib/admin-pa
 import { buildMeetingBillingSnapshot } from "@/lib/billing-snapshot";
 import { getMeetingBillingReadiness, getMeetingGroupBillingReadiness } from "@/lib/meeting-readiness-data";
 import { getSessionPayload } from "@/lib/session";
+import { billingDateLabel, unverifyPaymentOperations, verifyPaymentOperations } from "@/lib/payment-verification";
 
 type BillingMeetingScope = {
   readonly canonicalMeetingId: number;
@@ -41,12 +42,6 @@ function getScopedBillingReadiness(scope: BillingMeetingScope) {
   return scope.meetingIds.length > 1
     ? getMeetingGroupBillingReadiness(scope.meetingIds)
     : getMeetingBillingReadiness(scope.canonicalMeetingId);
-}
-
-function billingDateLabel(data: Awaited<ReturnType<typeof getAdminSettlementData>>): string {
-  if (!data) return "";
-  const days = data.meeting.overnightGroup?.days;
-  return days ? `${days[0].date}~${days[1].date}` : data.meeting.date;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -113,49 +108,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (requestedAction === "unverify-payment") {
-      await prisma.$transaction([
-        prisma.settlementConfirmation.updateMany({
-          where: { meetingId, recipientKakaoId },
-          data: { verifiedAt: null, verifiedByKakaoId: null },
-        }),
-        prisma.userNotification.deleteMany({
-          where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
-        }),
-        prisma.meeting.update({
-          where: { id: meetingId },
-          data: { settlementCompletedAt: null, settlementCompletedByKakaoId: null },
-        }),
-      ]);
+      await prisma.$transaction([...unverifyPaymentOperations(meetingId, recipientKakaoId)]);
     } else {
-      const verifiedAt = new Date();
       await prisma.$transaction([
-        prisma.settlementConfirmation.upsert({
-          where: {
-            meetingId_recipientKakaoId: { meetingId, recipientKakaoId },
-          },
-          create: {
-            meetingId,
-            recipientKakaoId,
-            confirmedAt: verifiedAt,
-            verifiedAt,
-            verifiedByKakaoId: actorKakaoId,
-          },
-          update: {
-            verifiedAt,
-            verifiedByKakaoId: actorKakaoId,
-          },
-        }),
-        prisma.userNotification.deleteMany({
-          where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
-        }),
-        prisma.userNotification.create({
-          data: {
-            meetingId,
-            recipientKakaoId,
-            type: "PAYMENT_VERIFIED",
-            title: `${billingDateLabel(data)} 입금이 확인되었습니다`,
-            body: `입금 완료 · ${recipient.totalFee.toLocaleString("ko-KR")}원`,
-          },
+        ...verifyPaymentOperations({
+          meetingId,
+          recipientKakaoId,
+          actorKakaoId,
+          dateLabel: billingDateLabel(data.meeting),
+          totalFee: recipient.totalFee,
         }),
       ]);
     }
@@ -322,7 +283,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { payload: snapshotPayload, totals } = buildMeetingBillingSnapshot(data);
   const publishedAt = new Date();
   const nextRevision = (existingSnapshot?.revision ?? 0) + 1;
-  const publishedDateLabel = billingDateLabel(data);
+  const publishedDateLabel = billingDateLabel(data.meeting);
   const notificationRows = snapshotPayload.recipients.map((recipient) => ({
     recipientKakaoId: recipient.recipientKakaoId,
     type: "BILLING_PUBLISHED",

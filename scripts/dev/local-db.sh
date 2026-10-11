@@ -51,13 +51,14 @@ case "${1:-}" in
     recreate_db
     psql -Xq -d "$DB" -c "drop schema public cascade"  # 덤프가 public 스키마를 직접 생성한다
     pg_restore --no-owner --no-privileges -d "$DB" "$dump"
+    # 백업 이후 저장소에 추가된 테이블/컬럼을 반영한다. 데이터 손실이 필요한 변경이면 prisma 가 중단한다.
+    (cd "$ROOT" && DATABASE_URL="postgresql://postgres@127.0.0.1:$PORT/$DB" npx prisma db push --skip-generate)
     echo "복원 완료: $dump → $DB"
     ;;
   reset)
     start
     recreate_db
-    (cd "$ROOT" && DATABASE_URL="postgresql://postgres@127.0.0.1:$PORT/$DB" \
-      DIRECT_URL="postgresql://postgres@127.0.0.1:$PORT/$DB" npx prisma db push --skip-generate)
+    (cd "$ROOT" && DATABASE_URL="postgresql://postgres@127.0.0.1:$PORT/$DB" npx prisma db push --skip-generate)
     ;;
   psql) exec psql -d "$DB" ;;
   *) sed -n '2,10p' "$0"; exit 1 ;;
