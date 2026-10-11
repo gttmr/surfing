@@ -41,6 +41,8 @@ export type BillingReadinessInput = {
     readonly endTime: string;
     readonly isOpen: boolean;
     readonly billingReviewConfirmedAt?: Date | string | null;
+    /** 샵의 항목별 수량 확인. 청구를 막지는 않고 안내만 한다. */
+    readonly shopUsageCheckedAt?: Date | string | null;
   };
   readonly participants: readonly {
     readonly id: number;
@@ -150,7 +152,9 @@ export function getBillingReadiness(input: BillingReadinessInput): {
       detail: !ended
         ? "모임 종료 후 실제 이용 내역을 확인합니다."
         : unresolvedUsageCount === 0
-        ? "참석자의 실제 이용 내역을 모두 확인했습니다."
+        ? input.meeting.shopUsageCheckedAt
+          ? "실제 이용 내역을 모두 확인했고 샵도 수량을 확인했습니다."
+          : "실제 이용 내역을 모두 확인했습니다. 샵 수량 확인은 아직입니다."
         : `${unresolvedUsageCount}명의 실제 이용 내역을 확인해 주세요.`,
       href: `/shop/usage?meetingId=${input.meeting.id}`,
     },

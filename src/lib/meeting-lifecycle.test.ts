@@ -150,3 +150,19 @@ test("workflow names recruitment, evidence review, payment confirmation, and com
     now: AFTER_MEETING,
   }), "COMPLETED");
 });
+
+test("the shop count check is reported but never blocks billing", () => {
+  const base = {
+    now: AFTER_MEETING,
+    meeting: { id: 13, date: "2026-08-22", endTime: "22:00", isOpen: false, billingReviewConfirmedAt: AFTER_MEETING },
+    participants: [{ id: 1, status: "APPROVED", attendanceStatus: "PENDING" }],
+    foodOrderItems: [],
+    usageSubmissions: [{ participantId: 1, status: "CONFIRMED", confirmedAt: AFTER_MEETING }],
+  };
+  const unchecked = getBillingReadiness(base);
+  assert.equal(unchecked.ready, true);
+  assert.match(unchecked.checks.find((check) => check.id === "usage-resolved")?.detail ?? "", /샵 수량 확인은 아직/);
+
+  const checked = getBillingReadiness({ ...base, meeting: { ...base.meeting, shopUsageCheckedAt: AFTER_MEETING } });
+  assert.match(checked.checks.find((check) => check.id === "usage-resolved")?.detail ?? "", /샵도 수량을 확인/);
+});

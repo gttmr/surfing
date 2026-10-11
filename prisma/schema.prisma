@@ -28,6 +28,8 @@ model Meeting {
   settlementCompletedAt           DateTime?
   settlementCompletedByKakaoId    String?
   settlementNote                  String?
+  shopUsageCheckedAt              DateTime? // 샵이 항목별 이용 수량을 확인한 시각 (이용 내역이 바뀌면 초기화)
+  shopUsageCheckedByKakaoId       String?
   meetingType                     String                           @default("정기") // 정기 | 비정기
   createdByKakaoId                String? // null = admin, otherwise member's kakaoId
   meetingGroupId                  Int?

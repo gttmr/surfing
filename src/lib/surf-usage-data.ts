@@ -105,6 +105,7 @@ export type ShopMeetingSurfUsageData = {
     endTime: string;
     location: string;
     actualUsageReview: ActualUsageReviewAvailability;
+    shopUsageCheckedAt: string | null;
   };
   usageItems: Array<{
     id: number;
@@ -535,6 +536,7 @@ export async function submitParticipantSurfUsage(
   const entriesToCreate = normalizedItems.filter((item) => item.quantity > 0);
 
   await prisma.$transaction([
+    resetShopUsageCheck(meetingId),
     prisma.participantSurfUsage.deleteMany({
       where: { meetingId, participantId },
     }),
@@ -588,6 +590,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       billingReviewConfirmedAt: true,
       billingPublishedAt: true,
       settlementOpen: true,
+      shopUsageCheckedAt: true,
       participants: {
         where: { status: "APPROVED" },
         orderBy: { submittedAt: "asc" },
@@ -702,6 +705,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       endTime: meeting.endTime,
       location: meeting.location,
       actualUsageReview: getActualUsageReviewAvailability(meeting),
+      shopUsageCheckedAt: meeting.shopUsageCheckedAt?.toISOString() ?? null,
     },
     usageItems: usageItems.map((item) => ({
       id: item.id,
@@ -733,6 +737,26 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
     }),
     participantRows,
   };
+}
+
+/** 이용 내역·항목이 바뀌면 샵의 수량 확인을 다시 받아야 한다. */
+function resetShopUsageCheck(meetingId: number) {
+  return prisma.meeting.updateMany({
+    where: { id: meetingId, shopUsageCheckedAt: { not: null } },
+    data: { shopUsageCheckedAt: null, shopUsageCheckedByKakaoId: null },
+  });
+}
+
+export async function markShopUsageChecked(meetingId: number, actorKakaoId: string | null) {
+  await requireActualUsageReviewOpen(meetingId);
+  const pending = await prisma.participantSurfUsageSubmission.count({
+    where: { meetingId, status: { not: "CONFIRMED" } },
+  });
+  if (pending > 0) throw new Error("확정되지 않은 이용 내역이 있어 수량을 확인할 수 없습니다.");
+  await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { shopUsageCheckedAt: new Date(), shopUsageCheckedByKakaoId: actorKakaoId },
+  });
 }
 
 async function requireActualUsageReviewOpen(meetingId: number) {
@@ -775,6 +799,7 @@ export async function saveShopParticipantSurfUsage(
   const entriesToCreate = normalizedItems.filter((item) => item.quantity > 0);
 
   await prisma.$transaction([
+    resetShopUsageCheck(meetingId),
     prisma.participantSurfUsage.deleteMany({
       where: { meetingId, participantId },
     }),
@@ -832,6 +857,7 @@ export async function confirmShopParticipantSurfUsage(
     throw new Error("참가자를 찾을 수 없습니다.");
   }
 
+  await resetShopUsageCheck(meetingId);
   await prisma.participantSurfUsageSubmission.upsert({
     where: { meetingId_participantId: { meetingId, participantId } },
     update: {
@@ -878,6 +904,7 @@ export async function fillMissingSurfUsageFromSignup(meetingId: number, actorKak
     ?? null;
 
   const now = new Date();
+  await resetShopUsageCheck(meetingId);
   return prisma.$transaction(async (tx) => {
     let filled = 0;
     for (const participant of participants) {
@@ -943,6 +970,7 @@ export async function saveShopSurfUsageCatalog(
   }
 
   await ensureMeetingSurfUsageItems(meetingId);
+  await resetShopUsageCheck(meetingId);
 
   const currentItems = await prisma.surfUsageItem.findMany({
     where: { meetingId },

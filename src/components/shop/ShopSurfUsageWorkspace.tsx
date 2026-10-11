@@ -230,6 +230,32 @@ export function ShopSurfUsageWorkspace({
   }
 
   const canFillFromSignup = data.meeting.actualUsageReview.editable && data.summary.missingCount > 0;
+  const allConfirmed = data.summary.approvedCount > 0
+    && data.summary.missingCount === 0
+    && data.summary.reviewCount === 0;
+  const countedItems = data.itemRows.filter((row) => row.confirmedQuantity > 0);
+
+  async function markCountsChecked() {
+    setFilling(true);
+    try {
+      const response = await fetch(usageEndpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "shop-check" }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok || !isShopMeetingSurfUsageData(payload)) {
+        addToast(shopUsageErrorMessage(payload, "수량 확인을 기록하지 못했습니다."), "error");
+        return;
+      }
+      commitServerData(payload, true);
+      addToast("이용 수량을 확인했습니다.", "success");
+    } catch {
+      addToast("수량 확인을 기록하지 못했습니다.", "error");
+    } finally {
+      setFilling(false);
+    }
+  }
 
   return (
     <section className="space-y-5">
@@ -250,6 +276,36 @@ export function ShopSurfUsageWorkspace({
           {dirtyParticipantIds.length > 0 ? (
             <p className="brand-text-subtle mt-2 text-xs">편집 중인 참가자를 저장하거나 취소한 뒤 사용할 수 있습니다.</p>
           ) : null}
+        </div>
+      ) : null}
+
+      {data.meeting.actualUsageReview.editable && allConfirmed ? (
+        <div className={`${data.meeting.shopUsageCheckedAt ? "brand-panel-white" : "brand-highlight-panel"} rounded-2xl p-4`}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-extrabold text-brand-text">샵 수량 확인</p>
+            {data.meeting.shopUsageCheckedAt ? <span className="brand-chip-success rounded-full px-2.5 py-1 text-xs font-bold">확인 완료</span> : null}
+          </div>
+          <ul className="mt-3 divide-y divide-brand-divider">
+            {countedItems.length > 0 ? countedItems.map((row) => (
+              <li className="flex min-h-11 items-center justify-between text-sm" key={row.usageItemId}>
+                <span className="font-bold text-brand-text">{row.name}</span>
+                <span className="text-lg font-extrabold tabular-nums text-brand-text">{row.confirmedQuantity}</span>
+              </li>
+            )) : <li className="brand-text-muted py-2 text-sm">이용한 항목이 없습니다.</li>}
+          </ul>
+          <p className="brand-text-muted mt-2 text-xs">샵 청구 합계 {data.summary.confirmedShopAmount.toLocaleString("ko-KR")}원</p>
+          {data.meeting.shopUsageCheckedAt ? (
+            <p className="brand-text-subtle mt-2 text-xs">이용 내역이 바뀌면 다시 확인해야 합니다.</p>
+          ) : (
+            <button
+              className="brand-button-primary mt-3 min-h-11 w-full rounded-xl text-sm font-bold disabled:opacity-50"
+              disabled={filling || dirtyParticipantIds.length > 0}
+              onClick={() => void markCountsChecked()}
+              type="button"
+            >
+              수량 맞음
+            </button>
+          )}
         </div>
       ) : null}
 
