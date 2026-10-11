@@ -65,15 +65,11 @@ test("billing readiness blocks every unresolved operational prerequisite", () =>
   assert.equal(readiness.ready, false);
   assert.deepEqual(
     readiness.checks.filter((check) => !check.complete).map((check) => check.id),
-    ["registration-closed", "attendance-resolved", "food-resolved", "usage-resolved", "billing-reviewed"]
+    ["food-resolved", "usage-resolved", "billing-reviewed"]
   );
   assert.equal(
-    readiness.checks.find((check) => check.id === "registration-closed")?.href,
-    "/admin/meetings/13#meeting-operations"
-  );
-  assert.equal(
-    readiness.checks.find((check) => check.id === "attendance-resolved")?.href,
-    "/admin/meetings/13#participants"
+    readiness.checks.find((check) => check.id === "usage-resolved")?.detail,
+    "2명의 실제 이용 내역을 확인해 주세요."
   );
 });
 
@@ -94,8 +90,8 @@ test("a future empty meeting does not count post-meeting checks as completed", (
 
   assert.deepEqual(readiness.checks.filter((check) => check.complete), []);
   assert.equal(
-    readiness.checks.find((check) => check.id === "attendance-resolved")?.detail,
-    "모임 종료 후 참석 상태를 확인합니다."
+    readiness.checks.find((check) => check.id === "usage-resolved")?.detail,
+    "모임 종료 후 실제 이용 내역을 확인합니다."
   );
 });
 

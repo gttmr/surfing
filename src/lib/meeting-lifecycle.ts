@@ -21,8 +21,6 @@ export type ActualUsageReviewAvailability = {
 
 export type BillingReadinessCheckId =
   | "meeting-ended"
-  | "registration-closed"
-  | "attendance-resolved"
   | "food-resolved"
   | "usage-resolved"
   | "billing-reviewed";
@@ -109,21 +107,17 @@ export function getBillingReadiness(input: BillingReadinessInput): {
   readonly ready: boolean;
   readonly checks: readonly BillingReadinessCheck[];
 } {
-  const approvedParticipants = input.participants.filter((participant) => participant.status === "APPROVED");
-  const unresolvedAttendance = approvedParticipants.filter(
-    (participant) => asAttendanceStatus(participant.attendanceStatus) === "PENDING"
-  );
-  const attendedParticipantIds = new Set(
-    approvedParticipants
-      .filter((participant) => asAttendanceStatus(participant.attendanceStatus) === "ATTENDED")
-      .map((participant) => participant.id)
-  );
+  // 불참해도 참가비는 청구되므로 참석 확인은 청구 조건이 아니다.
+  // 운영진이 불참으로 표시한 사람만 실제 이용 확인에서 제외한다.
+  const usageParticipantIds = input.participants
+    .filter((participant) => participant.status === "APPROVED" && asAttendanceStatus(participant.attendanceStatus) !== "ABSENT")
+    .map((participant) => participant.id);
   const confirmedUsageParticipantIds = new Set(
     input.usageSubmissions
       .filter((submission) => submission.status === "CONFIRMED" || submission.confirmedAt)
       .map((submission) => submission.participantId)
   );
-  const unresolvedUsageCount = Array.from(attendedParticipantIds)
+  const unresolvedUsageCount = usageParticipantIds
     .filter((participantId) => !confirmedUsageParticipantIds.has(participantId))
     .length;
   const unresolvedFoodCount = input.foodOrderItems.filter((item) => (
@@ -137,24 +131,6 @@ export function getBillingReadiness(input: BillingReadinessInput): {
       label: "모임 종료",
       complete: ended,
       detail: ended ? "모임 시간이 종료되었습니다." : "모임 종료 후 청구를 공개할 수 있습니다.",
-    },
-    {
-      id: "registration-closed",
-      label: "참가 신청 마감",
-      complete: !input.meeting.isOpen,
-      detail: input.meeting.isOpen ? "참가 신청을 먼저 마감해 주세요." : "참가 신청이 마감되었습니다.",
-      href: `/admin/meetings/${input.meeting.id}#meeting-operations`,
-    },
-    {
-      id: "attendance-resolved",
-      label: "실제 참석 확인",
-      complete: ended && unresolvedAttendance.length === 0,
-      detail: !ended
-        ? "모임 종료 후 참석 상태를 확인합니다."
-        : unresolvedAttendance.length === 0
-        ? `참가자 ${approvedParticipants.length}명의 참석 상태를 확인했습니다.`
-        : `${unresolvedAttendance.length}명의 참석 여부를 확인해 주세요.`,
-      href: `/admin/meetings/${input.meeting.id}#participants`,
     },
     {
       id: "food-resolved",
@@ -225,7 +201,7 @@ export function getMeetingWorkflowStage(input: {
 export const MEETING_WORKFLOW_LABELS: Record<MeetingWorkflowStage, string> = {
   RECRUITING: "모집 중",
   UPCOMING: "모임 예정",
-  ACTUALS_REVIEW: "참석·이용 확인",
+  ACTUALS_REVIEW: "이용 확인",
   BILLING_REVIEW: "청구 검토",
   PAYMENT_CONFIRMATION: "입금 확인",
   FINAL_SETTLEMENT: "최종 정산",

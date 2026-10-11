@@ -32,17 +32,15 @@ function displayDate(dateValue: string): string {
 const PARTICIPANT_ACTION_COPY: Record<ParticipantAction, { readonly title: string; readonly button: string; readonly toast: string }> = {
   approve: { title: "참가를 확정할까요?", button: "참가 확정", toast: "참가를 확정 상태로 변경했습니다" },
   cancel: { title: "참가를 취소할까요?", button: "참가 취소", toast: "참가를 취소 상태로 변경했습니다" },
-  attended: { title: "실제 참석으로 기록할까요?", button: "참석 기록", toast: "실제 참석으로 기록했습니다" },
-  absent: { title: "불참으로 기록할까요?", button: "불참 기록", toast: "불참으로 기록했습니다" },
-  "attendance-pending": { title: "참석 상태를 미확인으로 돌릴까요?", button: "미확인으로 변경", toast: "참석 상태를 미확인으로 변경했습니다" },
+  attended: { title: "참석으로 되돌릴까요?", button: "참석으로 되돌리기", toast: "참석으로 되돌렸습니다" },
+  absent: { title: "불참으로 처리할까요?", button: "불참 처리", toast: "불참으로 처리했습니다" },
 };
 
 const PARTICIPANT_ACTION_DESCRIPTION: Record<ParticipantAction, { readonly action: string; readonly consequence: string }> = {
   approve: { action: "참가를 확정합니다", consequence: "다른 참가자의 상태는 바뀌지 않습니다." },
   cancel: { action: "참가를 취소합니다", consequence: "패널티와 다른 참가자 상태는 바뀌지 않습니다." },
-  attended: { action: "실제 참석으로 기록합니다", consequence: "청구 금액은 이 단계에서 바뀌지 않습니다." },
-  absent: { action: "불참으로 기록합니다", consequence: "실제 이용과 청구 공개 전에 다시 확인할 수 있습니다." },
-  "attendance-pending": { action: "참석 상태를 미확인으로 돌립니다", consequence: "다시 확인하기 전에는 청구를 공개할 수 없습니다." },
+  attended: { action: "참석으로 되돌립니다", consequence: "실제 이용 확인 대상에 다시 포함됩니다." },
+  absent: { action: "불참으로 처리합니다", consequence: "참가비는 그대로 청구되고, 실제 이용 확인 대상에서만 빠집니다." },
 };
 
 function nextActionLabel(operations: AdminSettlementData): string {
@@ -207,6 +205,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
       ? `${initialOperations.verifiedRecipientCount}/${initialOperations.recipients.length} 입금`
       : `${completedReadinessCount}/${initialOperations.readiness.checks.length} 확인`;
   const billingHref = `/admin/meetings/${meetingId}/settlement`;
+  const meetingEnded = initialOperations.workflowStage !== "RECRUITING" && initialOperations.workflowStage !== "UPCOMING";
   const nextHref = nextActionHref(initialOperations, meetingId);
   const usageLinkLabel = initialOperations.workflowStage === "RECRUITING" || initialOperations.workflowStage === "UPCOMING"
     ? "이용 예정 현황"
@@ -303,15 +302,23 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
           <div className="grid grid-cols-2 gap-2 px-4 py-4">
             <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${activeMeetingId}/orders`}>{activeDay ? `${activeDay.dayIndex}일차 식음료` : "식음료 주문"}</Link>
             <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/shop/usage?meetingId=${activeMeetingId}`}>{activeDay ? `${activeDay.dayIndex}일차 ${usageLinkLabel}` : usageLinkLabel}</Link>
-            <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
-            <button className="brand-button-secondary rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={handleToggleOpen} type="button">{meeting.isOpen ? "신청 마감하기" : "신청 열기"}</button>
-            <button className="brand-button-danger rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">모임 삭제</button>
+            {meetingEnded ? (
+              <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
+            ) : null}
+            {!meetingEnded ? (
+              <button className="brand-button-secondary col-span-2 rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={handleToggleOpen} type="button">{meeting.isOpen ? "신청 마감하기" : "신청 열기"}</button>
+            ) : null}
           </div>
         </section>
 
         <div className="scroll-mt-4" id="participants">
           <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
         </div>
+
+        <button className="brand-inline-danger mx-auto flex min-h-11 items-center gap-1 rounded-xl px-4 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">
+          <Icon className="text-[16px]" name="delete" />
+          모임 삭제
+        </button>
       </div>
 
       <Dialog className="[&_p]:break-keep" description={dialogDescription} onClose={() => { if (!working) setConfirmation(null); }} open={confirmation !== null} title={dialogTitle}>

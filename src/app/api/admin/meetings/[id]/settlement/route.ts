@@ -330,6 +330,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: { in: [...scope.meetingIds] } },
       data: {
         settlementOpen: true,
+        isOpen: false, // 청구를 공개하면 신청도 자동 마감한다.
         billingPublishedAt: publishedAt,
         billingPublishedByKakaoId: actorKakaoId,
         billingCorrectionReason: null,

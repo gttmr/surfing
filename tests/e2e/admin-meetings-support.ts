@@ -70,3 +70,10 @@ export async function assertDialogChunkFitsParagraph(chunk: Locator): Promise<vo
   expect(geometry.lineCount).toBe(1);
   expect(geometry.insideParagraph).toBe(true);
 }
+
+/** 참가자 카드는 접혀 있으므로 취소 등 카드 안 동작 전에 펼친다. */
+export async function openParticipant(page: Page, name: string): Promise<void> {
+  const summary = page.locator("article summary").filter({ hasText: name }).first();
+  const isOpen = await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open);
+  if (!isOpen) await summary.click();
+}

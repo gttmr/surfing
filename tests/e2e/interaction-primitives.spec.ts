@@ -108,7 +108,7 @@ test("profile and admin tabs use roving selection", async ({ context, page }, te
   await expect(page.getByRole("tabpanel")).toBeVisible();
 
   const longName = "합성 회원 이름이 매우 길어서 모바일 줄바꿈과 목록 밀도를 검증하는 서른다섯 번째 사용자";
-  const finalPhraseLineCount = await page.locator("span.w-full.text-balance").filter({ hasText: longName }).evaluate((node) => {
+  const finalPhraseLineCount = await page.locator("article summary span.text-balance").filter({ hasText: longName }).evaluate((node) => {
     const text = node.textContent ?? "";
     const phrase = "서른다섯 번째 사용자";
     const start = text.indexOf(phrase);
@@ -121,7 +121,9 @@ test("profile and admin tabs use roving selection", async ({ context, page }, te
   });
   expect(finalPhraseLineCount).toBe(1);
 
-  await page.route("**/api/meetings/8101", async (route) => {
+  // 신청 마감 토글은 모임 종료 전(8102)에만 보인다.
+  await page.goto("/admin/meetings/8102", { waitUntil: "networkidle" });
+  await page.route("**/api/meetings/8102", async (route) => {
     if (route.request().method() === "PUT") {
       await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "합성 오류" }) });
       return;

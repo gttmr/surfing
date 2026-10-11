@@ -362,11 +362,6 @@ export default function EmbeddedMeetingDetail({
                     {group.participants.map((participant) => {
                       const isCompanion = participant.companionId !== null;
                       const visibleNote = !isAdmin || (isCompanion && participant.note?.trim().endsWith("의 동반")) ? null : participant.note;
-                      const attendanceLabel = participant.attendanceStatus === "ATTENDED"
-                        ? "참석"
-                        : participant.attendanceStatus === "ABSENT"
-                          ? "불참"
-                          : "참석 예정";
                       return (
                         <div className={`brand-list-row flex gap-3 px-4 py-3 last:border-b-0 ${visibleNote ? "items-start" : "items-center"} ${isCompanion ? "pl-8" : ""}`} key={participant.id}>
                           <ParticipantAvatar participant={participant} />
@@ -374,7 +369,7 @@ export default function EmbeddedMeetingDetail({
                             <div className="flex flex-wrap items-center gap-1.5">
                               <p className="font-semibold text-brand-text">{participant.name}</p>
                               {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${participant.attendanceStatus === "ATTENDED" ? "brand-chip-success" : participant.attendanceStatus === "ABSENT" ? "brand-chip-dimmed" : "brand-chip-soft"}`}>{attendanceLabel}</span>
+                              {participant.attendanceStatus === "ABSENT" ? <span className="brand-chip-dimmed rounded px-1.5 py-0.5 text-[10px] font-bold">불참</span> : null}
                               {isAdmin && participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
                               {isAdmin && participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
                               {isAdmin && participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여</span> : null}
