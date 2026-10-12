@@ -76,7 +76,7 @@ function createdListItem(meeting: CreatedMeeting, overnightGroup: OvernightMeeti
     approvedCount: 0,
     workflowStage: "RECRUITING",
     workflowLabel: "모집 중",
-    nextAction: "참가 현황 보기",
+    nextAction: "신청 관리",
     lessonCount: 0,
     recipientCount: 0,
     verifiedRecipientCount: 0,

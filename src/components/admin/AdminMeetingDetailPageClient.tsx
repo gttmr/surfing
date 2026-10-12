@@ -49,17 +49,14 @@ const PARTICIPANT_ACTION_DESCRIPTION: Record<ParticipantAction, { readonly actio
 };
 
 function nextActionLabel(operations: AdminSettlementData): string {
-  if (operations.workflowStage === "RECRUITING") return "참가 신청 현황 확인";
-  if (operations.workflowStage === "UPCOMING") return "모임 준비 확인";
   const nextIncomplete = operations.readiness.checks.find((check) => !check.complete);
   if (operations.workflowStage === "PAYMENT_CONFIRMATION") return "회원 입금 확인하기";
-  if (operations.workflowStage === "FINAL_SETTLEMENT") return "샵·식음료 지급 마감하기";
+  if (operations.workflowStage === "FINAL_SETTLEMENT") return "샵 지급 기록하고 마감";
   if (operations.workflowStage === "COMPLETED") return "완료 보고서 확인하기";
   return nextIncomplete?.label ?? "청구 내역 검토하기";
 }
 
 function nextActionHref(operations: AdminSettlementData, meetingId: number): string {
-  if (operations.workflowStage === "RECRUITING" || operations.workflowStage === "UPCOMING") return "#participants";
   if (
     operations.workflowStage === "PAYMENT_CONFIRMATION"
     || operations.workflowStage === "FINAL_SETTLEMENT"
@@ -212,6 +209,8 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
   const billingHref = `/admin/meetings/${meetingId}/settlement`;
   const meetingEnded = initialOperations.workflowStage !== "RECRUITING" && initialOperations.workflowStage !== "UPCOMING";
   const nextHref = nextActionHref(initialOperations, meetingId);
+  const meetingEndDate = meeting.overnightGroup?.days.at(-1)?.date ?? meeting.date;
+  const waitlistedCount = meeting.participants.filter((participant) => participant.status === "WAITLISTED").length;
   const usageLinkLabel = initialOperations.workflowStage === "RECRUITING" || initialOperations.workflowStage === "UPCOMING"
     ? "이용 예정 현황"
     : "실제 이용 확인";
@@ -269,38 +268,71 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
           </div>
         ) : null}
 
-        <section className="brand-panel overflow-hidden rounded-2xl">
-          <div className="bg-brand-primary-soft px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
-                <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+        {meetingEnded ? (
+          <section className="brand-panel overflow-hidden rounded-2xl">
+            <div className="bg-brand-primary-soft px-4 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
+                  <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+                </div>
+                <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">{workflowProgressLabel}</span>
               </div>
-              <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">{workflowProgressLabel}</span>
+              <Link className="mt-4 flex min-h-11 items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary" href={nextHref}>
+                <span><span className="brand-text-subtle mr-2 text-xs">다음 할 일</span>{nextActionLabel(initialOperations)}</span>
+                <Icon name="arrow_forward" />
+              </Link>
             </div>
-            <Link className="mt-4 flex min-h-11 items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary" href={nextHref}>
-              <span><span className="brand-text-subtle mr-2 text-xs">다음 할 일</span>{nextActionLabel(initialOperations)}</span>
-              <Icon name="arrow_forward" />
-            </Link>
-          </div>
-          {!initialOperations.meeting.settlementOpen ? (
-            <details>
-              <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
-                공개 전 확인 항목
-                <Icon className="brand-text-subtle" name="expand_more" />
-              </summary>
-              <div className="space-y-1 border-t border-brand-divider px-4 py-3">
-                {initialOperations.readiness.checks.map((check) => (
-                  <div className="flex min-h-11 items-center gap-3" key={check.id}>
-                    <Icon className={check.complete ? "text-brand-success" : "text-brand-text-subtle"} name={check.complete ? "check_circle" : "radio_button_unchecked"} />
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-brand-text">{check.label}</span>
-                    {!check.complete && check.href ? <Link className="flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-brand-primary" href={check.href}>확인</Link> : null}
-                  </div>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </section>
+            {!initialOperations.meeting.settlementOpen ? (
+              <details>
+                <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
+                  공개 전 확인 항목
+                  <Icon className="brand-text-subtle" name="expand_more" />
+                </summary>
+                <div className="space-y-1 border-t border-brand-divider px-4 py-3">
+                  {initialOperations.readiness.checks.map((check) => (
+                    <div className="flex min-h-11 items-center gap-3" key={check.id}>
+                      <Icon className={check.complete ? "text-brand-success" : "text-brand-text-subtle"} name={check.complete ? "check_circle" : "radio_button_unchecked"} />
+                      <span className="min-w-0 flex-1 text-sm font-semibold text-brand-text">{check.label}</span>
+                      {!check.complete && check.href ? <Link className="flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-brand-primary" href={check.href}>확인</Link> : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </section>
+        ) : (
+          <section className="brand-panel overflow-hidden rounded-2xl">
+            <div className="bg-brand-primary-soft px-4 py-4">
+              <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
+              <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+              <p className="brand-text-muted mt-1 break-keep text-xs leading-5">
+                지금은 신청만 관리하면 됩니다. {displayDate(meetingEndDate)} 모임이 끝나면 이용 확인과 청구가 열립니다.
+              </p>
+              {waitlistedCount > 0 ? (
+                <button
+                  className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary"
+                  onClick={() => {
+                    setActiveTab("waitlisted");
+                    document.getElementById("participants")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  type="button"
+                >
+                  대기자 {waitlistedCount}명 확인하기
+                  <Icon name="arrow_forward" />
+                </button>
+              ) : null}
+              <button
+                className={`${meeting.isOpen ? "brand-button-primary" : "brand-button-secondary"} mt-3 min-h-11 w-full rounded-xl px-3 text-sm font-bold`}
+                disabled={working}
+                onClick={handleToggleOpen}
+                type="button"
+              >
+                {meeting.isOpen ? "신청 마감하기" : "신청 다시 열기"}
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="brand-admin-section scroll-mt-4 overflow-hidden" id="meeting-operations">
           <div className="brand-admin-section-header px-4 py-3"><h2 className="text-sm font-extrabold">모임 운영</h2></div>
@@ -309,9 +341,6 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
             <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/shop/usage?meetingId=${activeMeetingId}`}>{activeDay ? `${activeDay.dayIndex}일차 ${usageLinkLabel}` : usageLinkLabel}</Link>
             {meetingEnded ? (
               <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
-            ) : null}
-            {!meetingEnded ? (
-              <button className="brand-button-secondary col-span-2 rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={handleToggleOpen} type="button">{meeting.isOpen ? "신청 마감하기" : "신청 열기"}</button>
             ) : null}
           </div>
         </section>

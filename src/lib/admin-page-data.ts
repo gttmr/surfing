@@ -358,12 +358,12 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       settlementCompletedAt: meeting.settlementCompletedAt,
     });
     const nextActionByStage: Record<MeetingWorkflowStage, string> = {
-      RECRUITING: "참가 현황 보기",
-      UPCOMING: "모임 준비 확인",
+      RECRUITING: "신청 관리",
+      UPCOMING: "참가자 보기",
       ACTUALS_REVIEW: "이용 확인 후 청구 공개",
       BILLING_REVIEW: "청구 공개",
       PAYMENT_CONFIRMATION: "남은 입금 확인하기",
-      FINAL_SETTLEMENT: "샵·식음료 지급 기록하고 마감",
+      FINAL_SETTLEMENT: "샵 지급 기록하고 마감",
       COMPLETED: "완료 보고서 보기",
     };
     return {
