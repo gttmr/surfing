@@ -4,6 +4,7 @@ import { Icon } from "@/components/ui/Icon";
 import { getAdminMeetings, type AdminMeetingListItem } from "@/lib/admin-page-data";
 import { prisma } from "@/lib/db";
 import { DAY_KO } from "@/lib/format";
+import { lastMeetingDate } from "@/lib/meeting-days";
 import type { MeetingWorkflowStage } from "@/lib/meeting-lifecycle";
 import { requireAdminPage } from "@/lib/require-admin-page";
 
@@ -13,7 +14,6 @@ export const dynamic = "force-dynamic";
 const STAGE_PRIORITY: Record<MeetingWorkflowStage, number> = {
   PAYMENT_CONFIRMATION: 0,
   FINAL_SETTLEMENT: 1,
-  BILLING_REVIEW: 2,
   ACTUALS_REVIEW: 3,
   UPCOMING: 4,
   RECRUITING: 4,
@@ -36,8 +36,8 @@ function shortDate(date: string) {
 }
 
 function meetingDateLabel(meeting: AdminMeetingListItem) {
-  const lastDay = meeting.overnightGroup?.days.at(-1);
-  return lastDay ? `${shortDate(meeting.date)}–${shortDate(lastDay.date)}` : shortDate(meeting.date);
+  const lastDate = lastMeetingDate(meeting);
+  return lastDate !== meeting.date ? `${shortDate(meeting.date)}–${shortDate(lastDate)}` : shortDate(meeting.date);
 }
 
 function meetingHref(meeting: AdminMeetingListItem) {

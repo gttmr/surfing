@@ -2,54 +2,64 @@
 
 import { useState } from "react";
 import { formatWon } from "@/lib/format";
-import type { OvernightMeetingGroupSummary } from "@/lib/meeting-group";
 
-type Fees = Pick<OvernightMeetingGroupSummary, "regularBaseFee" | "companionBaseFee" | "lodgingFee">;
+type Fees = {
+  readonly regularFee: number;
+  readonly companionFee: number;
+  readonly lodgingFee: number;
+};
 
-const FIELDS = [
-  { key: "regularBaseFee", label: "정회원 1박 참가비" },
-  { key: "companionBaseFee", label: "동반인 1박 참가비" },
-  { key: "lodgingFee", label: "1인 숙박비" },
-] as const;
+type FeeKey = keyof Fees;
 
-/** 1박 모임의 요금(둘째 날 포함 총액, 숙박비). 청구 검토 전까지 수정할 수 있다. */
-export function AdminOvernightFeesSection({
-  groupId,
+/** 모임 참가비(1박은 둘째 날 포함 총액)와 1박 숙박비. 청구 공개 전까지 바꿀 수 있다. */
+export function AdminMeetingFeesSection({
+  meetingId,
   initialFees,
+  overnight,
   locked,
   onSaved,
 }: {
-  readonly groupId: number;
+  readonly meetingId: number;
   readonly initialFees: Fees;
+  readonly overnight: boolean;
   readonly locked: boolean;
   readonly onSaved: (message: string, type: "success" | "error") => void;
 }) {
-  const [fees, setFees] = useState<Fees>(initialFees);
-  const [draft, setDraft] = useState<Record<keyof Fees, string> | null>(null);
+  const [fees, setFees] = useState<Fees>({
+    regularFee: initialFees.regularFee,
+    companionFee: initialFees.companionFee,
+    lodgingFee: initialFees.lodgingFee,
+  });
+  const [draft, setDraft] = useState<Record<FeeKey, string> | null>(null);
   const [saving, setSaving] = useState(false);
+  const fields: ReadonlyArray<{ readonly key: FeeKey; readonly label: string }> = [
+    { key: "regularFee", label: overnight ? "정회원 1박 참가비" : "정회원 참가비" },
+    { key: "companionFee", label: overnight ? "동반인 1박 참가비" : "동반인 참가비" },
+    ...(overnight ? [{ key: "lodgingFee" as const, label: "1인 숙박비" }] : []),
+  ];
 
   async function save() {
     if (!draft) return;
     setSaving(true);
     try {
-      const response = await fetch("/api/admin/meeting-groups", {
-        method: "PATCH",
+      const amount = (value: string) => Number(value.replace(/[^\d]/g, ""));
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          groupId,
-          regularBaseFee: Number(draft.regularBaseFee.replace(/[^\d]/g, "")),
-          companionBaseFee: Number(draft.companionBaseFee.replace(/[^\d]/g, "")),
-          lodgingFee: Number(draft.lodgingFee.replace(/[^\d]/g, "")),
+          regularFee: amount(draft.regularFee),
+          companionFee: amount(draft.companionFee),
+          ...(overnight ? { lodgingFee: amount(draft.lodgingFee) } : {}),
         }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        onSaved(payload.error ?? "1박 요금을 바꾸지 못했습니다.", "error");
+        onSaved(payload.error ?? "참가비를 바꾸지 못했습니다.", "error");
         return;
       }
-      setFees(payload as Fees);
+      setFees({ regularFee: payload.regularFee, companionFee: payload.companionFee, lodgingFee: payload.lodgingFee });
       setDraft(null);
-      onSaved("1박 요금을 바꿨습니다.", "success");
+      onSaved("참가비를 바꿨습니다.", "success");
     } finally {
       setSaving(false);
     }
@@ -58,13 +68,13 @@ export function AdminOvernightFeesSection({
   return (
     <section className="brand-admin-section overflow-hidden">
       <div className="brand-admin-section-header flex items-center justify-between gap-3 px-4 py-3">
-        <h2 className="text-sm font-extrabold">1박 요금</h2>
+        <h2 className="text-sm font-extrabold">참가비</h2>
         {!locked && !draft ? (
           <button
             className="brand-link min-h-11 px-1 text-xs font-bold"
             onClick={() => setDraft({
-              regularBaseFee: String(fees.regularBaseFee),
-              companionBaseFee: String(fees.companionBaseFee),
+              regularFee: String(fees.regularFee),
+              companionFee: String(fees.companionFee),
               lodgingFee: String(fees.lodgingFee),
             })}
             type="button"
@@ -74,7 +84,7 @@ export function AdminOvernightFeesSection({
         ) : null}
       </div>
       <dl className="divide-y divide-brand-divider px-4">
-        {FIELDS.map((field) => (
+        {fields.map((field) => (
           <div className="flex min-h-12 items-center justify-between gap-3" key={field.key}>
             <dt className="text-sm text-brand-text">{field.label}</dt>
             <dd>
@@ -100,7 +110,11 @@ export function AdminOvernightFeesSection({
         </div>
       ) : (
         <p className="brand-text-subtle px-4 pb-3 pt-1 text-xs">
-          {locked ? "청구 검토가 시작되어 요금이 잠겼습니다." : "참가비는 둘째 날을 포함한 총액이며, 숙박비는 숙박 대상자에게만 청구됩니다."}
+          {locked
+            ? "청구가 공개되어 참가비가 잠겼습니다."
+            : overnight
+              ? "참가비는 둘째 날을 포함한 총액이며, 숙박비는 숙박 대상자에게만 청구됩니다."
+              : "이 모임에만 적용됩니다. 새 모임의 기본값은 요금·지원 정책에서 바꿉니다."}
         </p>
       )}
     </section>

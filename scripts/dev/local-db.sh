@@ -54,7 +54,14 @@ case "${1:-}" in
     recreate_db
     psql -Xq -d "$DB" -c "drop schema public cascade"  # 덤프가 public 스키마를 직접 생성한다
     pg_restore --no-owner --no-privileges -d "$DB" "$dump"
-    # 백업 이후 저장소에 추가된 테이블/컬럼을 반영한다. 데이터 손실이 필요한 변경이면 prisma 가 중단한다.
+    # 운영에 아직 적용하지 않은 구조 변경(scripts/deploy/*.sql)을 이름 순서대로 적용해 본다.
+    # 각 파일은 트랜잭션 하나라서, 백업에 이미 반영된 변경이면 실패하고 통째로 취소된다.
+    for sql in "$ROOT"/scripts/deploy/*.sql; do
+      if psql -Xq -v ON_ERROR_STOP=1 -d "$DB" -f "$sql" >/dev/null 2>&1; then
+        echo "구조 변경 적용: $(basename "$sql")"
+      fi
+    done
+    # 그 밖에 저장소에 추가된 테이블/컬럼을 반영한다. 데이터 손실이 필요한 변경이면 prisma 가 중단한다.
     (cd "$ROOT" && DATABASE_URL="postgresql://postgres@127.0.0.1:$PORT/$DB" npx prisma db push --skip-generate)
     echo "복원 완료: $dump → $DB"
     ;;

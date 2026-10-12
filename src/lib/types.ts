@@ -1,7 +1,5 @@
 export type ParticipantStatus = "APPROVED" | "WAITLISTED" | "CANCELLED";
 
-import type { OvernightMeetingGroupSummary } from "@/lib/meeting-group";
-
 export interface MeetingWithCounts {
   id: number;
   date: string;
@@ -13,5 +11,9 @@ export interface MeetingWithCounts {
   meetingType: string;
   createdByKakaoId: string | null;
   approvedCount: number;
-  overnightGroup: OvernightMeetingGroupSummary | null;
+  /** 1박 이상이면 마지막 날 */
+  endDate: string | null;
+  regularFee: number;
+  companionFee: number;
+  lodgingFee: number;
 }

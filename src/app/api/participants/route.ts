@@ -8,8 +8,18 @@ import { createCompanionWithRecoveredSequence } from "@/lib/companion-sequence";
 import { createParticipantWithRecoveredSequence } from "@/lib/participant-sequence";
 import { runSerializableTransaction } from "@/lib/transaction";
 
-type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
-type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean };
+import { isOvernightMeeting } from "@/lib/meeting-days";
+
+type OvernightChoice = { day2HasRental?: boolean; usesClubLodging?: boolean };
+type CompanionOption = { hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean } & OvernightChoice;
+type NewCompanion = { name: string; hasLesson?: boolean; hasBus?: boolean; hasRental?: boolean } & OvernightChoice;
+
+/** 1박 모임에서만 둘째 날 장비·숙박을 저장한다. */
+function overnightFields(choice: OvernightChoice | undefined, overnight: boolean) {
+  return overnight
+    ? { hasDay2Rental: choice?.day2HasRental === true, usesClubLodging: choice?.usesClubLodging === true }
+    : { hasDay2Rental: false, usesClubLodging: false };
+}
 
 export async function POST(req: NextRequest) {
   const user = await getActiveSessionFromRequest(req);
@@ -25,9 +35,11 @@ export async function POST(req: NextRequest) {
     hasLesson,
     hasBus,
     hasRental,
+    day2HasRental,
+    usesClubLodging,
     companionIds,
-    companionOptions,   // { [companionId]: { hasLesson, hasBus, hasRental } }
-    newCompanions,      // { name, hasLesson, hasBus, hasRental }[]
+    companionOptions,   // { [companionId]: { hasLesson, hasBus, hasRental, day2HasRental, usesClubLodging } }
+    newCompanions,      // { name, hasLesson, hasBus, hasRental, day2HasRental, usesClubLodging }[]
   } = body as {
     meetingId: number;
     name: string;
@@ -35,6 +47,8 @@ export async function POST(req: NextRequest) {
     hasLesson?: boolean;
     hasBus?: boolean;
     hasRental?: boolean;
+    day2HasRental?: boolean;
+    usesClubLodging?: boolean;
     companionIds?: number[];
     companionOptions?: Record<string, CompanionOption>;
     newCompanions?: NewCompanion[];
@@ -71,7 +85,7 @@ export async function POST(req: NextRequest) {
   const result = await runSerializableTransaction(async (tx) => {
     const meeting = await tx.meeting.findUnique({
       where: { id: meetingIdNumber },
-      select: { id: true, isOpen: true },
+      select: { id: true, isOpen: true, date: true, endDate: true },
     });
 
     if (!meeting) {
@@ -80,6 +94,7 @@ export async function POST(req: NextRequest) {
     if (!meeting.isOpen) {
       return { status: 400, body: { error: "신청이 마감된 모임입니다" } };
     }
+    const overnight = isOvernightMeeting(meeting);
 
     const existing = await tx.participant.findFirst({
       where: {
@@ -94,7 +109,7 @@ export async function POST(req: NextRequest) {
       return { status: 409, body: { error: "이미 신청하셨습니다" } };
     }
 
-    const createdCompanions: Array<{ id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean }> = [];
+    const createdCompanions: Array<{ id: number; hasLesson: boolean; hasBus: boolean; hasRental: boolean; hasDay2Rental: boolean; usesClubLodging: boolean }> = [];
     for (const newCompanion of normalizedNewCompanions) {
       if (!newCompanion.name?.trim()) continue;
       const createdCompanion = await createCompanionWithRecoveredSequence(tx, {
@@ -106,6 +121,7 @@ export async function POST(req: NextRequest) {
         hasLesson: newCompanion.hasLesson,
         hasBus: newCompanion.hasBus,
         hasRental: newCompanion.hasRental,
+        ...overnightFields(newCompanion, overnight),
       });
     }
 
@@ -125,7 +141,11 @@ export async function POST(req: NextRequest) {
             name: name.trim(),
             note: note?.trim() || null,
             ...mainOptions,
+            ...overnightFields({ day2HasRental, usesClubLodging }, overnight),
             status: "APPROVED",
+            absentAt: null,
+            usageSubmittedAt: null,
+            usageConfirmedAt: null,
             waitlistPosition: null,
             cancelledAt: null,
             submittedAt: new Date(),
@@ -138,6 +158,7 @@ export async function POST(req: NextRequest) {
           kakaoNickname: user.nickname,
           note: note?.trim() || null,
           ...mainOptions,
+          ...overnightFields({ day2HasRental, usesClubLodging }, overnight),
           status: "APPROVED",
         });
 
@@ -146,6 +167,8 @@ export async function POST(req: NextRequest) {
       hasLesson: boolean;
       hasBus: boolean;
       hasRental: boolean;
+      hasDay2Rental: boolean;
+      usesClubLodging: boolean;
     }> = [
       ...(Array.isArray(companionIds)
         ? companionIds.map((id) => {
@@ -154,7 +177,11 @@ export async function POST(req: NextRequest) {
               hasBus: false,
               hasRental: false,
             };
-            return { id: parseInt(String(id)), ...options };
+            return {
+              id: parseInt(String(id)),
+              ...options,
+              ...overnightFields(companionOptions?.[String(id)], overnight),
+            };
           })
         : []),
       ...createdCompanions,
@@ -172,10 +199,13 @@ export async function POST(req: NextRequest) {
       });
 
       for (const companion of myCompanions) {
-        const options = allCompanionEntries.find((entry) => entry.id === companion.id) ?? {
-          hasLesson: false,
-          hasBus: false,
-          hasRental: false,
+        const entry = allCompanionEntries.find((item) => item.id === companion.id);
+        const options = {
+          hasLesson: entry?.hasLesson ?? false,
+          hasBus: entry?.hasBus ?? false,
+          hasRental: entry?.hasRental ?? false,
+          hasDay2Rental: entry?.hasDay2Rental ?? false,
+          usesClubLodging: entry?.usesClubLodging ?? false,
         };
 
         const activeCompanionParticipant = await tx.participant.findFirst({
@@ -203,6 +233,9 @@ export async function POST(req: NextRequest) {
               ...options,
               status: "APPROVED",
               cancelledAt: null,
+              absentAt: null,
+              usageSubmittedAt: null,
+              usageConfirmedAt: null,
               submittedAt: new Date(),
             },
           });

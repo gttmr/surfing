@@ -1,7 +1,6 @@
-import {
-  DEFAULT_PRICING_SETTINGS,
-  PRICING_SETTING_KEYS,
-} from "@/lib/settings";
+import { DEFAULT_SURF_USAGE_ITEMS, regularUnitPrice } from "@/lib/surf-usage-billing";
+
+// 신청 화면의 예상 금액. 참가비는 모임에 저장된 금액, 강습·장비는 이용 항목표 가격을 쓴다.
 
 export type SignupBurdenPreview = {
   readonly baseFee: number;
@@ -27,24 +26,30 @@ export type OvernightSignupEstimate = {
   readonly day2RentalSupported: boolean;
 };
 
-function amount(settings: Record<string, string | undefined>, key: string): number {
-  const parsed = Number(settings[key] ?? DEFAULT_PRICING_SETTINGS[key as keyof typeof DEFAULT_PRICING_SETTINGS]);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
-}
+type SignupUsageItem = {
+  readonly serviceType: string;
+  readonly shopPrice: number;
+  readonly regularPrice: number | null;
+  readonly isActive?: boolean;
+};
 
 export function buildSignupPricingPreview(
-  settings: Record<string, string | undefined>
+  baseFees: SignupBaseFees,
+  usageItems: readonly SignupUsageItem[],
 ): SignupPricingPreview {
+  const active = usageItems.filter((item) => item.isActive !== false);
+  const lesson = active.find((item) => item.serviceType === "LESSON_PACKAGE");
+  const rental = active.find((item) => item.serviceType === "EQUIPMENT_RENTAL");
   return {
     regular: {
-      baseFee: amount(settings, PRICING_SETTING_KEYS.regularBaseFee),
-      lessonFee: amount(settings, PRICING_SETTING_KEYS.regularLessonFee),
-      rentalFee: amount(settings, PRICING_SETTING_KEYS.regularRentalFee),
+      baseFee: baseFees.regular,
+      lessonFee: lesson ? regularUnitPrice(lesson) : 0,
+      rentalFee: rental ? regularUnitPrice(rental) : 0,
     },
     companion: {
-      baseFee: amount(settings, PRICING_SETTING_KEYS.companionBaseFee),
-      lessonFee: amount(settings, PRICING_SETTING_KEYS.companionLessonFee),
-      rentalFee: amount(settings, PRICING_SETTING_KEYS.companionRentalFee),
+      baseFee: baseFees.companion,
+      lessonFee: lesson?.shopPrice ?? 0,
+      rentalFee: rental?.shopPrice ?? 0,
     },
   };
 }
@@ -92,4 +97,4 @@ export function calculateOvernightSignupEstimate(input: {
   };
 }
 
-export const DEFAULT_SIGNUP_PRICING_PREVIEW = buildSignupPricingPreview({});
+export const DEFAULT_SIGNUP_PRICING_PREVIEW = buildSignupPricingPreview({ regular: 0, companion: 0 }, DEFAULT_SURF_USAGE_ITEMS);

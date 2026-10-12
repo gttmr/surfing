@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type {
   CompanionItem,
@@ -27,63 +26,17 @@ import { MeetingSurfUsagePanel } from "@/components/meeting/MeetingSurfUsagePane
 import type { SignupPricingPreview } from "@/lib/signup-pricing";
 import { calculateOvernightSignupEstimate } from "@/lib/signup-pricing";
 import { Icon } from "@/components/ui/Icon";
-import type { MeetingGroupDaySummary } from "@/lib/meeting-group";
-import { getTodayInSeoul } from "@/lib/date";
 import { formatWon } from "@/lib/format";
 
 type OptionField = SignupOptionField;
 
-function DailyMeetingActivity({ meetingId, overnightDays }: { readonly meetingId: number; readonly overnightDays?: MeetingGroupDaySummary[] }) {
-  const today = getTodayInSeoul();
-  const [activeMeetingId, setActiveMeetingId] = useState(() => (
-    overnightDays?.find((day) => day.date === today)?.id ?? overnightDays?.[0]?.id ?? meetingId
-  ));
-  const activeDay = overnightDays?.find((day) => day.id === activeMeetingId);
-
-  if (!overnightDays?.length) {
-    return (
-      <>
-        <MeetingSurfUsagePanel meetingId={meetingId} />
-        <MeetingFoodOrderPanel meetingId={meetingId} />
-      </>
-    );
-  }
-
+/** 신청한 회원의 실제 이용·식음료 주문. 1박은 이용 패널 안에서 날짜별로 나눈다. */
+function DailyMeetingActivity({ meetingId }: { readonly meetingId: number }) {
   return (
-    <section className="brand-card-soft overflow-hidden rounded-2xl" aria-label="날짜별 실제 이용과 주문">
-      <div className="px-4 pb-3 pt-4">
-        <p className="text-sm font-extrabold text-brand-text">실제 이용·주문</p>
-        <p className="brand-text-subtle mt-1 break-keep text-xs">예정과 달라도 괜찮습니다. 실제 이용한 날짜에 입력해 주세요.</p>
-      </div>
-      <div className="grid grid-cols-2 gap-1 border-y border-brand-divider bg-brand-surface p-1.5" role="tablist" aria-label="이용 날짜">
-        {overnightDays.map((day) => {
-          const [, month, date] = day.date.split("-");
-          const active = day.id === activeMeetingId;
-          return (
-            <button
-              aria-controls={`overnight-activity-${day.id}`}
-              aria-selected={active}
-              className={`min-h-11 rounded-xl px-2 py-2 text-xs font-extrabold ${active ? "brand-filter-tab-active" : "brand-text-subtle"}`}
-              id={`overnight-day-tab-${day.id}`}
-              key={day.id}
-              onClick={() => setActiveMeetingId(day.id)}
-              role="tab"
-              type="button"
-            >
-              {day.dayIndex}일차 · {Number(month)}.{Number(date)}
-            </button>
-          );
-        })}
-      </div>
-      <div aria-labelledby={`overnight-day-tab-${activeMeetingId}`} className="space-y-3 p-3" id={`overnight-activity-${activeMeetingId}`} role="tabpanel">
-        <div className="brand-panel-white rounded-xl px-3 py-2 text-xs">
-          <span className="font-extrabold text-brand-text">{activeDay?.dayIndex}일차</span>
-          <span className="brand-text-muted"> · {activeDay?.startTime}–{activeDay?.endTime} · {activeDay?.location}</span>
-        </div>
-        <MeetingSurfUsagePanel meetingId={activeMeetingId} />
-        <MeetingFoodOrderPanel meetingId={activeMeetingId} />
-      </div>
-    </section>
+    <>
+      <MeetingSurfUsagePanel meetingId={meetingId} />
+      <MeetingFoodOrderPanel meetingId={meetingId} />
+    </>
   );
 }
 
@@ -212,7 +165,6 @@ type CompanionPanelProps = {
   isOvernight: boolean;
   overnightDay2Label: string;
   overnightLodgingFee: number;
-  overnightDays?: MeetingGroupDaySummary[];
   linkedStatus: LinkedCompanionStatus;
   serverError: string;
   participantOptionPricingGuide: string;
@@ -238,7 +190,6 @@ export function CompanionSignupPanel({
   isOvernight,
   overnightDay2Label,
   overnightLodgingFee,
-  overnightDays,
   linkedStatus,
   serverError,
   participantOptionPricingGuide,
@@ -330,7 +281,7 @@ export function CompanionSignupPanel({
             </div>
           ) : null}
           {linkedStatus.participant.status === "APPROVED" ? (
-            <DailyMeetingActivity meetingId={meetingId} overnightDays={overnightDays} />
+            <DailyMeetingActivity meetingId={meetingId} />
           ) : null}
         </div>
       ) : linkedStatus.ownerApplied ? (
@@ -419,7 +370,6 @@ type ExistingSignupPanelProps = {
   isOvernight: boolean;
   overnightDay2Label: string;
   overnightLodgingFee: number;
-  overnightDays?: MeetingGroupDaySummary[];
   meetingDisplay: string;
   participantOptionPricingGuide: string;
   pricingPreview: SignupPricingPreview;
@@ -465,7 +415,6 @@ export function ExistingSignupPanel({
   isOvernight,
   overnightDay2Label,
   overnightLodgingFee,
-  overnightDays,
   meetingDisplay,
   participantOptionPricingGuide,
   pricingPreview,
@@ -559,7 +508,7 @@ export function ExistingSignupPanel({
       ) : null}
 
       {myParticipant.status === "APPROVED" ? (
-        <DailyMeetingActivity meetingId={meetingId} overnightDays={overnightDays} />
+        <DailyMeetingActivity meetingId={meetingId} />
       ) : null}
 
       {!showMySignupDetails ? (

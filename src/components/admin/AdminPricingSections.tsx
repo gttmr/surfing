@@ -10,22 +10,10 @@ import { PRICING_SETTING_KEYS } from "@/lib/settings";
 
 const PRICING_FIELDS = [
   {
-    title: "기본 참가비",
-    description: "모임 참가 자체에 반영되는 금액",
+    title: "당일 모임 참가비",
+    description: "새 모임을 만들 때 미리 채우는 금액 (1박은 둘째 날 참가비를 더해 채웁니다)",
     regularKey: PRICING_SETTING_KEYS.regularBaseFee,
     companionKey: PRICING_SETTING_KEYS.companionBaseFee,
-  },
-  {
-    title: "강습비",
-    description: "강습을 선택했을 때 추가되는 금액",
-    regularKey: PRICING_SETTING_KEYS.regularLessonFee,
-    companionKey: PRICING_SETTING_KEYS.companionLessonFee,
-  },
-  {
-    title: "장비 대여비",
-    description: "장비 대여를 선택했을 때 추가되는 금액",
-    regularKey: PRICING_SETTING_KEYS.regularRentalFee,
-    companionKey: PRICING_SETTING_KEYS.companionRentalFee,
   },
 ] as const;
 
@@ -103,9 +91,9 @@ export function AdminMemberFeesSection({
         dirty={dirty}
         editing={editing}
         onToggleEditing={onToggleEditing}
-        roleLabel="회원 청구에 반영"
-        summary={`정회원 참가 ${formatWon(snapshot[PRICING_SETTING_KEYS.regularBaseFee])} · 동반인 참가 ${formatWon(snapshot[PRICING_SETTING_KEYS.companionBaseFee])}`}
-        title="참가비와 옵션 비용"
+        roleLabel="새 모임 기본값"
+        summary={`정회원 ${formatWon(snapshot[PRICING_SETTING_KEYS.regularBaseFee])} · 동반인 ${formatWon(snapshot[PRICING_SETTING_KEYS.companionBaseFee])}`}
+        title="기본 참가비"
       />
       {editing ? (
         <div className="space-y-4 px-4 py-5" id="member-fees-editor">
@@ -130,7 +118,7 @@ export function AdminMemberFeesSection({
                 </p>
               ))}
             </div>
-            <p className="brand-text-subtle mt-3 text-xs leading-5">실제 회원 청구는 확정된 강습·장비 대여 이용 여부에 따라 해당 비용 항목만 반영됩니다.</p>
+            <p className="brand-text-subtle mt-3 text-xs leading-5">이미 만든 모임의 참가비는 모임 화면에서 바꿉니다. 강습·장비 가격은 샵 이용 항목표(정회원 가격·샵 가격)를 따릅니다.</p>
           </div>
         </div>
       ) : null}

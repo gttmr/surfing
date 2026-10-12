@@ -5,27 +5,32 @@ import {
   calculateOvernightSignupEstimate,
   withSignupBaseFees,
 } from "./signup-pricing";
-import { PRICING_SETTING_KEYS } from "./settings";
 
-test("signup burden preview separates regular and companion policy", () => {
-  const preview = buildSignupPricingPreview({
-    [PRICING_SETTING_KEYS.regularBaseFee]: "10000",
-    [PRICING_SETTING_KEYS.regularLessonFee]: "5000",
-    [PRICING_SETTING_KEYS.companionBaseFee]: "30000",
-    [PRICING_SETTING_KEYS.companionLessonFee]: "50000",
-  });
+const ITEMS = [
+  { serviceType: "LESSON_PACKAGE", shopPrice: 50000, regularPrice: 10000 },
+  { serviceType: "EQUIPMENT_RENTAL", shopPrice: 30000, regularPrice: 0 },
+];
+
+test("signup burden preview uses the meeting fee and the usage item prices", () => {
+  const preview = buildSignupPricingPreview({ regular: 10000, companion: 30000 }, [
+    { serviceType: "LESSON_PACKAGE", shopPrice: 50000, regularPrice: 5000 },
+    { serviceType: "EQUIPMENT_RENTAL", shopPrice: 30000, regularPrice: 0 },
+  ]);
 
   assert.deepEqual(preview.regular, { baseFee: 10000, lessonFee: 5000, rentalFee: 0 });
   assert.equal(preview.companion.baseFee + preview.companion.lessonFee, 80000);
 });
 
-test("overnight signup preview replaces global base fees with the meeting group fees", () => {
-  const globalPreview = buildSignupPricingPreview({
-    [PRICING_SETTING_KEYS.regularBaseFee]: "35000",
-    [PRICING_SETTING_KEYS.regularLessonFee]: "10000",
-    [PRICING_SETTING_KEYS.companionBaseFee]: "50000",
-    [PRICING_SETTING_KEYS.companionLessonFee]: "50000",
-  });
+test("an item without a regular price charges regular members the shop price; inactive items are skipped", () => {
+  const preview = buildSignupPricingPreview({ regular: 0, companion: 0 }, [
+    { serviceType: "LESSON_PACKAGE", shopPrice: 50000, regularPrice: 10000, isActive: false },
+    { serviceType: "EQUIPMENT_RENTAL", shopPrice: 30000, regularPrice: null },
+  ]);
+  assert.deepEqual(preview.regular, { baseFee: 0, lessonFee: 0, rentalFee: 30000 });
+});
+
+test("overnight signup preview replaces base fees with the meeting's own fees", () => {
+  const globalPreview = buildSignupPricingPreview({ regular: 35000, companion: 50000 }, ITEMS);
 
   const preview = withSignupBaseFees(globalPreview, { regular: 30000, companion: 45000 });
 
@@ -34,11 +39,7 @@ test("overnight signup preview replaces global base fees with the meeting group 
 });
 
 test("regular overnight estimate charges day two shop rental only after day one equipment support was used", () => {
-  const preview = withSignupBaseFees(buildSignupPricingPreview({
-    [PRICING_SETTING_KEYS.regularLessonFee]: "10000",
-    [PRICING_SETTING_KEYS.regularRentalFee]: "0",
-    [PRICING_SETTING_KEYS.companionRentalFee]: "30000",
-  }), { regular: 30000, companion: 50000 });
+  const preview = withSignupBaseFees(buildSignupPricingPreview({ regular: 0, companion: 0 }, ITEMS), { regular: 30000, companion: 50000 });
 
   assert.deepEqual(calculateOvernightSignupEstimate({
     participantType: "REGULAR",
@@ -83,9 +84,7 @@ test("regular overnight estimate charges day two shop rental only after day one 
 });
 
 test("companion overnight estimate charges shop rental on every selected day", () => {
-  const preview = withSignupBaseFees(buildSignupPricingPreview({
-    [PRICING_SETTING_KEYS.companionRentalFee]: "30000",
-  }), { regular: 30000, companion: 50000 });
+  const preview = withSignupBaseFees(buildSignupPricingPreview({ regular: 0, companion: 0 }, ITEMS), { regular: 30000, companion: 50000 });
 
   const estimate = calculateOvernightSignupEstimate({
     participantType: "COMPANION",

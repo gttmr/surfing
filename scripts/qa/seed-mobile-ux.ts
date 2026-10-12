@@ -62,13 +62,11 @@ async function clearFixture(transaction: Prisma.TransactionClient): Promise<void
   await transaction.settlementConfirmation.deleteMany();
   await transaction.participantChargeAdjustment.deleteMany();
   await transaction.participantSurfUsage.deleteMany();
-  await transaction.participantSurfUsageSubmission.deleteMany();
   await transaction.surfUsageItem.deleteMany();
   await transaction.participantFoodOrderItem.deleteMany();
   await transaction.participantFoodOrder.deleteMany();
   await transaction.participant.deleteMany();
   await transaction.meeting.deleteMany();
-  await transaction.meetingGroup.deleteMany();
   await transaction.foodMenuOptionChoice.deleteMany();
   await transaction.foodMenuItem.deleteMany();
   await transaction.foodMenuCategory.deleteMany();
@@ -86,12 +84,21 @@ async function insertFixture(
   const fixture = buildMobileUxFixture(getTodayInSeoul());
   await transaction.user.createMany({ data: fixture.users.map((user) => ({ ...user, createdAt: CREATED_AT, updatedAt: CREATED_AT })) });
   await transaction.companion.createMany({ data: fixture.companions.map((companion) => ({ ...companion, createdAt: CREATED_AT })) });
-  await transaction.meeting.createMany({ data: fixture.meetings.map((meeting) => ({ ...meeting, createdAt: CREATED_AT })) });
+  await transaction.meeting.createMany({ data: fixture.meetings.map(({ settlementOpen, ...meeting }) => ({
+    ...meeting,
+    regularFee: 35_000,
+    companionFee: 50_000,
+    billingPublishedAt: settlementOpen ? CREATED_AT : null,
+    createdAt: CREATED_AT,
+  })) });
   await transaction.foodMenuCategory.createMany({ data: fixture.categories.map((category) => ({ ...category, createdAt: CREATED_AT, updatedAt: CREATED_AT })) });
   await transaction.foodMenuItem.createMany({ data: fixture.menus.map((menu) => ({ ...menu, createdAt: CREATED_AT, updatedAt: CREATED_AT })) });
   await transaction.foodMenuOptionChoice.createMany({ data: fixture.variants.flatMap((variant) => variant.id === null ? [] : [{ id: variant.id, menuItemId: variant.menuItemId, label: variant.label, price: variant.price, displayOrder: variant.displayOrder, createdAt: CREATED_AT, updatedAt: CREATED_AT }]) });
+  const usageSubmissionByParticipant = new Map(fixture.usageSubmissions.map((submission) => [submission.participantId, submission.status]));
   await transaction.participant.createMany({ data: fixture.participants.map((participant) => ({
     ...participant,
+    usageSubmittedAt: usageSubmissionByParticipant.has(participant.id) ? CREATED_AT : null,
+    usageConfirmedAt: usageSubmissionByParticipant.get(participant.id) === "CONFIRMED" ? CREATED_AT : null,
     kakaoNickname: participant.name,
     note: participant.id === 8837 ? "미연동 동반인 합성 메모" : null,
     waitlistPosition: participant.status === "WAITLISTED" ? participant.id - 8830 : null,
@@ -133,32 +140,19 @@ async function insertFixture(
   }) });
   await transaction.surfUsageItem.createMany({ data: fixture.usageItems.map((item, index) => ({
     id: item.id,
-    meetingId: 8101,
     name: item.name,
     description: "합성 이용 항목",
     serviceType: item.serviceType,
     shopPrice: item.price,
-    memberBillingPolicy: "SHOP_PRICE",
-    regularMemberPrice: item.price,
-    isDefault: index < 2,
+    regularPrice: null,
     isActive: true,
     displayOrder: index + 1,
-    createdByKakaoId: "qa-user-05",
     createdAt: CREATED_AT,
     updatedAt: CREATED_AT,
   })) });
-  await transaction.participantSurfUsageSubmission.createMany({ data: fixture.usageSubmissions.map((submission) => ({
-    ...submission,
-    meetingId: 8101,
-    submittedByKakaoId: "qa-user-04",
-    submittedAt: CREATED_AT,
-    updatedAt: CREATED_AT,
-    confirmedAt: submission.status === "CONFIRMED" ? CREATED_AT : null,
-    confirmedByKakaoId: submission.status === "CONFIRMED" ? "qa-user-04" : null,
-  })) });
   await transaction.participantSurfUsage.createMany({ data: [
-    { id: 9301, meetingId: 8101, participantId: 8801, usageItemId: 9101, quantity: 1, usageItemNameSnapshot: fixture.usageItems[0]?.name ?? "", serviceTypeSnapshot: "LESSON", shopUnitPriceSnapshot: 50_000, memberBillingPolicySnapshot: "SHOP_PRICE", regularMemberPriceSnapshot: 50_000, source: "shop", submittedByKakaoId: "qa-user-04", createdAt: CREATED_AT, updatedAt: CREATED_AT },
-    { id: 9302, meetingId: 8101, participantId: 8802, usageItemId: 9102, quantity: 2, usageItemNameSnapshot: fixture.usageItems[1]?.name ?? "", serviceTypeSnapshot: "RENTAL", shopUnitPriceSnapshot: 30_000, memberBillingPolicySnapshot: "SHOP_PRICE", regularMemberPriceSnapshot: 30_000, source: "shop", submittedByKakaoId: "qa-user-04", createdAt: CREATED_AT, updatedAt: CREATED_AT },
+    { id: 9301, meetingId: 8101, participantId: 8801, usageItemId: 9101, quantity: 1, usageItemNameSnapshot: fixture.usageItems[0]?.name ?? "", serviceTypeSnapshot: "LESSON", shopUnitPriceSnapshot: 50_000, regularPriceSnapshot: null, source: "shop", submittedByKakaoId: "qa-user-04", createdAt: CREATED_AT, updatedAt: CREATED_AT },
+    { id: 9302, meetingId: 8101, participantId: 8802, usageItemId: 9102, quantity: 2, usageItemNameSnapshot: fixture.usageItems[1]?.name ?? "", serviceTypeSnapshot: "RENTAL", shopUnitPriceSnapshot: 30_000, regularPriceSnapshot: null, source: "shop", submittedByKakaoId: "qa-user-04", createdAt: CREATED_AT, updatedAt: CREATED_AT },
   ] });
   await transaction.settlementConfirmation.create({ data: { id: 9401, meetingId: 8103, recipientKakaoId: "qa-user-01", confirmedAt: CREATED_AT } });
   await transaction.notice.createMany({ data: [
@@ -186,7 +180,10 @@ export async function inspectMobileUxSeed(client: PrismaClient): Promise<SeedIns
     client.user.findMany({ select: { role: true }, orderBy: { id: "asc" } }),
     client.companion.findMany({ select: { linkedKakaoId: true } }),
     client.participantFoodOrder.findMany({ select: { participantId: true, items: { select: { quantity: true, preparingQuantity: true, servedQuantity: true, cancelledAt: true } } } }),
-    client.participantSurfUsageSubmission.findMany({ select: { status: true } }),
+    client.participant.findMany({
+      where: { meetingId: 8101, usageSubmittedAt: { not: null } },
+      select: { usageConfirmedAt: true },
+    }),
     client.participant.count({ where: { meetingId: 8101 } }),
   ]);
   if (!checksum || !generation) {
@@ -198,7 +195,7 @@ export async function inspectMobileUxSeed(client: PrismaClient): Promise<SeedIns
     for (const state of parentStates) orderStates.add(state);
     if (parentStates.size > 1) orderStates.add("MIXED");
   }
-  const usageStates = new Set(submissions.map((submission) => submission.status));
+  const usageStates = new Set<string>(submissions.map((submission) => submission.usageConfirmedAt ? "CONFIRMED" : "SUBMITTED"));
   if (participantCount > submissions.length) usageStates.add("MISSING");
   return {
     checksum: checksum.value,

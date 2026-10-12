@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { canAccessShopPortalFromRequest } from "@/lib/auth";
 import {
   getShopMeetingSurfUsageData,
@@ -21,8 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
 
   try {
-    const session = await getActiveSessionFromRequest(req);
-    await saveShopSurfUsageCatalog(meetingId, body?.items, session?.kakaoId ?? null);
+    await saveShopSurfUsageCatalog(body?.items);
     const data = await getShopMeetingSurfUsageData(meetingId);
     return NextResponse.json(data);
   } catch (error) {

@@ -4,45 +4,9 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { getAdminSettingsFormData, getAdminSettlementData } from "@/lib/admin-page-data";
 import { buildMeetingBillingSnapshot } from "@/lib/billing-snapshot";
-import { getMeetingBillingReadiness, getMeetingGroupBillingReadiness } from "@/lib/meeting-readiness-data";
+import { getMeetingBillingReadiness } from "@/lib/meeting-readiness-data";
 import { getSessionPayload } from "@/lib/session";
 import { billingDateLabel, unverifyPaymentOperations, verifyPaymentOperations } from "@/lib/payment-verification";
-
-type BillingMeetingScope = {
-  readonly canonicalMeetingId: number;
-  readonly meetingIds: readonly number[];
-};
-
-async function getBillingMeetingScope(requestedMeetingId: number): Promise<BillingMeetingScope | null> {
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: requestedMeetingId },
-    select: {
-      id: true,
-      meetingGroup: {
-        select: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-            select: { id: true, groupDayIndex: true },
-          },
-        },
-      },
-    },
-  });
-  if (!meeting) return null;
-
-  const groupMeetings = meeting.meetingGroup?.meetings ?? [];
-  const canonicalMeetingId = groupMeetings.find((item) => item.groupDayIndex === 1)?.id ?? meeting.id;
-  return {
-    canonicalMeetingId,
-    meetingIds: groupMeetings.length > 0 ? groupMeetings.map((item) => item.id) : [meeting.id],
-  };
-}
-
-function getScopedBillingReadiness(scope: BillingMeetingScope) {
-  return scope.meetingIds.length > 1
-    ? getMeetingGroupBillingReadiness(scope.meetingIds)
-    : getMeetingBillingReadiness(scope.canonicalMeetingId);
-}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdminAuthenticated())) {
@@ -69,21 +33,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const requestedMeetingId = Number(id);
-  if (!Number.isInteger(requestedMeetingId)) {
+  const meetingId = Number(id);
+  if (!Number.isInteger(meetingId)) {
     return NextResponse.json({ error: "잘못된 모임 ID입니다." }, { status: 400 });
   }
-  const scope = await getBillingMeetingScope(requestedMeetingId);
-  if (!scope) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-  const meetingId = scope.canonicalMeetingId;
+  const exists = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { id: true } });
+  if (!exists) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
 
   const body: unknown = await req.json().catch(() => null);
   const payload = typeof body === "object" && body !== null ? body : {};
-  const requestedAction = "action" in payload && typeof payload.action === "string"
-    ? payload.action
-    : "settlementOpen" in payload
-      ? payload.settlementOpen ? "publish" : "reopen"
-      : null;
+  const requestedAction = "action" in payload && typeof payload.action === "string" ? payload.action : null;
   const actor = await getSessionPayload();
   const actorKakaoId = actor?.kakaoId ?? "password-admin";
 
@@ -96,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const data = await getAdminSettlementData(meetingId);
     if (!data) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-    if (!data.meeting.settlementOpen) {
+    if (!data.meeting.billingPublished) {
       return NextResponse.json({ error: "청구 공개 후 입금을 확인할 수 있습니다." }, { status: 409 });
     }
     const recipient = data.recipients.find((item) => item.recipientKakaoId === recipientKakaoId);
@@ -125,30 +84,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (requestedAction === "record-payout") {
-    const payoutType = "payoutType" in payload
-      && (payload.payoutType === "shop" || payload.payoutType === "food" || payload.payoutType === "shop-total")
-      ? payload.payoutType
-      : null;
+    // 장비와 식음료는 같은 샵에 한 번에 지급한다. 실제 지급한 합계를 기록한다.
     const amount = "amount" in payload ? Number(payload.amount) : Number.NaN;
-    if (!payoutType || !Number.isInteger(amount) || amount < 0) {
-      return NextResponse.json({ error: "지급 구분과 0원 이상의 실제 지급액이 필요합니다." }, { status: 400 });
+    if (!Number.isInteger(amount) || amount < 0) {
+      return NextResponse.json({ error: "0원 이상의 실제 지급액이 필요합니다." }, { status: 400 });
     }
     const current = await prisma.meeting.findUnique({
       where: { id: meetingId },
-      select: { settlementOpen: true },
+      select: { billingPublishedAt: true },
     });
-    if (!current) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-    if (!current.settlementOpen) {
+    if (!current?.billingPublishedAt) {
       return NextResponse.json({ error: "청구 공개 후 실제 지급액을 기록할 수 있습니다." }, { status: 409 });
     }
     await prisma.meeting.update({
       where: { id: meetingId },
-      // 장비와 식음료는 같은 샵에 한 번에 지급하므로 "shop-total"은 합계를 장비 지급란에 기록하고 식음료 지급도 함께 끝낸다.
-      data: payoutType === "shop-total"
-        ? { shopPaidAt: new Date(), shopPaidAmount: amount, foodPaidAt: new Date(), foodPaidAmount: 0, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
-        : payoutType === "shop"
-          ? { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
-          : { foodPaidAt: new Date(), foodPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
+      data: { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
     });
     return NextResponse.json({ action: requestedAction, data: await getAdminSettlementData(meetingId) });
   }
@@ -156,7 +106,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (requestedAction === "complete-settlement") {
     const data = await getAdminSettlementData(meetingId);
     if (!data) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-    if (!data.meeting.settlementOpen) {
+    if (!data.meeting.billingPublished) {
       return NextResponse.json({ error: "청구 공개 후 정산을 완료할 수 있습니다." }, { status: 409 });
     }
     const blockers = [
@@ -183,47 +133,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ action: requestedAction, data: await getAdminSettlementData(meetingId) });
   }
 
-  if (requestedAction === "confirm-review") {
-    const readiness = await getScopedBillingReadiness(scope);
-    if (!readiness) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-    const operationalBlockers = readiness.checks.filter(
-      (check) => check.id !== "billing-reviewed" && !check.complete
-    );
-    if (operationalBlockers.length > 0) {
-      return NextResponse.json({
-        error: "청구 검토 전에 운영 확인을 완료해 주세요.",
-        readiness,
-      }, { status: 409 });
-    }
-
-    await prisma.meeting.updateMany({
-      where: { id: { in: [...scope.meetingIds] } },
-      data: {
-        billingReviewConfirmedAt: new Date(),
-        billingReviewConfirmedByKakaoId: actorKakaoId,
-      },
-    });
-    return NextResponse.json({ action: requestedAction, readiness: await getScopedBillingReadiness(scope) });
-  }
-
-  if (requestedAction === "unconfirm-review") {
-    const current = await prisma.meeting.findMany({
-      where: { id: { in: [...scope.meetingIds] } },
-      select: { settlementOpen: true },
-    });
-    if (current.some((item) => item.settlementOpen)) {
-      return NextResponse.json({ error: "공개된 청구는 청구 정정 절차로만 변경할 수 있습니다." }, { status: 409 });
-    }
-    await prisma.meeting.updateMany({
-      where: { id: { in: [...scope.meetingIds] } },
-      data: {
-        billingReviewConfirmedAt: null,
-        billingReviewConfirmedByKakaoId: null,
-      },
-    });
-    return NextResponse.json({ action: requestedAction, readiness: await getScopedBillingReadiness(scope) });
-  }
-
   if (requestedAction === "reopen") {
     const correctionReason = "correctionReason" in payload && typeof payload.correctionReason === "string"
       ? payload.correctionReason.trim().slice(0, 200)
@@ -232,24 +141,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "청구 정정 사유를 입력해 주세요." }, { status: 400 });
     }
     await prisma.$transaction([
-      prisma.meeting.updateMany({
-        where: { id: { in: [...scope.meetingIds] } },
-        data: {
-          settlementOpen: false,
-          billingReviewConfirmedAt: null,
-          billingReviewConfirmedByKakaoId: null,
-          billingPublishedAt: null,
-          billingPublishedByKakaoId: null,
-          billingCorrectionReason: correctionReason,
-        },
-      }),
       prisma.meeting.update({
         where: { id: meetingId },
         data: {
+          billingPublishedAt: null,
+          billingPublishedByKakaoId: null,
+          billingCorrectionReason: correctionReason,
           shopPaidAt: null,
           shopPaidAmount: null,
-          foodPaidAt: null,
-          foodPaidAmount: null,
           settlementCompletedAt: null,
           settlementCompletedByKakaoId: null,
           settlementNote: null,
@@ -260,14 +159,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         where: { meetingId, type: { in: ["BILLING_PUBLISHED", "PAYMENT_VERIFIED"] } },
       }),
     ]);
-    return NextResponse.json({ id: meetingId, settlementOpen: false, action: requestedAction });
+    return NextResponse.json({ id: meetingId, billingPublished: false, action: requestedAction });
   }
 
   if (requestedAction !== "publish") {
     return NextResponse.json({ error: "지원하지 않는 청구 작업입니다." }, { status: 400 });
   }
 
-  const readiness = await getScopedBillingReadiness(scope);
+  const readiness = await getMeetingBillingReadiness(meetingId);
   if (!readiness) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
   if (!readiness.ready) {
     return NextResponse.json({
@@ -329,10 +228,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await tx.settlementConfirmation.deleteMany({ where: { meetingId } });
     await tx.userNotification.deleteMany({ where: { meetingId, type: "BILLING_PUBLISHED" } });
     if (notificationRows.length > 0) await tx.userNotification.createMany({ data: notificationRows });
-    await tx.meeting.updateMany({
-      where: { id: { in: [...scope.meetingIds] } },
+    await tx.meeting.update({
+      where: { id: meetingId },
       data: {
-        settlementOpen: true,
         isOpen: false, // 청구를 공개하면 신청도 자동 마감한다.
         billingPublishedAt: publishedAt,
         billingPublishedByKakaoId: actorKakaoId,
@@ -344,7 +242,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({
     id: meeting.id,
-    settlementOpen: meeting.settlementOpen,
+    billingPublished: meeting.billingPublishedAt !== null,
     action: requestedAction,
     revision: nextRevision,
   });
@@ -356,63 +254,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const requestedMeetingId = Number(id);
-  if (!Number.isInteger(requestedMeetingId)) {
+  const meetingId = Number(id);
+  if (!Number.isInteger(meetingId)) {
     return NextResponse.json({ error: "잘못된 모임 ID입니다." }, { status: 400 });
   }
-  const scope = await getBillingMeetingScope(requestedMeetingId);
-  if (!scope) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
-  const meetingId = scope.canonicalMeetingId;
 
-  const publications = await prisma.meeting.findMany({
-    where: { id: { in: [...scope.meetingIds] } },
-    select: { settlementOpen: true, billingReviewConfirmedAt: true },
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { billingPublishedAt: true },
   });
-  if (publications.some((publication) => publication.settlementOpen)) {
+  if (!meeting) return NextResponse.json({ error: "모임을 찾을 수 없습니다." }, { status: 404 });
+  if (meeting.billingPublishedAt) {
     return NextResponse.json({ error: "공개된 청구는 정정 절차를 시작한 뒤 수정할 수 있습니다." }, { status: 409 });
-  }
-  if (publications.some((publication) => publication.billingReviewConfirmedAt)) {
-    return NextResponse.json({ error: "청구 검토 완료를 취소한 뒤 조정할 수 있습니다." }, { status: 409 });
   }
 
   const body: unknown = await req.json().catch(() => null);
   if (typeof body !== "object" || body === null) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
-  }
-
-  if ("action" in body && body.action === "batch-lodging") {
-    const participantIds = "participantIds" in body && Array.isArray(body.participantIds)
-      ? Array.from(new Set(body.participantIds.map(Number).filter(Number.isInteger)))
-      : [];
-    const label = "label" in body && typeof body.label === "string" ? body.label.trim().slice(0, 60) : "";
-    const amount = "amount" in body ? Number(body.amount) : Number.NaN;
-    if (participantIds.length === 0 || !label || !Number.isInteger(amount) || amount <= 0) {
-      return NextResponse.json({ error: "숙박 이용 회원, 항목명, 0원보다 큰 금액이 필요합니다." }, { status: 400 });
-    }
-    const participants = await prisma.participant.findMany({
-      where: {
-        id: { in: participantIds },
-        meetingId,
-        status: "APPROVED",
-        usesClubLodging: true,
-      },
-      select: { id: true },
-    });
-    if (participants.length !== participantIds.length) {
-      return NextResponse.json({ error: "선택한 숙박 이용 회원을 다시 확인해 주세요." }, { status: 409 });
-    }
-    const adjustments = await prisma.$transaction(async (tx) => {
-      await tx.participantChargeAdjustment.createMany({
-        data: participantIds.map((participantId) => ({ meetingId, participantId, label, amount })),
-      });
-      await tx.settlementConfirmation.deleteMany({ where: { meetingId } });
-      return tx.participantChargeAdjustment.findMany({
-        where: { meetingId, participantId: { in: participantIds }, label, amount },
-        orderBy: { createdAt: "desc" },
-        take: participantIds.length,
-      });
-    });
-    return NextResponse.json({ adjustments }, { status: 201 });
   }
 
   const participantId = "participantId" in body ? Number(body.participantId) : Number.NaN;

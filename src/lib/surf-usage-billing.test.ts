@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  billingPolicyFromRegularPrice,
   calculateUsageBillingForParticipant,
   summarizeUsageBilling,
   type SurfUsageBillingLine,
@@ -10,6 +11,7 @@ function usageLine(overrides: Partial<SurfUsageBillingLine> = {}): SurfUsageBill
   return {
     id: 1,
     participantId: 10,
+    day: 1,
     participantType: "REGULAR",
     usageItemId: 100,
     usageItemName: "강습 패키지",
@@ -115,4 +117,10 @@ test("usage billing summary separates shop charges, member charges, and operatio
   assert.equal(summary.shopChargeAmount, 92000);
   assert.equal(summary.memberChargeAmount, 52000);
   assert.equal(summary.operationsCoveredAmount, 40000);
+});
+
+test("the stored regular price maps to the billing rule", () => {
+  assert.deepEqual(billingPolicyFromRegularPrice(null), { memberBillingPolicy: "ALL_SHOP", regularMemberUnitPrice: 0 });
+  assert.deepEqual(billingPolicyFromRegularPrice(0), { memberBillingPolicy: "REGULAR_FREE_COMPANION_SHOP", regularMemberUnitPrice: 0 });
+  assert.deepEqual(billingPolicyFromRegularPrice(10000), { memberBillingPolicy: "REGULAR_FIXED_COMPANION_SHOP", regularMemberUnitPrice: 10000 });
 });

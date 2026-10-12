@@ -14,7 +14,7 @@ test("meeting end uses the Seoul meeting boundary", () => {
   assert.equal(isMeetingEnded("2026-08-23", "22:00", AFTER_MEETING), false);
 });
 
-test("actual usage review opens only after the meeting and locks when billing review starts", () => {
+test("actual usage review opens only after the meeting and locks once billing is published", () => {
   assert.deepEqual(getActualUsageReviewAvailability({
     date: "2026-08-23",
     endTime: "22:00",
@@ -34,38 +34,39 @@ test("actual usage review opens only after the meeting and locks when billing re
   assert.deepEqual(getActualUsageReviewAvailability({
     date: "2026-08-22",
     endTime: "22:00",
-    billingReviewConfirmedAt: AFTER_MEETING,
+    billingPublishedAt: AFTER_MEETING,
     now: AFTER_MEETING,
   }), {
     state: "LOCKED",
     editable: false,
-    reason: "청구 검토가 시작되어 실제 이용 내역이 잠겼습니다.",
+    reason: "청구가 공개되어 실제 이용 내역이 잠겼습니다.",
   });
+});
+
+test("an overnight trip ends on its last day", () => {
+  const trip = { date: "2026-08-22", endDate: "2026-08-23", endTime: "18:00", now: AFTER_MEETING };
+  assert.equal(getActualUsageReviewAvailability(trip).state, "WAITING");
+  assert.equal(getMeetingWorkflowStage({ ...trip, isOpen: true, billingPublished: false }), "RECRUITING");
+  const dayAfter = new Date("2026-08-23T19:00:00+09:00");
+  assert.equal(getActualUsageReviewAvailability({ ...trip, now: dayAfter }).state, "OPEN");
 });
 
 test("billing readiness blocks every unresolved operational prerequisite", () => {
   const readiness = getBillingReadiness({
     now: AFTER_MEETING,
-    meeting: {
-      id: 13,
-      date: "2026-08-22",
-      endTime: "22:00",
-      isOpen: true,
-      billingReviewConfirmedAt: null,
-    },
+    meeting: { id: 13, date: "2026-08-22", endTime: "22:00" },
     participants: [
-      { id: 1, status: "APPROVED", attendanceStatus: "PENDING" },
-      { id: 2, status: "APPROVED", attendanceStatus: "ATTENDED" },
-      { id: 3, status: "CANCELLED", attendanceStatus: "PENDING" },
+      { id: 1, status: "APPROVED" },
+      { id: 2, status: "APPROVED" },
+      { id: 3, status: "CANCELLED" },
     ],
     foodOrderItems: [{ quantity: 2, servedQuantity: 1, cancelledAt: null }],
-    usageSubmissions: [],
   });
 
   assert.equal(readiness.ready, false);
   assert.deepEqual(
     readiness.checks.filter((check) => !check.complete).map((check) => check.id),
-    ["food-resolved", "usage-resolved", "billing-reviewed"]
+    ["food-resolved", "usage-resolved"]
   );
   assert.equal(
     readiness.checks.find((check) => check.id === "usage-resolved")?.detail,
@@ -76,16 +77,9 @@ test("billing readiness blocks every unresolved operational prerequisite", () =>
 test("a future empty meeting does not count post-meeting checks as completed", () => {
   const readiness = getBillingReadiness({
     now: AFTER_MEETING,
-    meeting: {
-      id: 14,
-      date: "2026-09-12",
-      endTime: "22:00",
-      isOpen: true,
-      billingReviewConfirmedAt: null,
-    },
+    meeting: { id: 14, date: "2026-09-12", endTime: "22:00" },
     participants: [],
     foodOrderItems: [],
-    usageSubmissions: [],
   });
 
   assert.deepEqual(readiness.checks.filter((check) => check.complete), []);
@@ -98,66 +92,46 @@ test("a future empty meeting does not count post-meeting checks as completed", (
 test("absent participants do not require a usage confirmation", () => {
   const readiness = getBillingReadiness({
     now: AFTER_MEETING,
-    meeting: {
-      id: 13,
-      date: "2026-08-22",
-      endTime: "22:00",
-      isOpen: false,
-      billingReviewConfirmedAt: AFTER_MEETING,
-    },
+    meeting: { id: 13, date: "2026-08-22", endTime: "22:00" },
     participants: [
-      { id: 1, status: "APPROVED", attendanceStatus: "ATTENDED" },
-      { id: 2, status: "APPROVED", attendanceStatus: "ABSENT" },
+      { id: 1, status: "APPROVED", usageConfirmedAt: AFTER_MEETING },
+      { id: 2, status: "APPROVED", absentAt: AFTER_MEETING },
     ],
     foodOrderItems: [{ quantity: 1, servedQuantity: 1, cancelledAt: null }],
-    usageSubmissions: [{ participantId: 1, status: "CONFIRMED", confirmedAt: AFTER_MEETING }],
   });
 
   assert.equal(readiness.ready, true);
 });
 
 test("workflow names recruitment, evidence review, payment confirmation, and completion distinctly", () => {
+  const base = { date: "2026-08-22", endTime: "22:00", isOpen: false, now: AFTER_MEETING };
+  assert.equal(getMeetingWorkflowStage({ ...base, date: "2026-09-12", isOpen: true, billingPublished: false }), "RECRUITING");
+  assert.equal(getMeetingWorkflowStage({ ...base, billingPublished: false }), "ACTUALS_REVIEW");
   assert.equal(getMeetingWorkflowStage({
-    date: "2026-09-12",
-    endTime: "22:00",
-    isOpen: true,
-    settlementOpen: false,
-    now: AFTER_MEETING,
-  }), "RECRUITING");
-  assert.equal(getMeetingWorkflowStage({
-    date: "2026-08-22",
-    endTime: "22:00",
-    isOpen: false,
-    settlementOpen: false,
-    billingEvidenceReady: false,
-    now: AFTER_MEETING,
-  }), "ACTUALS_REVIEW");
-  assert.equal(getMeetingWorkflowStage({
-    date: "2026-08-22",
-    endTime: "22:00",
-    isOpen: false,
-    settlementOpen: true,
+    ...base,
+    billingPublished: true,
     recipientCount: 4,
     verifiedRecipientCount: 2,
-    now: AFTER_MEETING,
   }), "PAYMENT_CONFIRMATION");
   assert.equal(getMeetingWorkflowStage({
-    date: "2026-08-22",
-    endTime: "22:00",
-    isOpen: false,
-    settlementOpen: true,
+    ...base,
+    billingPublished: true,
+    recipientCount: 4,
+    verifiedRecipientCount: 4,
+  }), "FINAL_SETTLEMENT");
+  assert.equal(getMeetingWorkflowStage({
+    ...base,
+    billingPublished: true,
     settlementCompletedAt: AFTER_MEETING,
-    now: AFTER_MEETING,
   }), "COMPLETED");
 });
 
 test("the shop count check is reported but never blocks billing", () => {
   const base = {
     now: AFTER_MEETING,
-    meeting: { id: 13, date: "2026-08-22", endTime: "22:00", isOpen: false, billingReviewConfirmedAt: AFTER_MEETING },
-    participants: [{ id: 1, status: "APPROVED", attendanceStatus: "PENDING" }],
+    meeting: { id: 13, date: "2026-08-22", endTime: "22:00" },
+    participants: [{ id: 1, status: "APPROVED", usageConfirmedAt: AFTER_MEETING }],
     foodOrderItems: [],
-    usageSubmissions: [{ participantId: 1, status: "CONFIRMED", confirmedAt: AFTER_MEETING }],
   };
   const unchecked = getBillingReadiness(base);
   assert.equal(unchecked.ready, true);

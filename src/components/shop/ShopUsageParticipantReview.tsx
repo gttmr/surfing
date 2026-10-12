@@ -62,6 +62,7 @@ function ItemTotals({ rows }: { readonly rows: readonly UsageItemRow[] }) {
 
 export function ShopUsageParticipantReview({
   actionError,
+  days,
   dirtyParticipantIds,
   drafts,
   filter,
@@ -82,6 +83,7 @@ export function ShopUsageParticipantReview({
   visibleParticipants,
 }: {
   readonly actionError: ShopUsageActionError | null;
+  readonly days: ShopMeetingSurfUsageData["meeting"]["days"];
   readonly dirtyParticipantIds: readonly number[];
   readonly drafts: ShopUsageDrafts;
   readonly filter: ShopUsageFilter;
@@ -91,7 +93,7 @@ export function ShopUsageParticipantReview({
   readonly onConfirm: (participantId: number) => void;
   readonly onFilterChange: (filter: ShopUsageFilter) => void;
   readonly onOpenChange: (participantId: number) => void;
-  readonly onQuantityChange: (participantId: number, usageItemId: number, quantity: number) => void;
+  readonly onQuantityChange: (participantId: number, slotKey: string, quantity: number) => void;
   readonly onQueryChange: (query: string) => void;
   readonly onReset: () => void;
   readonly onSave: (participantId: number) => void;
@@ -140,6 +142,7 @@ export function ShopUsageParticipantReview({
         {visibleParticipants.map((participant) => (
           <ShopUsageParticipantRow
             actionError={actionError?.participantId === participant.participantId ? actionError : null}
+            days={days}
             dirty={dirtyParticipantIds.includes(participant.participantId)}
             items={items}
             key={participant.participantId}

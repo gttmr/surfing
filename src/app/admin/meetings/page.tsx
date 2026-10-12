@@ -3,7 +3,7 @@ import { getAdminMeetings } from "@/lib/admin-page-data";
 import { requireAdminPage } from "@/lib/require-admin-page";
 import { prisma } from "@/lib/db";
 import { getPricingConfig } from "@/lib/pricing";
-import { OVERNIGHT_DAY2_FEE_DEFAULT, OVERNIGHT_MEETING_GROUP_KIND } from "@/lib/meeting-group";
+import { OVERNIGHT_DAY2_FEE_DEFAULT } from "@/lib/meeting-days";
 import { PRICING_SETTING_KEYS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +14,11 @@ export default async function AdminMeetingsPage({
   searchParams?: Promise<{ create?: string; date?: string; type?: string }>;
 }) {
   await requireAdminPage();
-  const [initialMeetings, pricing, lastOvernightGroup] = await Promise.all([
+  const [initialMeetings, pricing, lastOvernightMeeting] = await Promise.all([
     getAdminMeetings(),
     getPricingConfig(),
-    prisma.meetingGroup.findFirst({
-      where: { kind: OVERNIGHT_MEETING_GROUP_KIND },
+    prisma.meeting.findFirst({
+      where: { endDate: { not: null } },
       orderBy: { createdAt: "desc" },
       select: { lodgingFee: true },
     }),
@@ -27,7 +27,7 @@ export default async function AdminMeetingsPage({
     regularDayFee: pricing[PRICING_SETTING_KEYS.regularBaseFee],
     companionDayFee: pricing[PRICING_SETTING_KEYS.companionBaseFee],
     day2Fee: OVERNIGHT_DAY2_FEE_DEFAULT,
-    lodgingFee: lastOvernightGroup?.lodgingFee ?? 0,
+    lodgingFee: lastOvernightMeeting?.lodgingFee ?? 0,
   };
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialCreateDate = resolvedSearchParams?.date ?? "";

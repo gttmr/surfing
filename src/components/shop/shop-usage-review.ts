@@ -1,9 +1,13 @@
 import type { ShopMeetingSurfUsageData } from "@/lib/surf-usage-data";
+import { buildUsageDraft } from "@/lib/surf-usage-slots";
+
+export { parseUsageSlotKey, usageSlotKey, usageSlotKeys } from "@/lib/surf-usage-slots";
 
 export type ShopUsageParticipant = ShopMeetingSurfUsageData["participantRows"][number];
 export type ShopUsageStatus = ShopUsageParticipant["submissionStatus"];
 export type ShopUsageFilter = "actionable" | ShopUsageStatus;
-export type ShopUsageDrafts = Record<number, Record<number, number>>;
+/** 참가자별 → "날짜:항목" 별 수량 */
+export type ShopUsageDrafts = Record<number, Record<string, number>>;
 export type ShopUsageParticipantAction = "save" | "confirm";
 export type ShopUsagePendingViewChange =
   | { readonly kind: "query"; readonly value: string }
@@ -38,35 +42,23 @@ export function buildShopUsageDrafts(data: ShopMeetingSurfUsageData): ShopUsageD
   return Object.fromEntries(
     data.participantRows.map((participant) => [
       participant.participantId,
-      Object.fromEntries(
-        data.usageItems.map((item) => [
-          item.id,
-          (() => {
-            const submittedQuantity = participant.entries
-              .filter((entry) => entry.usageItemId === item.id)
-              .reduce((total, entry) => total + entry.quantity, 0);
-            if (participant.submissionStatus !== "missing" || participant.entries.length > 0) return submittedQuantity;
-            return participant.requestedServiceType === item.serviceType ? 1 : 0;
-          })(),
-        ]),
-      ),
+      buildUsageDraft(participant, data.meeting.days, data.usageItems),
     ]),
   );
 }
 
+/** 신청과 다르게 이용했는지 (날짜별로 신청한 강습·장비 1개만 있으면 같은 것으로 본다) */
 export function hasShopUsageVariance(participant: ShopUsageParticipant): boolean {
   if (participant.submissionStatus === "missing") return false;
-  const expectedServiceType = participant.requestedServiceType
-    ?? (participant.requestedOptionLabel === "강습"
-      ? "LESSON_PACKAGE"
-      : participant.requestedOptionLabel === "장비 대여"
-        ? "EQUIPMENT_RENTAL"
-        : null);
   const actualEntries = participant.entries.filter((entry) => entry.quantity > 0);
-  if (!expectedServiceType) return actualEntries.length > 0;
-  return actualEntries.length !== 1
-    || actualEntries[0].serviceType !== expectedServiceType
-    || actualEntries[0].quantity !== 1;
+  const expected = participant.requestedByDay
+    .map((serviceType, index) => ({ day: index + 1, serviceType }))
+    .filter((item): item is { day: number; serviceType: NonNullable<typeof item.serviceType> } => item.serviceType !== null);
+  if (actualEntries.length !== expected.length) return true;
+  return expected.some(({ day, serviceType }) => {
+    const entry = actualEntries.find((item) => item.day === day);
+    return !entry || entry.serviceType !== serviceType || entry.quantity !== 1;
+  });
 }
 
 function matchesFilter(participant: ShopUsageParticipant, filter: ShopUsageFilter): boolean {
@@ -105,25 +97,25 @@ export function selectShopUsageParticipants(
 
 export function isShopUsageDraftDirty(
   participantId: number,
-  itemIds: readonly number[],
+  slotKeys: readonly string[],
   savedDrafts: ShopUsageDrafts,
   localDrafts: ShopUsageDrafts,
 ): boolean {
-  return itemIds.some((itemId) => (
-    (savedDrafts[participantId]?.[itemId] ?? 0) !== (localDrafts[participantId]?.[itemId] ?? 0)
+  return slotKeys.some((key) => (
+    (savedDrafts[participantId]?.[key] ?? 0) !== (localDrafts[participantId]?.[key] ?? 0)
   ));
 }
 
 export function getDirtyShopUsageParticipantIds(
   participants: readonly ShopUsageParticipant[],
-  itemIds: readonly number[],
+  slotKeys: readonly string[],
   savedDrafts: ShopUsageDrafts,
   localDrafts: ShopUsageDrafts,
 ): number[] {
   return participants
     .filter((participant) => isShopUsageDraftDirty(
       participant.participantId,
-      itemIds,
+      slotKeys,
       savedDrafts,
       localDrafts,
     ))

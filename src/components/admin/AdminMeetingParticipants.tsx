@@ -64,7 +64,7 @@ function ParticipantCard({ attendanceLocked, overnight, participant, onRequestAc
   const status = participantStatus(participant.status);
   const companion = participant.companionId !== null;
   const approved = participant.status === "APPROVED";
-  const absent = approved && participant.attendanceStatus === "ABSENT";
+  const absent = approved && participant.absent;
   const needsDecision = participant.status !== "APPROVED";
   // 동반인 신청 시 자동으로 붙는 "OO의 동반" 메모는 들여쓰기로 이미 보이므로 요약에서 뺀다.
   const summaryNote = companion && participant.note?.trim().endsWith("의 동반") ? null : participant.note;
@@ -77,7 +77,8 @@ function ParticipantCard({ attendanceLocked, overnight, participant, onRequestAc
               <span className="text-balance font-extrabold text-brand-text">{participant.name}</span>
               {companion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
               {participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습</span> : null}
-              {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비</span> : null}
+              {participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">{overnight ? "1일차 장비" : "장비"}</span> : null}
+              {overnight && participant.hasDay2Rental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">2일차 장비</span> : null}
               {participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
               {overnight && participant.usesClubLodging ? <span className="brand-chip-accent rounded px-1.5 py-0.5 text-[10px] font-bold">숙박</span> : null}
               {absent ? <span className="brand-chip-dimmed rounded px-1.5 py-0.5 text-[10px] font-bold">불참</span> : null}

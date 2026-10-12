@@ -8,8 +8,7 @@ import {
   InvalidParticipantOptionsError,
   normalizeParticipantOptions,
 } from "@/lib/participant-options";
-import { getSessionPayload } from "@/lib/session";
-import { runSerializableTransaction } from "@/lib/transaction";
+import { isOvernightMeeting } from "@/lib/meeting-days";
 
 // 회원이 자신의 참가를 취소
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,13 +20,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   const participant = await prisma.participant.findUnique({
     where: { id: parseInt(id) },
-    include: {
-      meeting: {
-        include: {
-          meetingGroup: { include: { meetings: { orderBy: { groupDayIndex: "asc" } } } },
-        },
-      },
-    },
+    include: { meeting: { select: { date: true } } },
   });
 
   if (!participant) {
@@ -44,85 +37,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "이미 취소된 신청입니다" }, { status: 400 });
   }
 
-  // 패널티 확인 (해당 주 화요일 18시 이후 취소)
-  const cancellationDate = participant.meeting.meetingGroup?.meetings.find((meeting) => meeting.groupDayIndex === 1)?.date
-    ?? participant.meeting.date;
-  const hasPenalty = shouldApplyPenalty(cancellationDate);
+  // 패널티 확인 (해당 주 화요일 18시 이후 취소, 1박은 첫날 기준)
+  const hasPenalty = shouldApplyPenalty(participant.meeting.date);
 
   // 패널티 메시지 조회
   let penaltyMessage: string | null = null;
   if (hasPenalty) {
     const msgSetting = await prisma.setting.findUnique({ where: { key: CANCELLATION_PENALTY_MESSAGE_KEY } });
     penaltyMessage = msgSetting?.value ?? DEFAULT_PENALTY_MESSAGE;
-  }
-
-  const groupMeetingIds = participant.meeting.meetingGroup?.meetings.map((meeting) => meeting.id) ?? [];
-  if (groupMeetingIds.length === 2) {
-    const cancelledCompanions = await runSerializableTransaction(async (tx) => {
-      const firstMeetingId = participant.meeting.meetingGroup!.meetings.find((meeting) => meeting.groupDayIndex === 1)!.id;
-      const companions = participant.companionId === null
-        ? await tx.participant.findMany({
-            where: {
-              meetingId: firstMeetingId,
-              kakaoId: participant.kakaoId,
-              companionId: { not: null },
-              status: { not: "CANCELLED" },
-            },
-            select: { companionId: true },
-          })
-        : [];
-
-      await tx.participant.updateMany({
-        where: {
-          meetingId: { in: groupMeetingIds },
-          kakaoId: participant.kakaoId,
-          ...(participant.companionId === null ? {} : { companionId: participant.companionId }),
-          status: { not: "CANCELLED" },
-        },
-        data: { status: "CANCELLED", cancelledAt: new Date() },
-      });
-      if (hasPenalty) {
-        await tx.participant.updateMany({
-          where: {
-            meetingId: { in: groupMeetingIds },
-            kakaoId: participant.kakaoId,
-            companionId: participant.companionId,
-          },
-          data: { isPenalized: true },
-        });
-        await tx.user.update({
-          where: { kakaoId: participant.kakaoId },
-          data: { penaltyCount: { increment: 1 } },
-        });
-      }
-
-      if (participant.status === "APPROVED") {
-        const nextWaitlisted = await tx.participant.findFirst({
-          where: { meetingId: firstMeetingId, status: "WAITLISTED" },
-          orderBy: { waitlistPosition: "asc" },
-        });
-        if (nextWaitlisted) {
-          await tx.participant.updateMany({
-            where: {
-              meetingId: { in: groupMeetingIds },
-              kakaoId: nextWaitlisted.kakaoId,
-              companionId: nextWaitlisted.companionId,
-              status: "WAITLISTED",
-            },
-            data: { status: "APPROVED", waitlistPosition: null },
-          });
-        }
-      }
-
-      return new Set(companions.map((item) => item.companionId)).size;
-    });
-
-    return NextResponse.json({
-      ok: true,
-      penalty: hasPenalty,
-      penaltyMessage,
-      cancelledCompanions,
-    });
   }
 
   const wasApproved = participant.status === "APPROVED";
@@ -201,15 +123,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     where: { id: parseInt(id) },
     include: {
       companion: true,
-      meeting: {
-        include: {
-          meetingGroup: {
-            include: {
-              meetings: { orderBy: { groupDayIndex: "asc" } },
-            },
-          },
-        },
-      },
+      meeting: { select: { date: true, endDate: true } },
     },
   });
 
@@ -229,24 +143,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const invalidBoolean = [hasLesson, hasBus, hasRental, day2HasRental, usesClubLodging]
     .some((value) => value !== undefined && typeof value !== "boolean");
   if (invalidBoolean) return NextResponse.json({ error: "참가 옵션을 확인해 주세요." }, { status: 400 });
-
-  const groupDays = participant.meeting.meetingGroup?.meetings ?? [];
-  const day1Meeting = groupDays.find((meeting) => meeting.groupDayIndex === 1);
-  const day2Meeting = groupDays.find((meeting) => meeting.groupDayIndex === 2);
-  const isOvernight = Boolean(day1Meeting && day2Meeting);
-  const day1Participant = isOvernight && participant.meetingId !== day1Meeting!.id
-    ? await prisma.participant.findFirst({
-        where: {
-          meetingId: day1Meeting!.id,
-          kakaoId: participant.kakaoId,
-          companionId: participant.companionId,
-          status: { not: "CANCELLED" },
-        },
-      })
-    : participant;
-  if (!day1Participant) {
-    return NextResponse.json({ error: "첫째 날 신청 내역을 찾을 수 없습니다." }, { status: 409 });
-  }
+  const overnight = isOvernightMeeting(participant.meeting);
 
   const hasOptionUpdate =
     hasLesson !== undefined || hasBus !== undefined || hasRental !== undefined;
@@ -255,9 +152,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (hasOptionUpdate) {
     try {
       nextOptions = normalizeParticipantOptions({
-        hasLesson: hasLesson ?? day1Participant.hasLesson,
-        hasBus: hasBus ?? day1Participant.hasBus,
-        hasRental: hasRental ?? day1Participant.hasRental,
+        hasLesson: hasLesson ?? participant.hasLesson,
+        hasBus: hasBus ?? participant.hasBus,
+        hasRental: hasRental ?? participant.hasRental,
       });
     } catch (error) {
       if (error instanceof InvalidParticipantOptionsError) {
@@ -271,56 +168,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ? typeof note === "string" ? (note.slice(0, 100).trim() || null) : null
     : undefined;
 
-  if (!isOvernight) {
-    const updated = await prisma.participant.update({
-      where: { id: participant.id },
-      data: {
-        ...(nextOptions ?? {}),
-        ...(normalizedNote !== undefined && { note: normalizedNote }),
-      },
-    });
-    return NextResponse.json(updated);
-  }
-
-  const result = await runSerializableTransaction(async (tx) => {
-    const secondParticipant = await tx.participant.findFirst({
-      where: {
-        meetingId: day2Meeting!.id,
-        kakaoId: participant.kakaoId,
-        companionId: participant.companionId,
-        status: { not: "CANCELLED" },
-      },
-    });
-    if (!secondParticipant) return null;
-
-    const [updatedFirst, updatedSecond] = await Promise.all([
-      tx.participant.update({
-        where: { id: day1Participant.id },
-        data: {
-          ...(nextOptions ?? {}),
-          ...(normalizedNote !== undefined && { note: normalizedNote }),
-          ...(usesClubLodging !== undefined && { usesClubLodging }),
-        },
-      }),
-      tx.participant.update({
-        where: { id: secondParticipant.id },
-        data: {
-          ...(hasBus !== undefined && { hasBus }),
-          ...(day2HasRental !== undefined && { hasRental: day2HasRental }),
-          ...(normalizedNote !== undefined && { note: normalizedNote }),
-          ...(usesClubLodging !== undefined && { usesClubLodging }),
-        },
-      }),
-    ]);
-    return { updatedFirst, updatedSecond };
+  const updated = await prisma.participant.update({
+    where: { id: participant.id },
+    data: {
+      ...(nextOptions ?? {}),
+      ...(normalizedNote !== undefined && { note: normalizedNote }),
+      // 둘째 날 장비·숙박은 1박 모임에만 있다.
+      ...(overnight && day2HasRental !== undefined && { hasDay2Rental: day2HasRental }),
+      ...(overnight && usesClubLodging !== undefined && { usesClubLodging }),
+    },
   });
-  if (!result) return NextResponse.json({ error: "둘째 날 신청 내역을 찾을 수 없습니다." }, { status: 409 });
-
-  return NextResponse.json({
-    ...result.updatedFirst,
-    day2ParticipantId: result.updatedSecond.id,
-    day2HasRental: result.updatedSecond.hasRental,
-  });
+  return NextResponse.json(updated);
 }
 
 // 관리자가 참가자 상태 변경
@@ -331,9 +189,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const body = await req.json();
-  const { action } = body; // action: "approve" | "waitlist" | "cancel"
-  const actor = await getSessionPayload();
-  const actorKakaoId = actor?.kakaoId ?? "password-admin";
+  const { action } = body; // approve | waitlist | cancel | absent | attended | lodging-on | lodging-off
 
   const participant = await prisma.participant.findUnique({
     where: { id: parseInt(id) },
@@ -341,62 +197,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       meeting: {
         include: {
           participants: { select: { status: true } },
-          meetingGroup: {
-            include: {
-              meetings: {
-                orderBy: { groupDayIndex: "asc" },
-                select: { id: true, settlementOpen: true },
-              },
-            },
-          },
         },
       },
     },
   });
 
   if (!participant) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const billingPublished = participant.meeting.billingPublishedAt !== null;
 
   if (action === "lodging-on" || action === "lodging-off") {
-    const groupMeetings = participant.meeting.meetingGroup?.meetings ?? [];
-    if (groupMeetings.length === 0) {
+    if (!isOvernightMeeting(participant.meeting)) {
       return NextResponse.json({ error: "1박 모임에서만 숙박을 바꿀 수 있습니다." }, { status: 400 });
     }
-    if (groupMeetings.some((meeting) => meeting.settlementOpen)) {
+    if (billingPublished) {
       return NextResponse.json({ error: "청구가 공개된 모임의 숙박은 정정 절차 후 변경할 수 있습니다." }, { status: 409 });
     }
-    // 숙박은 일정 전체에 한 번 청구되므로 양일 신청을 함께 바꾼다.
-    await prisma.participant.updateMany({
-      where: {
-        meetingId: { in: groupMeetings.map((meeting) => meeting.id) },
-        kakaoId: participant.kakaoId,
-        companionId: participant.companionId,
-      },
+    const updated = await prisma.participant.update({
+      where: { id: participant.id },
       data: { usesClubLodging: action === "lodging-on" },
     });
-    return NextResponse.json(await prisma.participant.findUnique({ where: { id: participant.id } }));
+    return NextResponse.json(updated);
   }
 
-  const attendanceByAction = {
-    attended: "ATTENDED",
-    absent: "ABSENT",
-    "attendance-pending": "PENDING",
-  } as const;
-  if (action in attendanceByAction) {
+  if (action === "absent" || action === "attended") {
     if (participant.status !== "APPROVED") {
       return NextResponse.json({ error: "승인된 참가자의 참석 상태만 변경할 수 있습니다." }, { status: 409 });
     }
-    const scopedMeetings = participant.meeting.meetingGroup?.meetings ?? [participant.meeting];
-    if (scopedMeetings.some((meeting) => meeting.settlementOpen)) {
+    if (billingPublished) {
       return NextResponse.json({ error: "청구가 공개된 모임의 참석 상태는 정정 절차 후 변경할 수 있습니다." }, { status: 409 });
     }
-    const attendanceStatus = attendanceByAction[action as keyof typeof attendanceByAction];
     const updated = await prisma.participant.update({
       where: { id: participant.id },
-      data: {
-        attendanceStatus,
-        attendanceUpdatedAt: new Date(),
-        attendanceUpdatedByKakaoId: actorKakaoId,
-      },
+      data: { absentAt: action === "absent" ? new Date() : null },
     });
     return NextResponse.json(updated);
   }
@@ -416,30 +248,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     newWaitlistPosition = null;
   }
 
-  const groupedMeetingIds = participant.meeting.meetingGroup?.meetings.map((meeting) => meeting.id) ?? [];
-  const relatedParticipants = groupedMeetingIds.length > 0
-    ? await prisma.participant.findMany({
-        where: {
-          meetingId: { in: groupedMeetingIds },
-          kakaoId: participant.kakaoId,
-          companionId: participant.companionId,
-        },
-        include: { meeting: { include: { participants: { select: { status: true } } } } },
-      })
-    : [participant];
-  const cancelledAt = action === "cancel" ? new Date() : participant.cancelledAt;
-  const updatedRows = await prisma.$transaction(
-    relatedParticipants.map((related) => {
-      const waitlistPosition = action === "waitlist"
-        ? related.meeting.participants.filter((item) => item.status === "WAITLISTED").length + 1
-        : newWaitlistPosition;
-      return prisma.participant.update({
-        where: { id: related.id },
-        data: { status: newStatus, waitlistPosition, cancelledAt },
-      });
-    })
-  );
-  const updated = updatedRows.find((item) => item.id === participant.id) ?? updatedRows[0];
+  const updated = await prisma.participant.update({
+    where: { id: participant.id },
+    data: {
+      status: newStatus,
+      waitlistPosition: newWaitlistPosition,
+      cancelledAt: action === "cancel" ? new Date() : participant.cancelledAt,
+    },
+  });
 
   return NextResponse.json(updated);
 }

@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isParticipantActualUsageOpen } from "./surf-usage-data";
 
-test("single-day actual usage remains limited to the meeting date", () => {
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", meetingGroupId: null }, "2026-09-12"), true);
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", meetingGroupId: null }, "2026-09-13"), false);
+test("day-trip actual usage is limited to the meeting date", () => {
+  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", endDate: null }, "2026-09-12"), true);
+  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", endDate: null }, "2026-09-11"), false);
+  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", endDate: null }, "2026-09-13"), false);
 });
 
-test("overnight daily actual usage opens on its date and remains editable until confirmation", () => {
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", meetingGroupId: 3 }, "2026-09-11"), false);
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", meetingGroupId: 3 }, "2026-09-12"), true);
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-12", meetingGroupId: 3 }, "2026-09-13"), true);
-  assert.equal(isParticipantActualUsageOpen({ date: "2026-09-13", meetingGroupId: 3 }, "2026-09-12"), false);
+test("overnight actual usage stays open from the first day through the last day", () => {
+  const trip = { date: "2026-09-12", endDate: "2026-09-13" };
+  assert.equal(isParticipantActualUsageOpen(trip, "2026-09-11"), false);
+  assert.equal(isParticipantActualUsageOpen(trip, "2026-09-12"), true);
+  assert.equal(isParticipantActualUsageOpen(trip, "2026-09-13"), true);
+  assert.equal(isParticipantActualUsageOpen(trip, "2026-09-14"), false);
 });

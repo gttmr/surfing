@@ -89,7 +89,7 @@ export async function reviseParticipantOrder(input: {
             id: true,
             meetingId: true,
             participantId: true,
-            meeting: { select: { date: true } },
+            meeting: { select: { date: true, endDate: true } },
             participant: {
               select: {
                 kakaoId: true,
@@ -143,7 +143,7 @@ export async function reviseParticipantOrder(input: {
       const conflict = getParticipantOrderConflict(
         order.items,
         parsed.value.expectedItems,
-        isMeetingOrderOpen(order.meeting.date),
+        isMeetingOrderOpen(order.meeting),
       );
       if (conflict) return { kind: "conflict", code: conflict };
 

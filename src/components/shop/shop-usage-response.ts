@@ -23,7 +23,6 @@ function isUsageItem(value: unknown): boolean {
     && isNullableString(value.description)
     && isServiceType(value.serviceType)
     && typeof value.shopPrice === "number"
-    && typeof value.isDefault === "boolean"
     && typeof value.isActive === "boolean"
     && typeof value.displayOrder === "number";
 }
@@ -31,6 +30,7 @@ function isUsageItem(value: unknown): boolean {
 function isUsageEntry(value: unknown): boolean {
   return isRecord(value)
     && typeof value.id === "number"
+    && typeof value.day === "number"
     && typeof value.usageItemId === "number"
     && typeof value.usageItemName === "string"
     && isServiceType(value.serviceType)
@@ -46,6 +46,7 @@ function isParticipant(value: unknown): boolean {
     && typeof value.participantName === "string"
     && (value.companionId === null || typeof value.companionId === "number")
     && typeof value.requestedOptionLabel === "string"
+    && Array.isArray(value.requestedByDay)
     && (value.submissionStatus === "missing"
       || value.submissionStatus === "submitted"
       || value.submissionStatus === "confirmed")
@@ -64,7 +65,8 @@ function isItemRow(value: unknown): boolean {
     && typeof value.quantity === "number"
     && typeof value.amount === "number"
     && typeof value.confirmedQuantity === "number"
-    && typeof value.confirmedAmount === "number";
+    && typeof value.confirmedAmount === "number"
+    && Array.isArray(value.confirmedQuantityByDay);
 }
 
 function isMeeting(value: unknown): boolean {
@@ -74,6 +76,8 @@ function isMeeting(value: unknown): boolean {
     && typeof value.startTime === "string"
     && typeof value.endTime === "string"
     && typeof value.location === "string"
+    && Array.isArray(value.days)
+    && value.days.every((day) => isRecord(day) && typeof day.dayIndex === "number" && typeof day.date === "string")
     && isRecord(value.actualUsageReview)
     && (value.actualUsageReview.state === "WAITING"
       || value.actualUsageReview.state === "OPEN"

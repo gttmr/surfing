@@ -50,6 +50,7 @@ test("settlement lines keep a zero-won actual usage line when confirmed usage ex
     surfUsageLines: [{
       id: 9,
       participantId: 1,
+      day: 1,
       participantType: "REGULAR",
       usageItemId: 4,
       usageItemName: "샤워",

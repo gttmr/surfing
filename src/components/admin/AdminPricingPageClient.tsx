@@ -94,10 +94,6 @@ export function AdminPricingPageClient({
           updates: {
             [PRICING_SETTING_KEYS.regularBaseFee]: nextSnapshot[PRICING_SETTING_KEYS.regularBaseFee],
             [PRICING_SETTING_KEYS.companionBaseFee]: nextSnapshot[PRICING_SETTING_KEYS.companionBaseFee],
-            [PRICING_SETTING_KEYS.regularLessonFee]: nextSnapshot[PRICING_SETTING_KEYS.regularLessonFee],
-            [PRICING_SETTING_KEYS.companionLessonFee]: nextSnapshot[PRICING_SETTING_KEYS.companionLessonFee],
-            [PRICING_SETTING_KEYS.regularRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.regularRentalFee],
-            [PRICING_SETTING_KEYS.companionRentalFee]: nextSnapshot[PRICING_SETTING_KEYS.companionRentalFee],
             [FOOD_ORDER_SUPPORT_CAP_KEY]: nextSnapshot.foodOrderSupportCap,
             [COMPANY_SUPPORT_PER_REGULAR_KEY]: nextSnapshot.companySupportPerRegular,
           },

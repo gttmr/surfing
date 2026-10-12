@@ -17,6 +17,8 @@ import {
   type ShopUsageLockedParticipant,
   type ShopUsageParticipantAction,
   type ShopUsagePendingViewChange,
+  parseUsageSlotKey,
+  usageSlotKeys,
 } from "./shop-usage-review";
 import { isShopMeetingSurfUsageData, shopUsageErrorMessage } from "./shop-usage-response";
 
@@ -70,13 +72,13 @@ export function ShopSurfUsageWorkspace({
   }, [currentMeetingId, initialData]);
 
   const activeItems = useMemo(() => data.usageItems.filter((item) => item.isActive), [data.usageItems]);
-  const activeItemIds = useMemo(() => activeItems.map((item) => item.id), [activeItems]);
+  const activeSlotKeys = useMemo(() => usageSlotKeys(data.meeting.days, activeItems), [activeItems, data.meeting.days]);
   const dirtyParticipantIds = useMemo(() => getDirtyShopUsageParticipantIds(
     data.participantRows,
-    activeItemIds,
+    activeSlotKeys,
     savedDrafts,
     drafts,
-  ), [activeItemIds, data.participantRows, drafts, savedDrafts]);
+  ), [activeSlotKeys, data.participantRows, drafts, savedDrafts]);
   const visibleParticipants = useMemo(() => selectShopUsageParticipants(
     data.participantRows,
     { filter, query },
@@ -101,12 +103,12 @@ export function ShopSurfUsageWorkspace({
     onDataChange?.(nextData);
   }
 
-  function updateQuantity(participantId: number, usageItemId: number, quantity: number) {
+  function updateQuantity(participantId: number, slotKey: string, quantity: number) {
     setDrafts((current) => ({
       ...current,
       [participantId]: {
         ...(current[participantId] ?? {}),
-        [usageItemId]: Math.max(0, Math.min(20, quantity)),
+        [slotKey]: Math.max(0, Math.min(20, quantity)),
       },
     }));
     setActionError((current) => current?.participantId === participantId ? null : current);
@@ -176,9 +178,9 @@ export function ShopSurfUsageWorkspace({
         ? {
             participantId,
             action,
-            items: activeItems.map((item) => ({
-              usageItemId: item.id,
-              quantity: drafts[participantId]?.[item.id] ?? 0,
+            items: activeSlotKeys.map((key) => ({
+              ...parseUsageSlotKey(key),
+              quantity: drafts[participantId]?.[key] ?? 0,
             })),
           }
         : { participantId, action };
@@ -296,8 +298,15 @@ export function ShopSurfUsageWorkspace({
           </div>
           <ul className="mt-3 divide-y divide-brand-divider">
             {countedItems.length > 0 ? countedItems.map((row) => (
-              <li className="flex min-h-11 items-center justify-between text-sm" key={row.usageItemId}>
-                <span className="font-bold text-brand-text">{row.name}</span>
+              <li className="flex min-h-11 items-center justify-between gap-3 text-sm" key={row.usageItemId}>
+                <span className="min-w-0">
+                  <span className="block font-bold text-brand-text">{row.name}</span>
+                  {data.meeting.days.length > 1 ? (
+                    <span className="brand-text-subtle block text-xs">
+                      {row.confirmedQuantityByDay.map((quantity, index) => `${index + 1}일차 ${quantity}`).join(" · ")}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-lg font-extrabold tabular-nums text-brand-text">{row.confirmedQuantity}</span>
               </li>
             )) : <li className="brand-text-muted py-2 text-sm">이용한 항목이 없습니다.</li>}
@@ -320,6 +329,7 @@ export function ShopSurfUsageWorkspace({
 
       <ShopUsageParticipantReview
         actionError={actionError}
+        days={data.meeting.days}
         dirtyParticipantIds={dirtyParticipantIds}
         drafts={drafts}
         filter={filter}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { AdminOvernightFeesSection } from "@/components/admin/AdminOvernightFeesSection";
+import { AdminMeetingFeesSection } from "@/components/admin/AdminMeetingFeesSection";
 import { AdminMeetingParticipants, type ParticipantAction, type ParticipantTab } from "@/components/admin/AdminMeetingParticipants";
 import { isAdminMeetingDetail, meetingResponseError } from "@/components/admin/admin-meeting-response";
 import { Dialog } from "@/components/ui/Dialog";
@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminMeetingDetail, AdminMeetingParticipant, AdminSettlementData } from "@/lib/admin-page-data";
 import { DAY_KO } from "@/lib/format";
-import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { isOvernightMeeting, lastMeetingDate } from "@/lib/meeting-days";
 
 type Confirmation =
   | { readonly kind: "delete" }
@@ -70,7 +70,6 @@ function nextActionHref(operations: AdminSettlementData, meetingId: number): str
 
 export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initialOperations }: AdminMeetingDetailPageClientProps) {
   const [meeting, setMeeting] = useState(initialMeeting);
-  const [activeMeetingId, setActiveMeetingId] = useState(initialMeeting.id);
   const [activeTab, setActiveTab] = useState<ParticipantTab>("approved");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [reloading, setReloading] = useState(false);
@@ -81,11 +80,11 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
   const router = useRouter();
   const meetingName = `${displayDate(meeting.date)} · ${meeting.location}`;
 
-  async function reloadMeeting(targetMeetingId = activeMeetingId) {
+  async function reloadMeeting() {
     setReloading(true);
     setPageError("");
     try {
-      const response = await fetch(`/api/meetings/${targetMeetingId}`);
+      const response = await fetch(`/api/meetings/${meeting.id}`);
       if (!response.ok) {
         setPageError(await meetingResponseError(response, "모임 정보를 다시 불러오지 못했습니다."));
         return;
@@ -96,7 +95,6 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
         return;
       }
       setMeeting(value);
-      setActiveMeetingId(targetMeetingId);
     } catch (error) {
       setPageError(error instanceof Error ? "네트워크 연결을 확인하고 다시 시도해 주세요." : "모임 정보를 다시 불러오지 못했습니다.");
     } finally {
@@ -104,16 +102,11 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
     }
   }
 
-  async function handleSelectDay(targetMeetingId: number) {
-    if (targetMeetingId === activeMeetingId || reloading) return;
-    await reloadMeeting(targetMeetingId);
-  }
-
   async function handleToggleOpen() {
     setWorking(true);
     setPageError("");
     try {
-      const response = await fetch(`/api/meetings/${activeMeetingId}`, {
+      const response = await fetch(`/api/meetings/${meeting.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isOpen: !meeting.isOpen }),
@@ -147,7 +140,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
     }
     setConfirmation(null);
     addToast(PARTICIPANT_ACTION_COPY[target.action].toast, "success");
-    await reloadMeeting(activeMeetingId);
+    await reloadMeeting();
     router.refresh();
   }
 
@@ -203,20 +196,18 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
   const completedReadinessCount = initialOperations.readiness.checks.filter((check) => check.complete).length;
   const workflowProgressLabel = initialOperations.billing.settlementCompletedAt
     ? "정산 완료"
-    : initialOperations.meeting.settlementOpen
+    : initialOperations.meeting.billingPublished
       ? `${initialOperations.verifiedRecipientCount}/${initialOperations.recipients.length} 입금`
       : `${completedReadinessCount}/${initialOperations.readiness.checks.length} 확인`;
   const billingHref = `/admin/meetings/${meetingId}/settlement`;
   const meetingEnded = initialOperations.workflowStage !== "RECRUITING" && initialOperations.workflowStage !== "UPCOMING";
   const nextHref = nextActionHref(initialOperations, meetingId);
-  const meetingEndDate = meeting.overnightGroup?.days.at(-1)?.date ?? meeting.date;
+  const meetingEndDate = lastMeetingDate(meeting);
+  const overnight = isOvernightMeeting(meeting);
   const waitlistedCount = meeting.participants.filter((participant) => participant.status === "WAITLISTED").length;
   const usageLinkLabel = initialOperations.workflowStage === "RECRUITING" || initialOperations.workflowStage === "UPCOMING"
     ? "이용 예정 현황"
     : "실제 이용 확인";
-  const overnightDays = meeting.overnightGroup?.days ?? [];
-  const overnightSpan = meeting.overnightGroup ? getOvernightMeetingSpan(meeting.overnightGroup) : null;
-  const activeDay = overnightDays.find((day) => day.id === activeMeetingId);
 
   return (
     <AdminLayout>
@@ -227,13 +218,13 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
             <div className="min-w-0 flex-1">
               <p className="brand-text-subtle text-xs font-bold">MEETING DETAIL</p>
               <h1 className="mt-1 font-headline text-[1.55rem] font-extrabold tracking-[-0.03em] text-brand-text">
-                {overnightDays.length === 2
-                  ? `${displayDate(overnightDays[0].date)} – ${displayDate(overnightDays[1].date)}`
+                {overnight
+                  ? `${displayDate(meeting.date)} – ${displayDate(meetingEndDate)}`
                   : displayDate(meeting.date)}
               </h1>
               <p className="brand-text-muted mt-1 break-keep text-sm">
-                {overnightSpan
-                  ? `${overnightSpan.startTime} 시작 · ${overnightSpan.endTime} 종료 · ${overnightSpan.location}`
+                {overnight
+                  ? `${meeting.startTime} 시작 · ${meeting.endTime} 종료 · ${meeting.location}`
                   : `${meeting.startTime}–${meeting.endTime} · ${meeting.location}`}
               </p>
             </div>
@@ -241,7 +232,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             <span className="brand-chip-soft rounded-full px-2.5 py-1 font-bold">{meeting.meetingType}</span>
-            {overnightDays.length === 2 ? <span className="brand-chip-accent rounded-full px-2.5 py-1 font-bold">1박 2일</span> : null}
+            {overnight ? <span className="brand-chip-accent rounded-full px-2.5 py-1 font-bold">1박 2일</span> : null}
             <span className={meeting.isOpen ? "brand-chip-success rounded-full px-2.5 py-1 font-bold" : "brand-chip-dimmed rounded-full px-2.5 py-1 font-bold"}>{meeting.isOpen ? "신청 중" : "신청 마감"}</span>
             <span className="brand-text-muted font-semibold">확정 {meeting.approvedCount}명</span>
           </div>
@@ -249,24 +240,6 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
 
         {pageError ? <div aria-live="polite" className="brand-alert-error flex items-start justify-between gap-3 rounded-2xl p-4 text-sm" role="status"><span className="font-semibold">{pageError}</span><button className="brand-button-secondary shrink-0 rounded-xl px-3 py-2 text-xs font-bold" disabled={reloading} onClick={() => void reloadMeeting()} type="button">다시 시도</button></div> : null}
 
-        {overnightDays.length === 2 ? (
-          <div aria-label="운영 날짜 선택" className="grid grid-cols-2 gap-2" role="tablist">
-            {overnightDays.map((day) => (
-              <button
-                aria-selected={day.id === activeMeetingId}
-                className={`${day.id === activeMeetingId ? "brand-toggle-active" : "brand-button-secondary"} min-h-12 rounded-xl px-3 text-left text-xs font-bold`}
-                disabled={reloading}
-                key={day.id}
-                onClick={() => void handleSelectDay(day.id)}
-                role="tab"
-                type="button"
-              >
-                <span className="block">{day.dayIndex}일차 · {displayDate(day.date)}</span>
-                <span className="mt-0.5 block font-normal opacity-75">실제 이용·주문 관리</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         {meetingEnded ? (
           <section className="brand-panel overflow-hidden rounded-2xl">
@@ -283,7 +256,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
                 <Icon name="arrow_forward" />
               </Link>
             </div>
-            {!initialOperations.meeting.settlementOpen ? (
+            {!initialOperations.meeting.billingPublished ? (
               <details>
                 <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
                   공개 전 확인 항목
@@ -337,25 +310,24 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
         <section className="brand-admin-section scroll-mt-4 overflow-hidden" id="meeting-operations">
           <div className="brand-admin-section-header px-4 py-3"><h2 className="text-sm font-extrabold">모임 운영</h2></div>
           <div className="grid grid-cols-2 gap-2 px-4 py-4">
-            <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${activeMeetingId}/orders`}>{activeDay ? `${activeDay.dayIndex}일차 식음료` : "식음료 주문"}</Link>
-            <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/shop/usage?meetingId=${activeMeetingId}`}>{activeDay ? `${activeDay.dayIndex}일차 ${usageLinkLabel}` : usageLinkLabel}</Link>
+            <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${meeting.id}/orders`}>식음료 주문</Link>
+            <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/shop/usage?meetingId=${meeting.id}`}>{usageLinkLabel}</Link>
             {meetingEnded ? (
-              <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
+              <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.billingPublished ? "입금 현황 보기" : "청구 검토하기"}</Link>
             ) : null}
           </div>
         </section>
 
-        {meeting.overnightGroup ? (
-          <AdminOvernightFeesSection
-            groupId={meeting.overnightGroup.id}
-            initialFees={meeting.overnightGroup}
-            locked={initialOperations.meeting.settlementOpen || Boolean(initialOperations.readiness.checks.find((check) => check.id === "billing-reviewed")?.complete)}
-            onSaved={(message, type) => addToast(message, type)}
-          />
-        ) : null}
+        <AdminMeetingFeesSection
+          initialFees={meeting}
+          locked={meeting.billingPublished}
+          meetingId={meeting.id}
+          overnight={overnight}
+          onSaved={(message, type) => addToast(message, type)}
+        />
 
         <div className="scroll-mt-4" id="participants">
-          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} overnight={overnightDays.length === 2} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
+          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.billingPublished} overnight={overnight} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
         </div>
 
         <button className="brand-inline-danger mx-auto flex min-h-11 items-center gap-1 rounded-xl px-4 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">

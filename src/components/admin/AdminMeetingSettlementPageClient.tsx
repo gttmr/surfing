@@ -13,9 +13,8 @@ import { Icon } from "@/components/ui/Icon";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { AdminSettlementData, AdminSettlementRecipient } from "@/lib/admin-page-data";
 import { formatWon } from "@/lib/format";
-import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { isOvernightMeeting, lastMeetingDate } from "@/lib/meeting-days";
 import { AdjustmentDeleteDialog } from "./AdminMeetingSettlementDialogs";
-import { AdminOvernightLodgingPanel } from "./AdminOvernightLodgingPanel";
 import { AdminMeetingSettlementOverview } from "./AdminMeetingSettlementOverview";
 import { AdminMeetingSettlementRecipients } from "./AdminMeetingSettlementRecipients";
 import type {
@@ -32,9 +31,9 @@ type ApiResponse = {
 };
 
 function pageTitle(data: AdminSettlementData): string {
-  const prefix = data.meeting.overnightGroup ? "1박 2일 합산 " : "";
+  const prefix = isOvernightMeeting(data.meeting) ? "1박 2일 " : "";
   if (data.billing.settlementCompletedAt) return `${prefix}정산 완료 보고서`;
-  return data.meeting.settlementOpen ? `${prefix}입금 현황` : `${prefix}청구 검토`;
+  return data.meeting.billingPublished ? `${prefix}입금 현황` : `${prefix}청구 검토`;
 }
 
 export function AdminMeetingSettlementPageClient({
@@ -57,10 +56,6 @@ export function AdminMeetingSettlementPageClient({
   const [correctionReason, setCorrectionReason] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
   const [shopPayoutDraft, setShopPayoutDraft] = useState(String(initialData.billing.shopTotal.paidAmount ?? initialData.billing.shopTotal.payable));
-  const [lodgingParticipantIds, setLodgingParticipantIds] = useState<number[]>([]);
-  const [lodgingLabel, setLodgingLabel] = useState("공동 숙박비");
-  const [lodgingAmount, setLodgingAmount] = useState("");
-  const [lodgingWorking, setLodgingWorking] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   async function reloadSettlement(): Promise<void> {
@@ -162,41 +157,6 @@ export function AdminMeetingSettlementPageClient({
     }
   }
 
-  async function handleBatchLodging(): Promise<void> {
-    const amount = Number(lodgingAmount);
-    if (lodgingParticipantIds.length === 0) {
-      addToast("숙박비를 반영할 회원을 선택해 주세요.", "error");
-      return;
-    }
-    if (!lodgingLabel.trim() || !Number.isInteger(amount) || amount <= 0) {
-      addToast("숙박비 항목명과 0원보다 큰 1인 금액을 입력해 주세요.", "error");
-      return;
-    }
-    setLodgingWorking(true);
-    try {
-      const response = await fetch(`/api/admin/meetings/${meetingId}/settlement`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "batch-lodging",
-          participantIds: lodgingParticipantIds,
-          label: lodgingLabel.trim(),
-          amount,
-        }),
-      });
-      const result = await response.json() as ApiResponse;
-      if (!response.ok) throw new Error(result.error || "숙박비를 반영하지 못했습니다.");
-      setLodgingParticipantIds([]);
-      setLodgingAmount("");
-      addToast(`${lodgingParticipantIds.length}명에게 숙박비를 추가했습니다.`, "success");
-      await reloadSettlement();
-    } catch (error) {
-      addToast(error instanceof Error ? error.message : "숙박비를 반영하지 못했습니다.", "error");
-    } finally {
-      setLodgingWorking(false);
-    }
-  }
-
   const handleDraftChange: SettlementDraftChange = (participantId, change) => {
     setDrafts((current) => {
       const draft = current[participantId] ?? { label: "", amount: "", direction: "increase" };
@@ -207,22 +167,9 @@ export function AdminMeetingSettlementPageClient({
     });
   };
 
-  // 검토 완료와 공개를 한 번에 처리한다. 서버는 검토 완료를 공개 조건으로 계속 확인한다.
   async function handlePublish() {
-    if (!reviewComplete) {
-      const reviewed = await runWorkflowAction("publish", { action: "confirm-review" }, "", { quiet: true });
-      if (!reviewed) return;
-    }
     const published = await runWorkflowAction("publish", { action: "publish" }, "청구 내역을 회원에게 공개했습니다.");
     if (published) setWorkflowDialog(null);
-  }
-
-  async function handleReviewToggle(reviewed: boolean) {
-    await runWorkflowAction(
-      reviewed ? "unconfirm-review" : "confirm-review",
-      { action: reviewed ? "unconfirm-review" : "confirm-review" },
-      reviewed ? "청구 검토 완료를 취소했습니다." : "회원별 청구 금액을 확정했습니다."
-    );
   }
 
   async function handlePaymentVerification(recipient: AdminSettlementRecipient, verified: boolean) {
@@ -243,23 +190,16 @@ export function AdminMeetingSettlementPageClient({
     }
     await runWorkflowAction(
       "shop-total",
-      { action: "record-payout", payoutType: "shop-total", amount },
+      { action: "record-payout", amount },
       "샵 지급액(장비+식음료)을 기록했습니다."
     );
   }
 
-  const reviewComplete = Boolean(data.readiness.checks.find((check) => check.id === "billing-reviewed")?.complete);
-  const operationalReady = data.readiness.checks
-    .filter((check) => check.id !== "billing-reviewed")
-    .every((check) => check.complete);
+  const operationalReady = data.readiness.ready;
   const accountLabel = [data.billing.account.bankName, data.billing.account.accountNumber, data.billing.account.accountHolder]
     .filter(Boolean)
     .join(" · ");
-  const lodgingParticipants = data.meeting.overnightGroup
-    ? data.participants.filter((participant) => participant.usesClubLodging)
-    : [];
-  const overnightDays = data.meeting.overnightGroup?.days;
-  const overnightSpan = data.meeting.overnightGroup ? getOvernightMeetingSpan(data.meeting.overnightGroup) : null;
+  const overnight = isOvernightMeeting(data.meeting);
 
   return (
     <AdminLayout>
@@ -270,10 +210,10 @@ export function AdminMeetingSettlementPageClient({
             <div className="min-w-0 flex-1">
               <p className="brand-text-subtle text-xs font-bold">{data.workflowLabel}</p>
               <h1 className="mt-1 font-headline text-[1.6rem] font-extrabold tracking-[-0.03em] text-brand-text">{pageTitle(data)}</h1>
-              {overnightDays && overnightSpan ? (
+              {overnight ? (
                 <>
-                  <p className="brand-text-muted mt-1 break-keep text-sm">{overnightSpan.startDate}–{overnightSpan.endDate} · {overnightSpan.location}</p>
-                  <p className="brand-text-subtle mt-0.5 text-xs">{overnightSpan.startTime} 시작 · {overnightSpan.endTime} 종료</p>
+                  <p className="brand-text-muted mt-1 break-keep text-sm">{data.meeting.date}–{lastMeetingDate(data.meeting)} · {data.meeting.location}</p>
+                  <p className="brand-text-subtle mt-0.5 text-xs">{data.meeting.startTime} 시작 · {data.meeting.endTime} 종료</p>
                 </>
               ) : (
                 <p className="brand-text-muted mt-1 break-keep text-sm">{data.meeting.date} {data.meeting.startTime}–{data.meeting.endTime} · {data.meeting.location}</p>
@@ -281,7 +221,7 @@ export function AdminMeetingSettlementPageClient({
             </div>
             <button aria-label="청구 정보 새로고침" className="brand-button-secondary flex h-11 w-11 shrink-0 items-center justify-center rounded-full" disabled={reloading} onClick={() => void reloadSettlement()} type="button"><Icon className={reloading ? "animate-spin" : ""} name="refresh" /></button>
           </div>
-          {data.meeting.settlementOpen ? (
+          {data.meeting.billingPublished ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className="brand-chip-success rounded-full px-2.5 py-1 text-xs font-bold">회원 공개됨{data.billing.revision ? ` · v${data.billing.revision}` : ""}</span>
               <button className="brand-button-secondary min-h-11 rounded-xl px-3 text-xs font-bold" onClick={() => setWorkflowDialog("correct")} type="button">청구 정정</button>
@@ -293,31 +233,8 @@ export function AdminMeetingSettlementPageClient({
 
         <AdminMeetingSettlementOverview data={data} reloading={reloading} />
 
-        {!data.meeting.settlementOpen ? (
+        {!data.meeting.billingPublished ? (
           <>
-            {data.meeting.overnightGroup?.lodgingFee === 0 ? (
-              <AdminOvernightLodgingPanel
-                amount={lodgingAmount}
-                editable={!reviewComplete}
-                label={lodgingLabel}
-                onAmountChange={setLodgingAmount}
-                onLabelChange={setLodgingLabel}
-                onSelectAll={() => setLodgingParticipantIds((current) => current.length === lodgingParticipants.length ? [] : lodgingParticipants.map((participant) => participant.id))}
-                onSubmit={() => void handleBatchLodging()}
-                onToggleParticipant={(participantId) => setLodgingParticipantIds((current) => current.includes(participantId) ? current.filter((id) => id !== participantId) : [...current, participantId])}
-                participants={lodgingParticipants}
-                selectedParticipantIds={lodgingParticipantIds}
-                submitting={lodgingWorking}
-              />
-            ) : data.meeting.overnightGroup ? (
-              <section className="brand-panel-soft flex items-center justify-between gap-3 rounded-2xl px-4 py-4">
-                <div>
-                  <h2 className="text-sm font-extrabold text-brand-text">숙박비 자동 반영</h2>
-                  <p className="brand-text-subtle mt-1 text-xs">숙소를 선택한 {lodgingParticipants.length}명에게 한 번씩 반영됩니다.</p>
-                </div>
-                <strong className="shrink-0 text-sm text-brand-primary">1인 {formatWon(data.meeting.overnightGroup.lodgingFee)}</strong>
-              </section>
-            ) : null}
             <AdminBillingReadinessPanel data={data} />
             <section className="space-y-3">
               <div className="px-1">
@@ -327,7 +244,7 @@ export function AdminMeetingSettlementPageClient({
               <AdminMeetingSettlementRecipients
                 data={data}
                 drafts={drafts}
-                editable={!reviewComplete}
+                editable
                 onAddAdjustment={(participantId) => void handleAddAdjustment(participantId)}
                 onDraftChange={handleDraftChange}
                 onRequestDelete={setAdjustmentDeleteTarget}
@@ -342,11 +259,6 @@ export function AdminMeetingSettlementPageClient({
               <p className="brand-text-muted mt-1 break-keep text-xs">공개 시 현재 금액과 입금 계좌를 스냅샷으로 고정하고 회원에게 알립니다.</p>
               <button className="brand-button-primary mt-4 min-h-12 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50" disabled={!operationalReady || Boolean(workflowWorking)} onClick={() => setWorkflowDialog("publish")} type="button">금액 확인하고 청구 공개</button>
               {!operationalReady ? <p className="brand-text-subtle mt-2 text-center text-xs">위 준비 항목을 모두 완료해야 공개할 수 있습니다.</p> : null}
-              {reviewComplete ? (
-                <button className="brand-link mx-auto mt-2 flex min-h-11 items-center text-xs font-bold disabled:opacity-50" disabled={Boolean(workflowWorking)} onClick={() => void handleReviewToggle(true)} type="button">
-                  금액 다시 수정하기 (검토 잠금 해제)
-                </button>
-              ) : null}
             </section>
           </>
         ) : (

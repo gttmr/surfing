@@ -54,9 +54,8 @@ export async function authenticateBankWebhookDevice(token: string | null): Promi
 export async function getOpenDepositCandidates(): Promise<OpenCandidates> {
   const meetings = await prisma.meeting.findMany({
     where: {
-      settlementOpen: true,
+      billingPublishedAt: { not: null },
       settlementCompletedAt: null,
-      OR: [{ meetingGroupId: null }, { groupDayIndex: 1 }],
     },
     select: { id: true },
     orderBy: { date: "asc" },

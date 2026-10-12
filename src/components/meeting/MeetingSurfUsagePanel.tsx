@@ -3,26 +3,17 @@
 import { useEffect, useState } from "react";
 import type { ParticipantMeetingSurfUsageData } from "@/lib/surf-usage-data";
 import { formatWon } from "@/lib/format";
+import { buildUsageDraft, parseUsageSlotKey, usageSlotKey, usageSlotKeys } from "@/lib/surf-usage-slots";
 
-type DraftMap = Record<number, Record<number, number>>;
+/** 참가자별 → "날짜:항목" 별 수량 */
+type DraftMap = Record<number, Record<string, number>>;
 type ParticipantRow = ParticipantMeetingSurfUsageData["participants"][number];
 
 function buildDrafts(data: ParticipantMeetingSurfUsageData): DraftMap {
   return Object.fromEntries(
     data.participants.map((participant) => [
       participant.participantId,
-      Object.fromEntries(
-        data.usageItems.map((item) => [
-          item.id,
-          (() => {
-            const submittedQuantity = participant.entries
-              .filter((entry) => entry.usageItemId === item.id)
-              .reduce((sum, entry) => sum + entry.quantity, 0);
-            if (participant.submissionStatus !== "missing" || participant.entries.length > 0) return submittedQuantity;
-            return participant.requestedServiceType === item.serviceType ? 1 : 0;
-          })(),
-        ])
-      ),
+      buildUsageDraft(participant, data.meeting.days, data.usageItems),
     ])
   );
 }
@@ -39,11 +30,12 @@ function getStatusChipClass(status: ParticipantRow["submissionStatus"]) {
   return "brand-chip-dimmed";
 }
 
-function getCollapsedSummary(participant: ParticipantRow): string {
+function getCollapsedSummary(participant: ParticipantRow, overnight: boolean): string {
   const totals = new Map<string, number>();
   for (const entry of participant.entries) {
     if (entry.quantity <= 0) continue;
-    totals.set(entry.usageItemName, (totals.get(entry.usageItemName) ?? 0) + entry.quantity);
+    const label = overnight ? `${entry.day}일차 ${entry.usageItemName}` : entry.usageItemName;
+    totals.set(label, (totals.get(label) ?? 0) + entry.quantity);
   }
 
   const summary = Array.from(totals.entries())
@@ -87,37 +79,38 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
   }, [meetingId]);
 
   const participants = data?.participants ?? [];
+  const days = data?.meeting.days ?? [];
+  const overnight = days.length > 1;
+  const slots = data ? days.flatMap((day) => data.usageItems.map((item) => ({ day, item, key: usageSlotKey(day.dayIndex, item.id) }))) : [];
 
-  function updateQuantity(participantId: number, usageItemId: number, nextValue: number) {
+  function updateQuantity(participantId: number, slotKey: string, nextValue: number) {
     setDrafts((prev) => ({
       ...prev,
       [participantId]: {
         ...(prev[participantId] ?? {}),
-        [usageItemId]: Math.max(0, Math.min(20, nextValue)),
+        [slotKey]: Math.max(0, Math.min(20, nextValue)),
       },
     }));
   }
 
   function getDraftTotal(participantId: number) {
-    if (!data) return 0;
-    return data.usageItems.reduce((sum, item) => sum + (drafts[participantId]?.[item.id] ?? 0), 0);
+    return slots.reduce((sum, slot) => sum + (drafts[participantId]?.[slot.key] ?? 0), 0);
   }
 
   function getDraftSummary(participantId: number) {
-    if (!data) return "이용 없음";
-    return data.usageItems
-      .filter((item) => (drafts[participantId]?.[item.id] ?? 0) > 0)
-      .map((item) => `${item.name} ${drafts[participantId]?.[item.id]}`)
+    return slots
+      .filter((slot) => (drafts[participantId]?.[slot.key] ?? 0) > 0)
+      .map((slot) => `${overnight ? `${slot.day.dayIndex}일차 ` : ""}${slot.item.name} ${drafts[participantId]?.[slot.key]}`)
       .join(" · ") || "이용 없음";
   }
 
+  /** 예상 금액. 정회원 장비 지원은 첫 이용일만이라 1박 둘째 날 장비는 실제 청구에서 샵 가격이 될 수 있다. */
   function getExpectedMemberAmount(participant: ParticipantRow) {
-    if (!data) return 0;
-    return data.usageItems.reduce((sum, item) => {
+    return slots.reduce((sum, slot) => {
       const unitPrice = participant.companionId === null
-        ? item.regularMemberUnitPrice
-        : item.companionMemberUnitPrice;
-      return sum + unitPrice * (drafts[participant.participantId]?.[item.id] ?? 0);
+        ? slot.item.regularMemberUnitPrice
+        : slot.item.companionMemberUnitPrice;
+      return sum + unitPrice * (drafts[participant.participantId]?.[slot.key] ?? 0);
     }, 0);
   }
 
@@ -132,9 +125,9 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
     setSavingParticipantId(participantId);
     setError(null);
     try {
-      const items = data.usageItems.map((item) => ({
-        usageItemId: item.id,
-        quantity: drafts[participantId]?.[item.id] ?? 0,
+      const items = usageSlotKeys(data.meeting.days, data.usageItems).map((key) => ({
+        ...parseUsageSlotKey(key),
+        quantity: drafts[participantId]?.[key] ?? 0,
       }));
       const res = await fetch(`/api/meetings/${meetingId}/usage`, {
         method: "POST",
@@ -199,7 +192,7 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-extrabold text-brand-text">{participant.name}</p>
-                  <p className="brand-text-subtle mt-1 truncate text-xs">{getCollapsedSummary(participant)}</p>
+                  <p className="brand-text-subtle mt-1 truncate text-xs">{getCollapsedSummary(participant, overnight)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span
@@ -233,39 +226,42 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                   {participant.canSubmit ? (
                     <>
                       <div className="space-y-2">
-                        {data.usageItems.map((item) => {
-                          const value = drafts[participant.participantId]?.[item.id] ?? 0;
+                        {slots.map(({ day, item, key }) => {
+                          const value = drafts[participant.participantId]?.[key] ?? 0;
+                          const label = overnight ? `${day.dayIndex}일차 ${item.name}` : item.name;
                           return (
-                            <div
-                              key={item.id}
-                              className="brand-list-item flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-brand-text">{item.name}</p>
-                                {item.description ? (
-                                  <p className="brand-text-subtle mt-0.5 text-xs">{item.description}</p>
-                                ) : null}
-                              </div>
-                              <div className="flex shrink-0 items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(participant.participantId, item.id, value - 1)}
-                                  aria-label={`${participant.name} ${item.name} 수량 줄이기`}
-                                  disabled={value === 0}
-                                  className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                                >
-                                  -
-                                </button>
-                                <span className="w-8 text-center text-sm font-bold text-brand-text">{value}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => updateQuantity(participant.participantId, item.id, value + 1)}
-                                  aria-label={`${participant.name} ${item.name} 수량 늘리기`}
-                                  disabled={value === 20}
-                                  className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                                >
-                                  +
-                                </button>
+                            <div key={key}>
+                              {overnight && item.id === data.usageItems[0]?.id ? (
+                                <p className="brand-text-subtle px-1 pb-1 pt-2 text-xs font-extrabold">{day.dayIndex}일차 · {Number(day.date.slice(5, 7))}.{Number(day.date.slice(8, 10))}</p>
+                              ) : null}
+                              <div className="brand-list-item flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-brand-text">{item.name}</p>
+                                  {item.description ? (
+                                    <p className="brand-text-subtle mt-0.5 text-xs">{item.description}</p>
+                                  ) : null}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(participant.participantId, key, value - 1)}
+                                    aria-label={`${participant.name} ${label} 수량 줄이기`}
+                                    disabled={value === 0}
+                                    className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-bold text-brand-text">{value}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateQuantity(participant.participantId, key, value + 1)}
+                                    aria-label={`${participant.name} ${label} 수량 늘리기`}
+                                    disabled={value === 20}
+                                    className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
+                                  >
+                                    +
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );

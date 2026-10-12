@@ -13,6 +13,7 @@ import type {
   UserNotificationItem,
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
+import { lastMeetingDate } from "@/lib/meeting-days";
 import { Icon } from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Dialog";
 import { Tabs } from "@/components/ui/Tabs";
@@ -485,8 +486,7 @@ const UPCOMING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", { month: "long"
 
 export function getUpcomingMeetings(meetings: readonly MeetingWithCounts[], today: string): MeetingWithCounts[] {
   return meetings
-    .filter((meeting) => meeting.date >= today)
-    .filter((meeting) => !meeting.overnightGroup || meeting.overnightGroup.days[0]?.id === meeting.id)
+    .filter((meeting) => lastMeetingDate(meeting) >= today)
     .slice(0, UPCOMING_LIMIT);
 }
 
@@ -527,9 +527,9 @@ export function UpcomingMeetings({
           {upcoming.map((meeting) => {
             const status = upcomingStatus(meeting, myParticipationByMeetingId[meeting.id]);
             const selected = selectedDate === meeting.date;
-            const lastDay = meeting.overnightGroup?.days[meeting.overnightGroup.days.length - 1];
-            const dateLabel = lastDay
-              ? `${UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`))} – ${UPCOMING_DATE_FORMATTER.format(new Date(`${lastDay.date}T12:00:00`))}`
+            const lastDate = lastMeetingDate(meeting);
+            const dateLabel = lastDate !== meeting.date
+              ? `${UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`))} – ${UPCOMING_DATE_FORMATTER.format(new Date(`${lastDate}T12:00:00`))}`
               : UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`));
             return (
               <li key={meeting.id}>

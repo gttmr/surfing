@@ -7,15 +7,15 @@ export async function getMeetingBillingReadiness(meetingId: number, now = new Da
     select: {
       id: true,
       date: true,
+      endDate: true,
       endTime: true,
-      isOpen: true,
-      billingReviewConfirmedAt: true,
       shopUsageCheckedAt: true,
       participants: {
         select: {
           id: true,
           status: true,
-          attendanceStatus: true,
+          absentAt: true,
+          usageConfirmedAt: true,
         },
       },
       foodOrderItems: {
@@ -23,13 +23,6 @@ export async function getMeetingBillingReadiness(meetingId: number, now = new Da
           quantity: true,
           servedQuantity: true,
           cancelledAt: true,
-        },
-      },
-      surfUsageSubmissions: {
-        select: {
-          participantId: true,
-          status: true,
-          confirmedAt: true,
         },
       },
     },
@@ -42,36 +35,5 @@ export async function getMeetingBillingReadiness(meetingId: number, now = new Da
     meeting,
     participants: meeting.participants,
     foodOrderItems: meeting.foodOrderItems,
-    usageSubmissions: meeting.surfUsageSubmissions,
   });
-}
-
-export async function getMeetingGroupBillingReadiness(meetingIds: readonly number[], now = new Date()) {
-  const dailyReadiness = await Promise.all(
-    meetingIds.map((meetingId) => getMeetingBillingReadiness(meetingId, now))
-  );
-  if (dailyReadiness.some((readiness) => readiness === null)) return null;
-  const resolved = dailyReadiness.filter((readiness): readiness is NonNullable<typeof readiness> => readiness !== null);
-  const checkIds = resolved[0]?.checks.map((check) => check.id) ?? [];
-  const checks = checkIds.map((checkId) => {
-    const dailyChecks = resolved.map((readiness, index) => ({
-      dayIndex: index + 1,
-      check: readiness.checks.find((item) => item.id === checkId)!,
-    }));
-    const incomplete = dailyChecks.filter((item) => !item.check.complete);
-    return {
-      id: checkId,
-      label: dailyChecks[0].check.label,
-      complete: incomplete.length === 0,
-      detail: incomplete.length === 0
-        ? `1일차와 2일차 ${dailyChecks[0].check.label}을 모두 확인했습니다.`
-        : incomplete.map((item) => `${item.dayIndex}일차: ${item.check.detail}`).join(" "),
-      href: incomplete[0]?.check.href ?? dailyChecks[0].check.href,
-    };
-  });
-
-  return {
-    ready: checks.every((check) => check.complete),
-    checks,
-  };
 }

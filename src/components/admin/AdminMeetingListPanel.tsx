@@ -3,7 +3,7 @@ import { AsyncState } from "@/components/ui/AsyncState";
 import { Icon } from "@/components/ui/Icon";
 import type { AdminMeetingListItem } from "@/lib/admin-page-data";
 import { DAY_KO } from "@/lib/format";
-import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { isOvernightMeeting, lastMeetingDate } from "@/lib/meeting-days";
 
 export type MeetingListView = "upcoming" | "past";
 
@@ -22,10 +22,10 @@ function meetingDateLabel(dateValue: string): string {
 
 function MeetingRow({ meeting }: { readonly meeting: AdminMeetingListItem }) {
   const dateLabel = meetingDateLabel(meeting.date);
-  const overnightSpan = meeting.overnightGroup ? getOvernightMeetingSpan(meeting.overnightGroup) : null;
-  const dateRangeLabel = overnightSpan ? `${dateLabel}–${meetingDateLabel(overnightSpan.endDate)}` : dateLabel;
-  const scheduleLabel = overnightSpan
-    ? `${overnightSpan.startTime} 시작 · ${overnightSpan.endTime} 종료 · ${overnightSpan.location}`
+  const overnight = isOvernightMeeting(meeting);
+  const dateRangeLabel = overnight ? `${dateLabel}–${meetingDateLabel(lastMeetingDate(meeting))}` : dateLabel;
+  const scheduleLabel = overnight
+    ? `${meeting.startTime} 시작 · ${meeting.endTime} 종료 · ${meeting.location}`
     : `${meeting.startTime}–${meeting.endTime} · ${meeting.location}`;
 
   return (
@@ -43,7 +43,7 @@ function MeetingRow({ meeting }: { readonly meeting: AdminMeetingListItem }) {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
         <span className="brand-chip-soft rounded-full px-2 py-1 font-semibold">{meeting.meetingType}</span>
-        {meeting.overnightGroup ? <span className="brand-chip-dark rounded-full px-2 py-1 font-semibold">1박 2일</span> : null}
+        {overnight ? <span className="brand-chip-dark rounded-full px-2 py-1 font-semibold">1박 2일</span> : null}
         <span className={meeting.isOpen ? "brand-chip-success rounded-full px-2 py-1 font-semibold" : "brand-chip-dimmed rounded-full px-2 py-1 font-semibold"}>{meeting.isOpen ? "신청 중" : "신청 마감"}</span>
         {meeting.createdByKakaoId ? <span className="brand-chip-dark rounded-full px-2 py-1 font-semibold">회원 등록</span> : null}
         <span className="brand-text-subtle ml-auto">확정 {meeting.approvedCount}명</span>

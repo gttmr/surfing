@@ -1,12 +1,9 @@
-export const ATTENDANCE_STATUSES = ["PENDING", "ATTENDED", "ABSENT"] as const;
-
-export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+import { lastMeetingDate } from "@/lib/meeting-days";
 
 export type MeetingWorkflowStage =
   | "RECRUITING"
   | "UPCOMING"
   | "ACTUALS_REVIEW"
-  | "BILLING_REVIEW"
   | "PAYMENT_CONFIRMATION"
   | "FINAL_SETTLEMENT"
   | "COMPLETED";
@@ -22,8 +19,7 @@ export type ActualUsageReviewAvailability = {
 export type BillingReadinessCheckId =
   | "meeting-ended"
   | "food-resolved"
-  | "usage-resolved"
-  | "billing-reviewed";
+  | "usage-resolved";
 
 export type BillingReadinessCheck = {
   readonly id: BillingReadinessCheckId;
@@ -38,32 +34,23 @@ export type BillingReadinessInput = {
   readonly meeting: {
     readonly id: number;
     readonly date: string;
+    readonly endDate?: string | null;
     readonly endTime: string;
-    readonly isOpen: boolean;
-    readonly billingReviewConfirmedAt?: Date | string | null;
     /** 샵의 항목별 수량 확인. 청구를 막지는 않고 안내만 한다. */
     readonly shopUsageCheckedAt?: Date | string | null;
   };
   readonly participants: readonly {
     readonly id: number;
     readonly status: string;
-    readonly attendanceStatus?: string | null;
+    readonly absentAt?: Date | string | null;
+    readonly usageConfirmedAt?: Date | string | null;
   }[];
   readonly foodOrderItems: readonly {
     readonly quantity: number;
     readonly servedQuantity: number;
     readonly cancelledAt?: Date | string | null;
   }[];
-  readonly usageSubmissions: readonly {
-    readonly participantId: number;
-    readonly status: string;
-    readonly confirmedAt?: Date | string | null;
-  }[];
 };
-
-export function asAttendanceStatus(value: string | null | undefined): AttendanceStatus {
-  return ATTENDANCE_STATUSES.find((status) => status === value) ?? "PENDING";
-}
 
 function meetingBoundary(date: string, time: string): Date {
   return new Date(`${date}T${time}:00+09:00`);
@@ -74,15 +61,22 @@ export function isMeetingEnded(date: string, endTime: string, now = new Date()):
   return Number.isFinite(boundary.getTime()) && now.getTime() >= boundary.getTime();
 }
 
+/** 일정이 모두 끝났는지 (1박은 마지막 날 종료 시각 기준) */
+export function isMeetingScheduleEnded(
+  meeting: { readonly date: string; readonly endDate?: string | null; readonly endTime: string },
+  now = new Date(),
+): boolean {
+  return isMeetingEnded(lastMeetingDate(meeting), meeting.endTime, now);
+}
+
 export function getActualUsageReviewAvailability(input: {
   readonly date: string;
+  readonly endDate?: string | null;
   readonly endTime: string;
-  readonly billingReviewConfirmedAt?: Date | string | null;
   readonly billingPublishedAt?: Date | string | null;
-  readonly settlementOpen?: boolean;
   readonly now?: Date;
 }): ActualUsageReviewAvailability {
-  if (!isMeetingEnded(input.date, input.endTime, input.now)) {
+  if (!isMeetingScheduleEnded(input, input.now)) {
     return {
       state: "WAITING",
       editable: false,
@@ -90,11 +84,11 @@ export function getActualUsageReviewAvailability(input: {
     };
   }
 
-  if (input.billingReviewConfirmedAt || input.billingPublishedAt || input.settlementOpen) {
+  if (input.billingPublishedAt) {
     return {
       state: "LOCKED",
       editable: false,
-      reason: "청구 검토가 시작되어 실제 이용 내역이 잠겼습니다.",
+      reason: "청구가 공개되어 실제 이용 내역이 잠겼습니다.",
     };
   }
 
@@ -111,21 +105,13 @@ export function getBillingReadiness(input: BillingReadinessInput): {
 } {
   // 불참해도 참가비는 청구되므로 참석 확인은 청구 조건이 아니다.
   // 운영진이 불참으로 표시한 사람만 실제 이용 확인에서 제외한다.
-  const usageParticipantIds = input.participants
-    .filter((participant) => participant.status === "APPROVED" && asAttendanceStatus(participant.attendanceStatus) !== "ABSENT")
-    .map((participant) => participant.id);
-  const confirmedUsageParticipantIds = new Set(
-    input.usageSubmissions
-      .filter((submission) => submission.status === "CONFIRMED" || submission.confirmedAt)
-      .map((submission) => submission.participantId)
-  );
-  const unresolvedUsageCount = usageParticipantIds
-    .filter((participantId) => !confirmedUsageParticipantIds.has(participantId))
-    .length;
+  const unresolvedUsageCount = input.participants.filter((participant) => (
+    participant.status === "APPROVED" && !participant.absentAt && !participant.usageConfirmedAt
+  )).length;
   const unresolvedFoodCount = input.foodOrderItems.filter((item) => (
     !item.cancelledAt && item.servedQuantity < item.quantity
   )).length;
-  const ended = isMeetingEnded(input.meeting.date, input.meeting.endTime, input.now);
+  const ended = isMeetingScheduleEnded(input.meeting, input.now);
 
   const checks: BillingReadinessCheck[] = [
     {
@@ -158,14 +144,6 @@ export function getBillingReadiness(input: BillingReadinessInput): {
         : `${unresolvedUsageCount}명의 실제 이용 내역을 확인해 주세요.`,
       href: `/shop/usage?meetingId=${input.meeting.id}`,
     },
-    {
-      id: "billing-reviewed",
-      label: "청구 검토",
-      complete: Boolean(input.meeting.billingReviewConfirmedAt),
-      detail: input.meeting.billingReviewConfirmedAt
-        ? "회원별 청구 금액 검토를 완료했습니다."
-        : "회원별 청구 항목과 조정 금액을 검토해 주세요.",
-    },
   ];
 
   return {
@@ -176,10 +154,10 @@ export function getBillingReadiness(input: BillingReadinessInput): {
 
 export function getMeetingWorkflowStage(input: {
   readonly date: string;
+  readonly endDate?: string | null;
   readonly endTime: string;
   readonly isOpen: boolean;
-  readonly settlementOpen: boolean;
-  readonly billingEvidenceReady?: boolean;
+  readonly billingPublished: boolean;
   readonly recipientCount?: number;
   readonly verifiedRecipientCount?: number;
   readonly settlementCompletedAt?: Date | string | null;
@@ -187,7 +165,7 @@ export function getMeetingWorkflowStage(input: {
 }): MeetingWorkflowStage {
   if (input.settlementCompletedAt) return "COMPLETED";
 
-  if (input.settlementOpen) {
+  if (input.billingPublished) {
     const recipientCount = input.recipientCount ?? 0;
     const verifiedRecipientCount = input.verifiedRecipientCount ?? 0;
     return recipientCount > 0 && verifiedRecipientCount >= recipientCount
@@ -195,18 +173,17 @@ export function getMeetingWorkflowStage(input: {
       : "PAYMENT_CONFIRMATION";
   }
 
-  if (!isMeetingEnded(input.date, input.endTime, input.now)) {
+  if (!isMeetingScheduleEnded(input, input.now)) {
     return input.isOpen ? "RECRUITING" : "UPCOMING";
   }
 
-  return input.billingEvidenceReady ? "BILLING_REVIEW" : "ACTUALS_REVIEW";
+  return "ACTUALS_REVIEW";
 }
 
 export const MEETING_WORKFLOW_LABELS: Record<MeetingWorkflowStage, string> = {
   RECRUITING: "모집 중",
   UPCOMING: "모임 예정",
   ACTUALS_REVIEW: "이용 확인",
-  BILLING_REVIEW: "청구 검토",
   PAYMENT_CONFIRMATION: "입금 확인",
   FINAL_SETTLEMENT: "최종 정산",
   COMPLETED: "정산 완료",
