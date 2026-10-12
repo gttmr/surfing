@@ -22,6 +22,7 @@ import {
   type AlertItem,
   CalendarSection,
   LandingHeader,
+  MeetingInfoPanel,
   MeetingTabs,
   PendingBillingAlert,
   UpcomingMeetings,
@@ -199,20 +200,23 @@ export default function SurfClubLandingPage({
           .join("–")
       : MEETING_DATE_FORMATTER.format(new Date(`${selectedMeeting.date}T12:00:00`))
     : "";
-  const selectedMeetingDescription = selectedMeeting?.overnightGroup
+  // 이번 모임의 별도 안내. 1박은 날마다 다르면 일차별로, 같으면 한 번만 보여 준다.
+  const selectedMeetingNote = selectedMeeting?.overnightGroup
     ? (() => {
         const dailyDescriptions = selectedMeeting.overnightGroup.days.map((day) => ({
           dayIndex: day.dayIndex,
           description: initialMeetingDetailsById[day.id]?.description?.trim() ?? "",
         }));
         const descriptions = dailyDescriptions.map((day) => day.description).filter(Boolean);
-        if (descriptions.length === 0) return "운영진이 등록한 추가 안내가 없습니다.";
+        if (descriptions.length === 0) return null;
         if (descriptions.length === dailyDescriptions.length && new Set(descriptions).size === 1) return descriptions[0];
         return dailyDescriptions
-          .map((day) => `${day.dayIndex}일차${day.description ? `\n${day.description}` : " · 추가 안내 없음"}`)
+          .filter((day) => day.description)
+          .map((day) => `${day.dayIndex}일차\n${day.description}`)
           .join("\n\n");
       })()
-    : selectedMeeting?.description || "운영진이 등록한 추가 안내가 없습니다.";
+    : selectedMeeting?.description?.trim() || null;
+  const mainNotice = notices.find((notice) => notice.isPinned) ?? null;
   // 다가오는 모임 카드에서 고른 모임은 카드에 날짜·장소가 이미 보이므로 요약 헤더를 생략한다.
   const selectedLastDate = selectedMeeting?.overnightGroup?.days.at(-1)?.date ?? selectedMeeting?.date;
   const selectedMeetingEnded = Boolean(selectedLastDate && selectedLastDate < today);
@@ -403,17 +407,7 @@ export default function SurfClubLandingPage({
           >
             <section id="meeting-details">
               {activeMeetingTab === "settlement" ? (
-                <div className="border-y border-brand-divider py-5">
-                  <div className="flex items-start gap-3">
-                    <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="info" /></span>
-                    <div>
-                      <h3 className="text-base font-extrabold text-brand-text">모임 안내</h3>
-                      <p className="brand-text-muted mt-1 whitespace-pre-line text-sm leading-6">
-                        {selectedMeetingDescription}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <MeetingInfoPanel mainNotice={mainNotice} meetingNote={selectedMeetingNote} />
               ) : (
                 <div className="space-y-4">
                   {selectedMeetings.map((meeting) => (
