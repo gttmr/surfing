@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { AdminSettlementData } from "@/lib/admin-page-data";
 
@@ -18,18 +19,19 @@ export function verifyPaymentOperations(input: {
   readonly dateLabel: string;
   readonly totalFee: number;
   readonly verifiedAt?: Date;
+  /** 은행 입금으로 확인한 경우 그 입금 */
+  readonly depositId?: number | null;
 }) {
   const { meetingId, recipientKakaoId, actorKakaoId } = input;
   const verifiedAt = input.verifiedAt ?? new Date();
+  const depositId = input.depositId ?? null;
   return [
     prisma.settlementConfirmation.upsert({
       where: { meetingId_recipientKakaoId: { meetingId, recipientKakaoId } },
-      create: { meetingId, recipientKakaoId, confirmedAt: verifiedAt, verifiedAt, verifiedByKakaoId: actorKakaoId },
-      update: { verifiedAt, verifiedByKakaoId: actorKakaoId },
+      create: { meetingId, recipientKakaoId, confirmedAt: verifiedAt, verifiedAt, verifiedByKakaoId: actorKakaoId, depositId },
+      update: { verifiedAt, verifiedByKakaoId: actorKakaoId, depositId },
     }),
-    prisma.userNotification.deleteMany({
-      where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
-    }),
+    ...clearVerifiedNotice(meetingId, recipientKakaoId),
     prisma.userNotification.create({
       data: {
         meetingId,
@@ -42,24 +44,64 @@ export function verifyPaymentOperations(input: {
   ] as const;
 }
 
-export function unverifyPaymentOperations(meetingId: number, recipientKakaoId: string) {
+function clearVerifiedNotice(meetingId: number, recipientKakaoId: string) {
   return [
-    prisma.settlementConfirmation.updateMany({
-      where: { meetingId, recipientKakaoId },
-      data: { verifiedAt: null, verifiedByKakaoId: null },
-    }),
     prisma.userNotification.deleteMany({
       where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
     }),
+  ] as const;
+}
+
+/**
+ * 입금 확인을 취소한다. 은행 입금으로 확인한 청구라면 그 입금으로 함께 확인한 청구도 모두 풀고,
+ * 입금은 자동 대조가 다시 확인하지 않도록 운영진 확인 대기(REVIEW)로 둔다.
+ */
+export async function unverifyPaymentOperations(
+  meetingId: number,
+  recipientKakaoId: string,
+): Promise<Prisma.PrismaPromise<unknown>[]> {
+  const confirmation = await prisma.settlementConfirmation.findUnique({
+    where: { meetingId_recipientKakaoId: { meetingId, recipientKakaoId } },
+    select: { depositId: true },
+  });
+  if (confirmation?.depositId) return releaseDepositOperations(confirmation.depositId, "REVIEW");
+  return [
+    prisma.settlementConfirmation.updateMany({
+      where: { meetingId, recipientKakaoId },
+      data: { verifiedAt: null, verifiedByKakaoId: null, depositId: null },
+    }),
+    ...clearVerifiedNotice(meetingId, recipientKakaoId),
     prisma.meeting.update({
       where: { id: meetingId },
       data: { settlementCompletedAt: null, settlementCompletedByKakaoId: null },
     }),
-    // 은행 입금과 연결돼 있었다면 연결을 풀고, 자동 대조가 다시 확인하지 않도록 운영진 확인 대기로 둔다.
-    prisma.bankDeposit.updateMany({
-      where: { matches: { some: { meetingId, recipientKakaoId } } },
-      data: { status: "REVIEW", matchedByKakaoId: null, matchedAt: null },
+  ];
+}
+
+/** 입금 하나로 확인한 청구를 모두 미확인으로 되돌리고, 입금을 다시 대조 대상(status)으로 둔다. */
+export async function releaseDepositOperations(
+  depositId: number,
+  status: "REVIEW" | "UNMATCHED",
+): Promise<Prisma.PrismaPromise<unknown>[]> {
+  const linked = await prisma.settlementConfirmation.findMany({
+    where: { depositId },
+    select: { meetingId: true, recipientKakaoId: true },
+  });
+  return [
+    prisma.settlementConfirmation.updateMany({
+      where: { depositId },
+      data: { verifiedAt: null, verifiedByKakaoId: null, depositId: null },
     }),
-    prisma.bankDepositMatch.deleteMany({ where: { meetingId, recipientKakaoId } }),
-  ] as const;
+    ...linked.flatMap((row) => [
+      ...clearVerifiedNotice(row.meetingId, row.recipientKakaoId),
+      prisma.meeting.updateMany({
+        where: { id: row.meetingId },
+        data: { settlementCompletedAt: null, settlementCompletedByKakaoId: null },
+      }),
+    ]),
+    prisma.bankDeposit.update({
+      where: { id: depositId },
+      data: { status, matchedByKakaoId: null, matchedAt: null, matchedCount: 0 },
+    }),
+  ];
 }

@@ -11,7 +11,7 @@ import {
 import {
   BANK_AUTO_ACTOR,
   billingDateLabel,
-  unverifyPaymentOperations,
+  releaseDepositOperations,
   verifyPaymentOperations,
 } from "@/lib/payment-verification";
 
@@ -124,20 +124,13 @@ export async function applyDepositMatch(input: {
       dateLabel: open.dateLabels.get(target.meetingId) ?? "",
       totalFee: target.totalFee,
       verifiedAt: now,
-    }),
-    prisma.bankDepositMatch.create({
-      data: {
-        depositId: deposit.id,
-        meetingId: target.meetingId,
-        recipientKakaoId: target.recipientKakaoId,
-        amount: target.totalFee,
-      },
+      depositId: deposit.id,
     }),
   ]);
   operations.push(
     prisma.bankDeposit.update({
       where: { id: deposit.id },
-      data: { status: "MATCHED", matchedByKakaoId: input.actorKakaoId, matchedAt: now },
+      data: { status: "MATCHED", matchedByKakaoId: input.actorKakaoId, matchedAt: now, matchedCount: targets.length },
     }),
   );
 
@@ -158,55 +151,28 @@ export async function applyDepositMatch(input: {
 }
 
 export async function undoDepositMatch(depositId: number): Promise<void> {
-  const matches = await prisma.bankDepositMatch.findMany({ where: { depositId } });
-  if (matches.length === 0) throw new DepositMatchError("연결된 청구가 없습니다.");
-  await prisma.$transaction(
-    matches.flatMap((match) => [...unverifyPaymentOperations(match.meetingId, match.recipientKakaoId)]),
-  );
+  const deposit = await prisma.bankDeposit.findUnique({ where: { id: depositId }, select: { status: true } });
+  if (deposit?.status !== "MATCHED") throw new DepositMatchError("연결된 청구가 없습니다.");
+  await prisma.$transaction(await releaseDepositOperations(depositId, "REVIEW"));
 }
 
 /**
- * 청구 재공개·조정·회원 삭제 등으로 입금 확인이 풀린 청구에 연결된 입금을 다시 대조 대기로 돌린다.
- * 그 경로들이 SettlementConfirmation 을 지우므로, 확인 기록이 사라진 연결만 정리한다.
+ * 청구 재공개·조정·회원 삭제 등은 입금 확인 기록을 지운다. 확인 기록이 지워지면 입금과의 연결도 함께 사라지므로,
+ * 연결이 확인한 청구 수(matchedCount)보다 적어진 입금은 남은 확인까지 풀고 다시 자동 대조 대상으로 돌린다.
  */
 async function releaseStaleMatches(): Promise<void> {
-  const matches = await prisma.bankDepositMatch.findMany({
-    select: { id: true, depositId: true, meetingId: true, recipientKakaoId: true },
+  const matched = await prisma.bankDeposit.findMany({
+    where: { status: "MATCHED", matchedCount: { gt: 0 } },
+    select: {
+      id: true,
+      matchedCount: true,
+      _count: { select: { confirmations: { where: { verifiedAt: { not: null } } } } },
+    },
   });
-  if (matches.length === 0) return;
-  const verified = await prisma.settlementConfirmation.findMany({
-    where: { verifiedAt: { not: null }, meetingId: { in: [...new Set(matches.map((match) => match.meetingId))] } },
-    select: { meetingId: true, recipientKakaoId: true },
-  });
-  const verifiedKeys = new Set(verified.map((row) => `${row.meetingId}:${row.recipientKakaoId}`));
-  const staleDepositIds = [
-    ...new Set(
-      matches
-        .filter((match) => !verifiedKeys.has(`${match.meetingId}:${match.recipientKakaoId}`))
-        .map((match) => match.depositId),
-    ),
-  ];
-  if (staleDepositIds.length === 0) return;
-
-  // 한 입금이 여러 청구를 냈다면 일부만 풀려도 전체를 다시 대조한다.
-  await prisma.$transaction(
-    staleDepositIds.flatMap((depositId) => {
-      const siblings = matches.filter((match) => match.depositId === depositId);
-      return [
-        ...siblings.map((match) =>
-          prisma.settlementConfirmation.updateMany({
-            where: { meetingId: match.meetingId, recipientKakaoId: match.recipientKakaoId },
-            data: { verifiedAt: null, verifiedByKakaoId: null },
-          }),
-        ),
-        prisma.bankDepositMatch.deleteMany({ where: { depositId } }),
-        prisma.bankDeposit.update({
-          where: { id: depositId },
-          data: { status: "UNMATCHED", matchedByKakaoId: null, matchedAt: null },
-        }),
-      ];
-    }),
-  );
+  const stale = matched.filter((deposit) => deposit._count.confirmations < deposit.matchedCount);
+  for (const deposit of stale) {
+    await prisma.$transaction(await releaseDepositOperations(deposit.id, "UNMATCHED"));
+  }
 }
 
 /** 확인 대기 중인 입금을 오래된 순으로 다시 자동 대조한다. 자동 확인된 건수를 반환한다. */
@@ -300,7 +266,7 @@ export type BankDepositView = {
   readonly status: string;
   readonly matchedAutomatically: boolean;
   readonly rawText: string;
-  readonly matches: readonly { meetingLabel: string; recipientName: string; amount: number }[];
+  readonly matches: readonly { meetingLabel: string; recipientName: string }[];
   readonly suggestions: readonly DepositCandidate[];
 };
 
@@ -320,14 +286,18 @@ export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
     prisma.bankWebhookDevice.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "asc" } }),
     getOpenDepositCandidates(),
     prisma.depositorAlias.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.bankDeposit.findMany({ orderBy: { depositedAt: "desc" }, take: RECENT_LIMIT, include: { matches: true } }),
+    prisma.bankDeposit.findMany({
+      orderBy: { depositedAt: "desc" },
+      take: RECENT_LIMIT,
+      include: { confirmations: { select: { meetingId: true, recipientKakaoId: true } } },
+    }),
   ]);
 
   const kakaoIds = new Set([
     ...aliases.map((alias) => alias.kakaoId),
-    ...deposits.flatMap((deposit) => deposit.matches.map((match) => match.recipientKakaoId)),
+    ...deposits.flatMap((deposit) => deposit.confirmations.map((match) => match.recipientKakaoId)),
   ]);
-  const meetingIds = new Set(deposits.flatMap((deposit) => deposit.matches.map((match) => match.meetingId)));
+  const meetingIds = new Set(deposits.flatMap((deposit) => deposit.confirmations.map((match) => match.meetingId)));
   const [users, meetings] = await Promise.all([
     prisma.user.findMany({ where: { kakaoId: { in: [...kakaoIds] } }, select: { kakaoId: true, name: true } }),
     prisma.meeting.findMany({ where: { id: { in: [...meetingIds] } }, select: { id: true, date: true, location: true } }),
@@ -346,10 +316,9 @@ export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
       status: deposit.status,
       matchedAutomatically: deposit.matchedByKakaoId === BANK_AUTO_ACTOR,
       rawText: [deposit.rawTitle, deposit.rawText].filter(Boolean).join(" / "),
-      matches: deposit.matches.map((match) => ({
+      matches: deposit.confirmations.map((match) => ({
         meetingLabel: meetingLabel.get(match.meetingId) ?? `모임 #${match.meetingId}`,
         recipientName: userName.get(match.recipientKakaoId) ?? match.recipientKakaoId,
-        amount: match.amount,
       })),
       suggestions: reviewable && deposit.amount !== null
         ? (() => {

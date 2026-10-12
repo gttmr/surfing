@@ -108,7 +108,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (requestedAction === "unverify-payment") {
-      await prisma.$transaction([...unverifyPaymentOperations(meetingId, recipientKakaoId)]);
+      await prisma.$transaction(await unverifyPaymentOperations(meetingId, recipientKakaoId));
     } else {
       await prisma.$transaction([
         ...verifyPaymentOperations({
