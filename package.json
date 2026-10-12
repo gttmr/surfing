@@ -9,6 +9,11 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:db:start": "scripts/dev/local-db.sh start",
+    "dev:db:stop": "scripts/dev/local-db.sh stop",
+    "dev:db:restore": "scripts/dev/local-db.sh restore",
+    "dev:db:reset": "scripts/dev/local-db.sh reset",
+    "db:backup:prod": "scripts/dev/backup-prod-db.sh",
     "build": "prisma generate && next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint .",

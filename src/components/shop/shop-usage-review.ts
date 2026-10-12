@@ -57,9 +57,9 @@ export function buildShopUsageDrafts(data: ShopMeetingSurfUsageData): ShopUsageD
 export function hasShopUsageVariance(participant: ShopUsageParticipant): boolean {
   if (participant.submissionStatus === "missing") return false;
   const expectedServiceType = participant.requestedServiceType
-    ?? (participant.requestedOptionLabel === "강습+장비"
+    ?? (participant.requestedOptionLabel === "강습"
       ? "LESSON_PACKAGE"
-      : participant.requestedOptionLabel === "장비만"
+      : participant.requestedOptionLabel === "장비 대여"
         ? "EQUIPMENT_RENTAL"
         : null);
   const actualEntries = participant.entries.filter((entry) => entry.quantity > 0);

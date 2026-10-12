@@ -40,6 +40,14 @@ export default async function AdminSettlementsPage() {
           <p className="brand-text-muted mt-1 break-keep text-sm">회원 청구 확인과 샵·식음료 실제 지급 마감을 단계별로 처리합니다.</p>
         </header>
 
+        <Link className="brand-highlight-panel flex min-h-14 items-center justify-between rounded-2xl px-4 py-3" href="/admin/deposits">
+          <span>
+            <span className="block text-sm font-extrabold text-brand-text">입금 대조</span>
+            <span className="brand-text-muted block text-xs">은행 입금 알림으로 회원 입금을 자동 확인합니다.</span>
+          </span>
+          <Icon className="text-[20px] text-brand-primary" name="arrow_forward" />
+        </Link>
+
         <section className="space-y-3">
           <div className="flex items-center justify-between px-1"><h2 className="text-base font-extrabold text-brand-text">진행할 모임</h2><span className="brand-text-subtle text-xs">{active.length}건</span></div>
           {active.length > 0 ? active.map((meeting) => <BillingMeetingRow key={meeting.id} meeting={meeting} />) : (

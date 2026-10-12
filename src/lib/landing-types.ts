@@ -181,3 +181,9 @@ export type AdminSettlementStatusSummary = {
   };
   recipients: AdminSettlementRecipientSummary[];
 };
+
+/** 홈의 다가오는 모임 카드에 보여줄 내 신청 상태 (본인 신청만) */
+export type MyMeetingParticipation = {
+  status: string;
+  waitlistPosition: number | null;
+};

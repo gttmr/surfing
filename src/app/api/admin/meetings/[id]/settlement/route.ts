@@ -6,6 +6,7 @@ import { getAdminSettingsFormData, getAdminSettlementData } from "@/lib/admin-pa
 import { buildMeetingBillingSnapshot } from "@/lib/billing-snapshot";
 import { getMeetingBillingReadiness, getMeetingGroupBillingReadiness } from "@/lib/meeting-readiness-data";
 import { getSessionPayload } from "@/lib/session";
+import { billingDateLabel, unverifyPaymentOperations, verifyPaymentOperations } from "@/lib/payment-verification";
 
 type BillingMeetingScope = {
   readonly canonicalMeetingId: number;
@@ -41,12 +42,6 @@ function getScopedBillingReadiness(scope: BillingMeetingScope) {
   return scope.meetingIds.length > 1
     ? getMeetingGroupBillingReadiness(scope.meetingIds)
     : getMeetingBillingReadiness(scope.canonicalMeetingId);
-}
-
-function billingDateLabel(data: Awaited<ReturnType<typeof getAdminSettlementData>>): string {
-  if (!data) return "";
-  const days = data.meeting.overnightGroup?.days;
-  return days ? `${days[0].date}~${days[1].date}` : data.meeting.date;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -113,49 +108,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (requestedAction === "unverify-payment") {
-      await prisma.$transaction([
-        prisma.settlementConfirmation.updateMany({
-          where: { meetingId, recipientKakaoId },
-          data: { verifiedAt: null, verifiedByKakaoId: null },
-        }),
-        prisma.userNotification.deleteMany({
-          where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
-        }),
-        prisma.meeting.update({
-          where: { id: meetingId },
-          data: { settlementCompletedAt: null, settlementCompletedByKakaoId: null },
-        }),
-      ]);
+      await prisma.$transaction(await unverifyPaymentOperations(meetingId, recipientKakaoId));
     } else {
-      const verifiedAt = new Date();
       await prisma.$transaction([
-        prisma.settlementConfirmation.upsert({
-          where: {
-            meetingId_recipientKakaoId: { meetingId, recipientKakaoId },
-          },
-          create: {
-            meetingId,
-            recipientKakaoId,
-            confirmedAt: verifiedAt,
-            verifiedAt,
-            verifiedByKakaoId: actorKakaoId,
-          },
-          update: {
-            verifiedAt,
-            verifiedByKakaoId: actorKakaoId,
-          },
-        }),
-        prisma.userNotification.deleteMany({
-          where: { meetingId, recipientKakaoId, type: "PAYMENT_VERIFIED" },
-        }),
-        prisma.userNotification.create({
-          data: {
-            meetingId,
-            recipientKakaoId,
-            type: "PAYMENT_VERIFIED",
-            title: `${billingDateLabel(data)} 입금이 확인되었습니다`,
-            body: `입금 완료 · ${recipient.totalFee.toLocaleString("ko-KR")}원`,
-          },
+        ...verifyPaymentOperations({
+          meetingId,
+          recipientKakaoId,
+          actorKakaoId,
+          dateLabel: billingDateLabel(data.meeting),
+          totalFee: recipient.totalFee,
         }),
       ]);
     }
@@ -164,7 +125,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (requestedAction === "record-payout") {
-    const payoutType = "payoutType" in payload && (payload.payoutType === "shop" || payload.payoutType === "food")
+    const payoutType = "payoutType" in payload
+      && (payload.payoutType === "shop" || payload.payoutType === "food" || payload.payoutType === "shop-total")
       ? payload.payoutType
       : null;
     const amount = "amount" in payload ? Number(payload.amount) : Number.NaN;
@@ -181,9 +143,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     await prisma.meeting.update({
       where: { id: meetingId },
-      data: payoutType === "shop"
-        ? { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
-        : { foodPaidAt: new Date(), foodPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
+      // 장비와 식음료는 같은 샵에 한 번에 지급하므로 "shop-total"은 합계를 장비 지급란에 기록하고 식음료 지급도 함께 끝낸다.
+      data: payoutType === "shop-total"
+        ? { shopPaidAt: new Date(), shopPaidAmount: amount, foodPaidAt: new Date(), foodPaidAmount: 0, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
+        : payoutType === "shop"
+          ? { shopPaidAt: new Date(), shopPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null }
+          : { foodPaidAt: new Date(), foodPaidAmount: amount, settlementCompletedAt: null, settlementCompletedByKakaoId: null },
     });
     return NextResponse.json({ action: requestedAction, data: await getAdminSettlementData(meetingId) });
   }
@@ -196,8 +161,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     const blockers = [
       data.verifiedRecipientCount < data.recipients.length ? "회원 입금 확인" : null,
-      data.billing.totals.shopPayableTotal > 0 && !data.billing.shopPayout.paidAt ? "샵 지급 기록" : null,
-      data.billing.totals.foodPayableTotal > 0 && !data.billing.foodPayout.paidAt ? "식음료 지급 기록" : null,
+      !data.billing.shopTotal.complete ? "샵 지급 기록" : null,
     ].filter((item): item is string => item !== null);
     if (blockers.length > 0) {
       return NextResponse.json({
@@ -322,7 +286,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { payload: snapshotPayload, totals } = buildMeetingBillingSnapshot(data);
   const publishedAt = new Date();
   const nextRevision = (existingSnapshot?.revision ?? 0) + 1;
-  const publishedDateLabel = billingDateLabel(data);
+  const publishedDateLabel = billingDateLabel(data.meeting);
   const notificationRows = snapshotPayload.recipients.map((recipient) => ({
     recipientKakaoId: recipient.recipientKakaoId,
     type: "BILLING_PUBLISHED",
@@ -369,6 +333,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: { in: [...scope.meetingIds] } },
       data: {
         settlementOpen: true,
+        isOpen: false, // 청구를 공개하면 신청도 자동 마감한다.
         billingPublishedAt: publishedAt,
         billingPublishedByKakaoId: actorKakaoId,
         billingCorrectionReason: null,

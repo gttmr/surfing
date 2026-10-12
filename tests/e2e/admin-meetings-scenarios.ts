@@ -1,5 +1,5 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
-import { assertAccessible, assertMobileGeometry, capture } from "./admin-meetings-support";
+import { assertAccessible, assertMobileGeometry, capture, openParticipant } from "./admin-meetings-support";
 
 type AdminPageFixture = {
   readonly page: Page;
@@ -19,6 +19,7 @@ export async function verifyMutationFailures({ page }: AdminPageFixture, testInf
     contentType: "application/json",
     body: JSON.stringify({ error: "합성 취소 거절" }),
   }));
+  await openParticipant(page, "합성 회원 01");
   const cancelTrigger = page.getByRole("button", { name: "합성 회원 01 참가 취소" });
   await cancelTrigger.click();
   const cancelDialog = page.getByRole("dialog", { name: "참가를 취소할까요?" });
@@ -86,6 +87,7 @@ export async function verifyRealMeetingCreate({ page }: AdminPageFixture, testIn
 
 export async function verifyRealParticipantRoundTrip({ page }: AdminPageFixture, testInfo: TestInfo): Promise<void> {
   await page.goto("/admin/meetings/8103", { waitUntil: "networkidle" });
+  await openParticipant(page, "합성 회원 01");
   await page.getByRole("button", { name: "합성 회원 01 참가 취소" }).click();
   const cancelResponsePromise = page.waitForResponse((response) => response.request().method() === "PUT"
     && new URL(response.url()).pathname === "/api/participants/8838");
@@ -101,6 +103,7 @@ export async function verifyRealParticipantRoundTrip({ page }: AdminPageFixture,
   await page.getByRole("dialog", { name: "참가를 확정할까요?" }).getByRole("button", { name: "참가 확정" }).click();
   expect((await restoreResponsePromise).status()).toBe(200);
   await page.getByRole("tab", { name: "참가 확정 1" }).click();
+  await openParticipant(page, "합성 회원 01");
   await expect(page.getByRole("button", { name: "합성 회원 01 참가 취소" })).toBeVisible();
   await capture(page, "restore-success", testInfo.project.name);
   await assertAccessible(page);

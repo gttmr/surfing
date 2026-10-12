@@ -15,6 +15,7 @@ const validPricing = {
   [PRICING_SETTING_KEYS.regularRentalFee]: "40000",
   [PRICING_SETTING_KEYS.companionRentalFee]: "50000",
   foodOrderSupportCap: "10000",
+  companySupportPerRegular: "50000",
 } satisfies AdminPricingState;
 
 const validSettings = {
@@ -98,4 +99,12 @@ test("settings validation trims account details before validating and returning 
     assert.equal(completeAccount.value.settlementAccountNumber, "000-0000");
     assert.equal(completeAccount.value.settlementAccountHolder, "합성클럽");
   }
+});
+
+test("company support per regular member is validated like other amounts", () => {
+  const invalid = validatePricingDraft({ ...validPricing, companySupportPerRegular: "-1" });
+  assert.equal(invalid.valid, false);
+  if (!invalid.valid) assert.equal(invalid.firstKey, "companySupportPerRegular");
+  const valid = validatePricingDraft({ ...validPricing, companySupportPerRegular: "50,000" });
+  assert.equal(valid.valid && valid.value.companySupportPerRegular, "50000");
 });

@@ -5,18 +5,10 @@ import { Icon } from "@/components/ui/Icon";
 import type { AdminSettlementData, AdminSettlementRecipient } from "@/lib/admin-page-data";
 import { formatWon } from "@/lib/format";
 
-export function AdminBillingReadinessPanel({
-  data,
-  working,
-  onToggleReview,
-}: {
-  readonly data: AdminSettlementData;
-  readonly working: boolean;
-  readonly onToggleReview: (reviewed: boolean) => void;
-}) {
-  const review = data.readiness.checks.find((check) => check.id === "billing-reviewed");
+/** 청구 공개 전 운영 확인 항목. 회원별 금액 검토는 공개 버튼에서 함께 처리한다. */
+export function AdminBillingReadinessPanel({ data }: { readonly data: AdminSettlementData }) {
   const operationalChecks = data.readiness.checks.filter((check) => check.id !== "billing-reviewed");
-  const operationalReady = operationalChecks.every((check) => check.complete);
+  const completeCount = operationalChecks.filter((check) => check.complete).length;
 
   return (
     <section className="brand-admin-section overflow-hidden">
@@ -24,10 +16,10 @@ export function AdminBillingReadinessPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-extrabold text-brand-text">청구 공개 준비</h2>
-            <p className="brand-text-muted mt-1 text-xs">실제 참석·이용·주문 처리가 끝나야 금액을 확정할 수 있습니다.</p>
+            <p className="brand-text-muted mt-1 text-xs">실제 이용·식음료 처리가 끝나야 금액을 확정할 수 있습니다.</p>
           </div>
-          <span className={`${data.readiness.ready ? "brand-chip-success" : "brand-chip-soft"} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>
-            {data.readiness.checks.filter((check) => check.complete).length}/{data.readiness.checks.length}
+          <span className={`${completeCount === operationalChecks.length ? "brand-chip-success" : "brand-chip-soft"} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>
+            {completeCount}/{operationalChecks.length}
           </span>
         </div>
       </div>
@@ -42,24 +34,6 @@ export function AdminBillingReadinessPanel({
             {!check.complete && check.href ? <Link className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-xs font-extrabold text-brand-primary" href={check.href}>확인</Link> : null}
           </div>
         ))}
-      </div>
-      <div className="border-t border-brand-divider px-4 py-4">
-        <div className="mb-3 flex items-center gap-3">
-          <Icon className={review?.complete ? "text-brand-success" : "text-brand-text-subtle"} name={review?.complete ? "check_circle" : "radio_button_unchecked"} />
-          <div>
-            <p className="text-sm font-bold text-brand-text">회원별 청구 금액 검토</p>
-            <p className="brand-text-subtle mt-0.5 text-xs">아래 청구 항목과 조정 금액을 확인합니다.</p>
-          </div>
-        </div>
-        <button
-          className={`${review?.complete ? "brand-button-secondary" : "brand-button-primary"} min-h-11 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50`}
-          disabled={working || (!operationalReady && !review?.complete)}
-          onClick={() => onToggleReview(Boolean(review?.complete))}
-          type="button"
-        >
-          {working ? "처리 중" : review?.complete ? "검토 완료 취소" : "청구 금액 검토 완료"}
-        </button>
-        {!operationalReady && !review?.complete ? <p className="brand-text-subtle mt-2 text-center text-xs">위 운영 확인을 먼저 완료해 주세요.</p> : null}
       </div>
     </section>
   );
@@ -148,6 +122,12 @@ export function AdminPaymentStatusPanel({
         </div>
         <span className="brand-chip-soft shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">{data.verifiedRecipientCount}/{data.recipients.length} 완료</span>
       </div>
+      {data.verifiedRecipientCount < data.recipients.length ? (
+        <Link className="brand-highlight-panel flex min-h-12 items-center justify-between rounded-2xl px-4 py-3" href="/admin/deposits">
+          <span className="text-sm font-extrabold text-brand-text">은행 입금 알림으로 자동 확인</span>
+          <Icon className="text-[20px] text-brand-primary" name="arrow_forward" />
+        </Link>
+      ) : null}
       {data.recipients.length === 0 ? (
         <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm font-semibold text-brand-text">확인할 회원 청구가 없습니다.</div>
       ) : groups.map((group) => group.recipients.length > 0 ? (
@@ -222,28 +202,20 @@ function PayoutRow({
 export function AdminFinalSettlementPanel({
   data,
   shopDraft,
-  foodDraft,
   working,
   onShopDraft,
-  onFoodDraft,
   onRecordShop,
-  onRecordFood,
   onRequestComplete,
 }: {
   readonly data: AdminSettlementData;
   readonly shopDraft: string;
-  readonly foodDraft: string;
   readonly working: string | null;
   readonly onShopDraft: (value: string) => void;
-  readonly onFoodDraft: (value: string) => void;
   readonly onRecordShop: () => void;
-  readonly onRecordFood: () => void;
   readonly onRequestComplete: () => void;
 }) {
   const paymentsComplete = data.verifiedRecipientCount >= data.recipients.length;
-  const shopComplete = data.billing.totals.shopPayableTotal === 0 || Boolean(data.billing.shopPayout.paidAt);
-  const foodComplete = data.billing.totals.foodPayableTotal === 0 || Boolean(data.billing.foodPayout.paidAt);
-  const canComplete = paymentsComplete && shopComplete && foodComplete;
+  const canComplete = paymentsComplete && data.billing.shopTotal.complete;
 
   return (
     <section className="brand-admin-section overflow-hidden">
@@ -251,7 +223,7 @@ export function AdminFinalSettlementPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-extrabold text-brand-text">최종 정산</h2>
-            <p className="brand-text-muted mt-1 text-xs">회원 입금과 외부 지급이 모두 끝난 뒤 모임 장부를 닫습니다.</p>
+            <p className="brand-text-muted mt-1 text-xs">회원 입금 확인과 샵 지급이 끝나면 모임 장부를 닫습니다.</p>
           </div>
           <span className={`${data.billing.settlementCompletedAt ? "brand-chip-success" : "brand-chip-soft"} shrink-0 rounded-full px-2.5 py-1 text-xs font-bold`}>{data.billing.settlementCompletedAt ? "완료" : "진행 중"}</span>
         </div>
@@ -261,8 +233,7 @@ export function AdminFinalSettlementPanel({
           <div><p className="text-sm font-bold text-brand-text">회원 입금</p><p className="brand-text-subtle mt-0.5 text-xs">{data.verifiedRecipientCount}/{data.recipients.length}명 확인</p></div>
           <Icon className={paymentsComplete ? "text-brand-success" : "text-brand-text-subtle"} name={paymentsComplete ? "check_circle" : "radio_button_unchecked"} />
         </div>
-        <PayoutRow amount={data.billing.totals.shopPayableTotal} draft={shopDraft} label="샵 지급" paidAmount={data.billing.shopPayout.amount} paidAt={data.billing.shopPayout.paidAt} working={working === "shop"} onChange={onShopDraft} onRecord={onRecordShop} />
-        <PayoutRow amount={data.billing.totals.foodPayableTotal} draft={foodDraft} label="식음료 지급" paidAmount={data.billing.foodPayout.amount} paidAt={data.billing.foodPayout.paidAt} working={working === "food"} onChange={onFoodDraft} onRecord={onRecordFood} />
+        <PayoutRow amount={data.billing.shopTotal.payable} draft={shopDraft} label="샵 지급 (장비+식음료)" paidAmount={data.billing.shopTotal.paidAmount} paidAt={data.billing.shopTotal.complete ? data.billing.shopTotal.paidAt : null} working={working === "shop-total"} onChange={onShopDraft} onRecord={onRecordShop} />
       </div>
       <div className="border-t border-brand-divider px-4 py-4">
         {data.billing.settlementCompletedAt ? (
@@ -274,7 +245,7 @@ export function AdminFinalSettlementPanel({
         ) : (
           <>
             <button className="brand-button-primary min-h-11 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50" disabled={!canComplete || Boolean(working)} onClick={onRequestComplete} type="button">최종 정산 완료</button>
-            {!canComplete ? <p className="brand-text-subtle mt-2 text-center text-xs">입금 확인과 실제 지급 기록을 모두 완료해 주세요.</p> : null}
+            {!canComplete ? <p className="brand-text-subtle mt-2 text-center text-xs">회원 입금 확인과 샵 지급 기록을 모두 완료해 주세요.</p> : null}
           </>
         )}
       </div>

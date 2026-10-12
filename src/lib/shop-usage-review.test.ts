@@ -89,6 +89,7 @@ const validUsageResponse = {
     startTime: "09:30",
     endTime: "13:00",
     location: "합성 해변",
+    shopUsageCheckedAt: null,
     actualUsageReview: {
       state: "OPEN",
       editable: true,

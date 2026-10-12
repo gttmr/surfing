@@ -38,8 +38,8 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await page.getByLabel("시작 시간").fill("07:00");
     await page.getByLabel("종료 시간").fill("16:00");
     await page.getByLabel("장소").fill(location);
-    await page.getByLabel("회원 기본 참가비").fill("30000");
-    await page.getByLabel("동반인 기본 참가비").fill("50000");
+    await page.getByLabel("정회원 1박 참가비").fill("30000");
+    await page.getByLabel("동반인 1박 참가비").fill("50000");
     await page.getByLabel("1인 숙박비").fill("50000");
 
     const creationResponse = page.waitForResponse((response) => response.request().method() === "POST"
@@ -67,7 +67,7 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await expect(page).toHaveURL(new RegExp(`/admin/meetings/${day1MeetingId}$`));
     await expect(page.getByText("1박 2일", { exact: true })).toBeVisible();
     await expect(page.getByText("07:00 시작 · 16:00 종료", { exact: false })).toBeVisible();
-    await expect(page.getByText("0/6 확인", { exact: true })).toBeVisible();
+    await expect(page.getByText("0/4 확인", { exact: true })).toBeVisible();
     await expect(page.getByText("23:59", { exact: false })).toHaveCount(0);
     await expect(page.getByText("00:00", { exact: false })).toHaveCount(0);
     const dayTabs = page.getByRole("tablist", { name: "운영 날짜 선택" });
@@ -79,18 +79,21 @@ test("1박2일은 한 번 신청하고 날짜별 실제 이용을 합쳐 한 번
     await page.goto("/?date=2098-09-12", { waitUntil: "networkidle" });
     await expect(page.getByText("1박 2일 · 정기", { exact: true })).toBeVisible();
     await expect(page.getByText(`07:00 시작 · 16:00 종료 · ${location}`, { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "이용 안 함 예상 30,000원" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "강습+장비 예상 40,000원" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "강습 안 함 예상 30,000원" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "강습 신청 예상 40,000원" })).toBeVisible();
     await expect(page.getByText("현재 예상 금액").first()).toBeVisible();
     await expect(page.getByText("30,000원", { exact: true }).last()).toBeVisible();
     await expect(page.getByText("23:59", { exact: false })).toHaveCount(0);
     await expect(page.getByText("00:00", { exact: false })).toHaveCount(0);
     const participantTab = page.getByRole("tab", { name: /내 참가/ });
     if (await participantTab.getAttribute("aria-selected") !== "true") await participantTab.click();
-    await page.getByRole("checkbox", { name: /장비 대여/ }).click();
+    // 첫째 날 "장비 대여 필요"(강습 안 함일 때만 표시)가 먼저, 둘째 날 장비 선택이 뒤에 나온다.
+    const rentalChecks = page.getByRole("checkbox", { name: /장비 대여 필요/ });
+    await expect(rentalChecks).toHaveCount(2);
+    await rentalChecks.last().click();
     await expect(page.getByText("첫 장비 대여일로 동호회 지원이 적용됩니다.", { exact: true })).toBeVisible();
     await expect(page.getByText("30,000원", { exact: true }).last()).toBeVisible();
-    await page.getByRole("button", { name: "장비만 예상 30,000원" }).click();
+    await rentalChecks.first().click();
     await expect(page.getByText("60,000원", { exact: true })).toBeVisible();
     await page.getByRole("checkbox", { name: /동호회 숙소 이용/ }).click();
     await expect(page.getByText("110,000원", { exact: true })).toBeVisible();

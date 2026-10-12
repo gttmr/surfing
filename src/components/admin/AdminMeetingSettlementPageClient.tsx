@@ -56,8 +56,7 @@ export function AdminMeetingSettlementPageClient({
   const [adjustmentDeleteTarget, setAdjustmentDeleteTarget] = useState<AdjustmentDeleteTarget>(null);
   const [correctionReason, setCorrectionReason] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
-  const [shopPayoutDraft, setShopPayoutDraft] = useState(String(initialData.billing.shopPayout.amount ?? initialData.billing.totals.shopPayableTotal));
-  const [foodPayoutDraft, setFoodPayoutDraft] = useState(String(initialData.billing.foodPayout.amount ?? initialData.billing.totals.foodPayableTotal));
+  const [shopPayoutDraft, setShopPayoutDraft] = useState(String(initialData.billing.shopTotal.paidAmount ?? initialData.billing.shopTotal.payable));
   const [lodgingParticipantIds, setLodgingParticipantIds] = useState<number[]>([]);
   const [lodgingLabel, setLodgingLabel] = useState("공동 숙박비");
   const [lodgingAmount, setLodgingAmount] = useState("");
@@ -89,7 +88,8 @@ export function AdminMeetingSettlementPageClient({
   async function runWorkflowAction(
     key: string,
     body: Record<string, unknown>,
-    successMessage: string
+    successMessage: string,
+    options: { readonly quiet?: boolean } = {}
   ): Promise<boolean> {
     setWorkflowWorking(key);
     try {
@@ -102,7 +102,7 @@ export function AdminMeetingSettlementPageClient({
       if (!response.ok) throw new Error(result.error || "요청을 처리하지 못했습니다.");
       if (result.data) setData(result.data);
       else await reloadSettlement();
-      addToast(successMessage, "success");
+      if (!options.quiet) addToast(successMessage, "success");
       return true;
     } catch (error) {
       addToast(error instanceof Error ? error.message : "요청을 처리하지 못했습니다.", "error");
@@ -207,6 +207,16 @@ export function AdminMeetingSettlementPageClient({
     });
   };
 
+  // 검토 완료와 공개를 한 번에 처리한다. 서버는 검토 완료를 공개 조건으로 계속 확인한다.
+  async function handlePublish() {
+    if (!reviewComplete) {
+      const reviewed = await runWorkflowAction("publish", { action: "confirm-review" }, "", { quiet: true });
+      if (!reviewed) return;
+    }
+    const published = await runWorkflowAction("publish", { action: "publish" }, "청구 내역을 회원에게 공개했습니다.");
+    if (published) setWorkflowDialog(null);
+  }
+
   async function handleReviewToggle(reviewed: boolean) {
     await runWorkflowAction(
       reviewed ? "unconfirm-review" : "confirm-review",
@@ -225,20 +235,23 @@ export function AdminMeetingSettlementPageClient({
     setWorkingRecipient(null);
   }
 
-  async function handlePayout(type: "shop" | "food", draft: string) {
-    const amount = Number(draft);
-    if (!Number.isInteger(amount) || amount < 0) {
+  async function handleShopPayout(draft: string) {
+    const amount = Number(draft.replace(/[^\d]/g, ""));
+    if (!draft.trim() || !Number.isInteger(amount) || amount < 0) {
       addToast("실제 지급액을 0원 이상의 숫자로 입력해 주세요.", "error");
       return;
     }
     await runWorkflowAction(
-      type,
-      { action: "record-payout", payoutType: type, amount },
-      type === "shop" ? "샵 실제 지급액을 기록했습니다." : "식음료 실제 지급액을 기록했습니다."
+      "shop-total",
+      { action: "record-payout", payoutType: "shop-total", amount },
+      "샵 지급액(장비+식음료)을 기록했습니다."
     );
   }
 
   const reviewComplete = Boolean(data.readiness.checks.find((check) => check.id === "billing-reviewed")?.complete);
+  const operationalReady = data.readiness.checks
+    .filter((check) => check.id !== "billing-reviewed")
+    .every((check) => check.complete);
   const accountLabel = [data.billing.account.bankName, data.billing.account.accountNumber, data.billing.account.accountHolder]
     .filter(Boolean)
     .join(" · ");
@@ -305,7 +318,7 @@ export function AdminMeetingSettlementPageClient({
                 <strong className="shrink-0 text-sm text-brand-primary">1인 {formatWon(data.meeting.overnightGroup.lodgingFee)}</strong>
               </section>
             ) : null}
-            <AdminBillingReadinessPanel data={data} onToggleReview={(reviewed) => void handleReviewToggle(reviewed)} working={workflowWorking === "confirm-review" || workflowWorking === "unconfirm-review"} />
+            <AdminBillingReadinessPanel data={data} />
             <section className="space-y-3">
               <div className="px-1">
                 <h2 className="text-base font-extrabold text-brand-text">회원별 청구 항목</h2>
@@ -327,8 +340,13 @@ export function AdminMeetingSettlementPageClient({
             <section className="brand-panel-strong rounded-2xl px-4 py-4">
               <h2 className="text-sm font-extrabold text-brand-text">회원에게 청구 내역 공개</h2>
               <p className="brand-text-muted mt-1 break-keep text-xs">공개 시 현재 금액과 입금 계좌를 스냅샷으로 고정하고 회원에게 알립니다.</p>
-              <button className="brand-button-primary mt-4 min-h-12 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50" disabled={!data.readiness.ready || Boolean(workflowWorking)} onClick={() => setWorkflowDialog("publish")} type="button">청구 내역 공개</button>
-              {!data.readiness.ready ? <p className="brand-text-subtle mt-2 text-center text-xs">준비 항목을 모두 완료해야 공개할 수 있습니다.</p> : null}
+              <button className="brand-button-primary mt-4 min-h-12 w-full rounded-xl px-4 text-sm font-extrabold disabled:opacity-50" disabled={!operationalReady || Boolean(workflowWorking)} onClick={() => setWorkflowDialog("publish")} type="button">금액 확인하고 청구 공개</button>
+              {!operationalReady ? <p className="brand-text-subtle mt-2 text-center text-xs">위 준비 항목을 모두 완료해야 공개할 수 있습니다.</p> : null}
+              {reviewComplete ? (
+                <button className="brand-link mx-auto mt-2 flex min-h-11 items-center text-xs font-bold disabled:opacity-50" disabled={Boolean(workflowWorking)} onClick={() => void handleReviewToggle(true)} type="button">
+                  금액 다시 수정하기 (검토 잠금 해제)
+                </button>
+              ) : null}
             </section>
           </>
         ) : (
@@ -341,10 +359,7 @@ export function AdminMeetingSettlementPageClient({
             <AdminPaymentStatusPanel data={data} onVerify={(recipient, verified) => void handlePaymentVerification(recipient, verified)} workingRecipient={workingRecipient} />
             <AdminFinalSettlementPanel
               data={data}
-              foodDraft={foodPayoutDraft}
-              onFoodDraft={setFoodPayoutDraft}
-              onRecordFood={() => void handlePayout("food", foodPayoutDraft)}
-              onRecordShop={() => void handlePayout("shop", shopPayoutDraft)}
+              onRecordShop={() => void handleShopPayout(shopPayoutDraft)}
               onRequestComplete={() => setWorkflowDialog("complete")}
               onShopDraft={setShopPayoutDraft}
               shopDraft={shopPayoutDraft}
@@ -363,7 +378,7 @@ export function AdminMeetingSettlementPageClient({
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button className="brand-button-secondary min-h-11 rounded-xl text-sm font-bold" onClick={() => setWorkflowDialog(null)} type="button">돌아가기</button>
-          <button className="brand-button-primary min-h-11 rounded-xl text-sm font-extrabold" disabled={workflowWorking === "publish"} onClick={() => void runWorkflowAction("publish", { action: "publish" }, "청구 내역을 회원에게 공개했습니다.").then((ok) => { if (ok) setWorkflowDialog(null); })} type="button">{workflowWorking === "publish" ? "공개 중" : "공개하기"}</button>
+          <button className="brand-button-primary min-h-11 rounded-xl text-sm font-extrabold" disabled={workflowWorking === "publish"} onClick={() => void handlePublish()} type="button">{workflowWorking === "publish" ? "공개 중" : "공개하기"}</button>
         </div>
       </Dialog>
 

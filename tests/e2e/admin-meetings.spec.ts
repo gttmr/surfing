@@ -5,7 +5,7 @@ import {
   verifyRealMeetingCreate,
   verifyRealParticipantRoundTrip,
 } from "./admin-meetings-scenarios";
-import { assertAccessible, assertControlClearsDock, assertDialogChunkFitsParagraph, assertMobileGeometry, capture, prepareAdminContext } from "./admin-meetings-support";
+import { assertAccessible, assertControlClearsDock, assertDialogChunkFitsParagraph, assertMobileGeometry, capture, openParticipant, prepareAdminContext } from "./admin-meetings-support";
 
 test.beforeEach(async ({ context }) => {
   await prepareAdminContext(context);
@@ -132,16 +132,10 @@ test("R10 workflow actions lead to the named settlement or on-page task", async 
 
   await page.goto("/admin/meetings/8102", { waitUntil: "networkidle" });
   await page.locator("summary").filter({ hasText: "공개 전 확인 항목" }).click();
-  const registrationCheck = page.getByText("참가 신청 마감", { exact: true }).locator("..");
-  const attendanceCheck = page.getByText("실제 참석 확인", { exact: true }).locator("..");
-  await expect(registrationCheck.getByRole("link", { name: "확인" })).toHaveAttribute(
-    "href",
-    "/admin/meetings/8102#meeting-operations"
-  );
-  await expect(attendanceCheck.getByRole("link", { name: "확인" })).toHaveAttribute(
-    "href",
-    "/admin/meetings/8102#participants"
-  );
+  // 참석 확인과 신청 마감은 청구 조건이 아니다(불참해도 참가비 청구, 청구 공개 시 자동 마감).
+  await expect(page.getByText("참가 신청 마감", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("실제 참석 확인", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("실제 이용 확인", { exact: true })).toBeVisible();
 });
 
 test("R10 participant cancellation requires a named consequence and restores trigger focus", async ({ page }, testInfo) => {
@@ -151,6 +145,7 @@ test("R10 participant cancellation requires a named consequence and restores tri
     if (request.method() === "PUT" && /\/api\/participants\/\d+$/.test(new URL(request.url()).pathname)) participantWrites += 1;
   });
   await page.goto("/admin/meetings/8101", { waitUntil: "networkidle" });
+  await openParticipant(page, "합성 회원 01");
   const cancelTrigger = page.getByRole("button", { name: "합성 회원 01 참가 취소" });
 
   // When cancellation is requested and then dismissed
@@ -183,6 +178,7 @@ test("R10 successful participant cancellation closes the dialog without losing f
     contentType: "application/json",
     body: JSON.stringify({ id: 8801, status: "CANCELLED" }),
   }));
+  await openParticipant(page, "합성 회원 01");
   const cancelTrigger = page.getByRole("button", { name: "합성 회원 01 참가 취소" });
   await cancelTrigger.click();
 

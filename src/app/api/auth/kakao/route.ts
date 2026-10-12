@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveKakaoRedirectUri } from "@/lib/kakao-oauth";
+import { isDevAuthEnabled } from "@/lib/dev-auth";
 
 export async function GET(req: NextRequest) {
+  if (isDevAuthEnabled()) {
+    const devLogin = new URL("/dev/login", req.nextUrl.origin);
+    devLogin.searchParams.set("returnTo", req.nextUrl.searchParams.get("returnTo") ?? "/");
+    return NextResponse.redirect(devLogin);
+  }
+
+
   const clientId = process.env.KAKAO_CLIENT_ID;
   const redirectUri = resolveKakaoRedirectUri(
     req.nextUrl.origin,

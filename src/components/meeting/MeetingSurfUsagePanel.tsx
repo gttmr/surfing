@@ -30,13 +30,13 @@ function buildDrafts(data: ParticipantMeetingSurfUsageData): DraftMap {
 function getStatusLabel(status: ParticipantRow["submissionStatus"]) {
   if (status === "confirmed") return "샵 확인";
   if (status === "submitted") return "제출됨";
-  return "입력 필요";
+  return "미제출";
 }
 
 function getStatusChipClass(status: ParticipantRow["submissionStatus"]) {
   if (status === "confirmed") return "brand-chip-success";
   if (status === "submitted") return "brand-chip-soft";
-  return "brand-chip-danger";
+  return "brand-chip-dimmed";
 }
 
 function getCollapsedSummary(participant: ParticipantRow): string {
@@ -162,12 +162,17 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
     );
   }
 
+  // 이용 기록은 운영진이 하므로, 제출 기간이 아니고 기록도 없으면 회원 화면에서 숨긴다.
+  if (!data.meeting.usageOpen && participants.every((participant) => participant.submissionStatus === "missing")) {
+    return null;
+  }
+
   return (
     <section className="brand-card-soft space-y-4 rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-extrabold text-brand-text">실제 이용 확인</h3>
-          <p className="brand-text-subtle mt-1 text-xs">신청한 예정과 다르게 이용했다면 실제 수량으로 고쳐 주세요. 최종 금액은 청구 공개 후 확정됩니다.</p>
+          <p className="brand-text-subtle mt-1 text-xs">운영진이 실제 이용을 기록합니다. 신청과 다르게 이용했다면 직접 고쳐도 됩니다. 최종 금액은 청구 공개 후 확정됩니다.</p>
         </div>
         <span
           className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${

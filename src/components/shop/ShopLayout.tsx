@@ -9,11 +9,11 @@ interface ShopLayoutProps {
   children: React.ReactNode;
 }
 
+// 샵 홈이 곧 주문판이다. 예전 /shop/orders 주소도 주문 탭으로 본다.
 const NAV_ITEMS = [
-  { href: "/shop", label: "홈", icon: "dashboard", exact: true },
-  { href: "/shop/orders", label: "주문", icon: "receipt_long", exact: false },
-  { href: "/shop/usage", label: "이용 확인", icon: "checklist", exact: false },
-  { href: "/shop/menus", label: "메뉴 관리", icon: "restaurant_menu", exact: false },
+  { href: "/shop", label: "주문", icon: "receipt_long", matches: ["/shop", "/shop/orders"] },
+  { href: "/shop/usage", label: "이용 확인", icon: "checklist", matches: ["/shop/usage"] },
+  { href: "/shop/menus", label: "메뉴 관리", icon: "restaurant_menu", matches: ["/shop/menus"] },
 ];
 
 export function ShopLayout({ children }: ShopLayoutProps) {
@@ -26,8 +26,7 @@ export function ShopLayout({ children }: ShopLayoutProps) {
   }
 
   function isActive(item: (typeof NAV_ITEMS)[0]) {
-    if (item.exact) return pathname === item.href;
-    return pathname.startsWith(item.href);
+    return item.matches.includes(pathname);
   }
 
   return (

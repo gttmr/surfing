@@ -1,6 +1,10 @@
 import { AdminMeetingsPageClient } from "@/components/admin/AdminMeetingsPageClient";
 import { getAdminMeetings } from "@/lib/admin-page-data";
 import { requireAdminPage } from "@/lib/require-admin-page";
+import { prisma } from "@/lib/db";
+import { getPricingConfig } from "@/lib/pricing";
+import { OVERNIGHT_DAY2_FEE_DEFAULT, OVERNIGHT_MEETING_GROUP_KIND } from "@/lib/meeting-group";
+import { PRICING_SETTING_KEYS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +14,21 @@ export default async function AdminMeetingsPage({
   searchParams?: Promise<{ create?: string; date?: string; type?: string }>;
 }) {
   await requireAdminPage();
-  const initialMeetings = await getAdminMeetings();
+  const [initialMeetings, pricing, lastOvernightGroup] = await Promise.all([
+    getAdminMeetings(),
+    getPricingConfig(),
+    prisma.meetingGroup.findFirst({
+      where: { kind: OVERNIGHT_MEETING_GROUP_KIND },
+      orderBy: { createdAt: "desc" },
+      select: { lodgingFee: true },
+    }),
+  ]);
+  const overnightFeeDefaults = {
+    regularDayFee: pricing[PRICING_SETTING_KEYS.regularBaseFee],
+    companionDayFee: pricing[PRICING_SETTING_KEYS.companionBaseFee],
+    day2Fee: OVERNIGHT_DAY2_FEE_DEFAULT,
+    lodgingFee: lastOvernightGroup?.lodgingFee ?? 0,
+  };
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialCreateDate = resolvedSearchParams?.date ?? "";
   const initialCreateType = resolvedSearchParams?.type === "비정기" ? "비정기" : "정기";
@@ -22,6 +40,7 @@ export default async function AdminMeetingsPage({
       initialCreateType={initialCreateType}
       initialMeetings={initialMeetings}
       initialShowCreate={initialShowCreate}
+      overnightFeeDefaults={overnightFeeDefaults}
     />
   );
 }

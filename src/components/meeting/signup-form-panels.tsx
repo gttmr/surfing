@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type {
@@ -129,7 +130,7 @@ function OvernightChoices({
     {
       key: "day2-rental",
       checked: day2HasRental,
-      label: `${day2Label} 장비 대여`,
+      label: `${day2Label} 장비 대여 필요`,
       description: day2Description,
       onChange: onDay2Rental,
     },
@@ -894,29 +895,29 @@ export function RegularSignupPanel({
         <div className="brand-alert-error rounded-xl p-4 text-sm">{serverError}</div>
       ) : null}
 
-      <div>
-        <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="signup-name">
-          이름 <span className="brand-form-error">*</span>
-          {profileName ? (
-            <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 변경 가능)</span>
-          ) : (
+      {profileName ? (
+        <p className="text-sm text-brand-text">
+          <span className="font-extrabold">{profileName}</span>님으로 신청합니다
+          <Link className="brand-link ml-2 text-xs font-semibold" href="/profile">이름 변경</Link>
+        </p>
+      ) : (
+        <div>
+          <label className="mb-1.5 block text-sm font-semibold text-brand-text" htmlFor="signup-name">
+            이름 <span className="brand-form-error">*</span>
             <span className="brand-text-subtle ml-1 text-xs font-normal">(프로필에서 이름을 설정해 주세요)</span>
-          )}
-        </label>
-        <input
-          id="signup-name"
-          type="text"
-          value={name}
-          readOnly={!!profileName}
-          onChange={profileName ? undefined : (e) => onNameChange(e.target.value)}
-          placeholder="홍길동"
-          disabled={submitting}
-          className={`w-full rounded-lg px-4 py-2.5 text-sm outline-none ${
-            nameError ? "brand-input-error" : profileName ? "brand-input-dimmed" : "brand-input"
-          } disabled:bg-brand-surface disabled:text-brand-text-subtle`}
-        />
-        {nameError ? <p className="brand-form-error">{nameError}</p> : null}
-      </div>
+          </label>
+          <input
+            id="signup-name"
+            type="text"
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="홍길동"
+            disabled={submitting}
+            className={`w-full rounded-lg px-4 py-2.5 text-sm outline-none ${nameError ? "brand-input-error" : "brand-input"} disabled:bg-brand-surface disabled:text-brand-text-subtle`}
+          />
+          {nameError ? <p className="brand-form-error">{nameError}</p> : null}
+        </div>
+      )}
 
       {!isIrregularMeeting ? (
         <div className="brand-panel-white rounded-xl p-3">

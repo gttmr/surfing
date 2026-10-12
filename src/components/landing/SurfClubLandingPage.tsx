@@ -9,6 +9,7 @@ import {
 import type {
   DetailedMeeting,
   HomeUser,
+  MyMeetingParticipation,
   NoticeItem,
   SettlementAccount,
   SettlementSummary,
@@ -23,6 +24,8 @@ import {
   LandingHeader,
   MeetingTabs,
   PendingBillingAlert,
+  UpcomingMeetings,
+  getUpcomingMeetings,
 } from "./landing-page-sections";
 import { useLandingState } from "./useLandingState";
 import { formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
@@ -30,6 +33,7 @@ import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
 import { MemberDock } from "@/components/ui/MobileShell";
 import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { getTodayInSeoul } from "@/lib/date";
 
 const MEETING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
   month: "long",
@@ -55,6 +59,7 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide,
   initialMeetingDetailsById,
   initialSignupDataByMeetingId,
+  myParticipationByMeetingId = {},
   initialPendingSettlements,
   initialSettlementAccount,
   initialUserNotifications,
@@ -68,6 +73,7 @@ export default function SurfClubLandingPage({
   participantOptionPricingGuide: string;
   initialMeetingDetailsById: Record<number, DetailedMeeting>;
   initialSignupDataByMeetingId: Record<number, SignupInitialData>;
+  myParticipationByMeetingId?: Record<number, MyMeetingParticipation>;
   initialPendingSettlements: SettlementSummary[];
   initialSettlementAccount: SettlementAccount | null;
   initialUserNotifications: UserNotificationItem[];
@@ -75,6 +81,8 @@ export default function SurfClubLandingPage({
   initialSelectedDate?: string | null;
 }) {
   const [userNotifications, setUserNotifications] = useState(initialUserNotifications);
+  // 지난 모임 날짜로 들어온 경우(청구 알림 링크 등)에는 달력을 펼쳐 둔다.
+  const [calendarOpen, setCalendarOpen] = useState(() => Boolean(initialSelectedDate && initialSelectedDate < getTodayInSeoul()));
   const {
     today,
     year,
@@ -205,6 +213,12 @@ export default function SurfClubLandingPage({
           .join("\n\n");
       })()
     : selectedMeeting?.description || "운영진이 등록한 추가 안내가 없습니다.";
+  // 다가오는 모임 카드에서 고른 모임은 카드에 날짜·장소가 이미 보이므로 요약 헤더를 생략한다.
+  const selectedLastDate = selectedMeeting?.overnightGroup?.days.at(-1)?.date ?? selectedMeeting?.date;
+  const selectedMeetingEnded = Boolean(selectedLastDate && selectedLastDate < today);
+  const selectedIsUpcomingCard = Boolean(
+    selectedMeeting && getUpcomingMeetings(sortedMeetings, today).some((meeting) => meeting.id === selectedMeeting.id)
+  );
   const selectedSignup = selectedMeeting ? initialSignupDataByMeetingId[selectedMeeting.id] : null;
   const selectedParticipation = selectedSignup?.myParticipant;
   const loginReturnTo = selectedDate ? `/?date=${selectedDate}` : "/";
@@ -328,7 +342,18 @@ export default function SurfClubLandingPage({
       <main className={`mx-auto flex w-full max-w-[430px] flex-col gap-6 px-4 pt-24 ${user ? "pb-28" : "pb-12"}`}>
         <PendingBillingAlert settlements={actionableSettlements} />
 
-        {selectedDate && selectedMeeting && !dbUnavailable ? (
+        {!dbUnavailable ? (
+          <UpcomingMeetings
+            meetings={sortedMeetings}
+            myParticipationByMeetingId={myParticipationByMeetingId}
+            onSelect={selectCalendarDate}
+            selectedDate={selectedDate}
+            showStatus={Boolean(user)}
+            today={today}
+          />
+        ) : null}
+
+        {selectedDate && selectedMeeting && !dbUnavailable && !selectedIsUpcomingCard ? (
           <section aria-labelledby="selected-meeting-title" className="border-b border-brand-divider pb-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -355,6 +380,8 @@ export default function SurfClubLandingPage({
               <p className="mt-1 text-sm font-extrabold text-brand-text">
                 {!user
                   ? "로그인하고 참가 여부 확인"
+                  : selectedMeetingEnded
+                    ? selectedParticipation ? "지난 모임 · 참가 내역은 청구 탭에서 확인" : "지난 모임"
                   : !selectedParticipation
                     ? "참가 신청하기"
                     : selectedParticipation.status === "WAITLISTED"
@@ -365,16 +392,6 @@ export default function SurfClubLandingPage({
           </section>
         ) : null}
 
-        <CalendarSection
-          year={year}
-          monthLabel={MONTH_NAMES_KO[month]}
-          calendarCells={calendarCells}
-          selectedDate={selectedDate}
-          today={today}
-          meetingsByDate={meetingsByDate}
-          onMoveMonth={moveMonth}
-          onSelectDate={selectCalendarDate}
-        />
 
         {selectedDate && user && hasSelectedMeetings && !dbUnavailable ? (
           <MeetingTabs
@@ -443,6 +460,31 @@ export default function SurfClubLandingPage({
               </button>
             </div>
           </section>
+        ) : null}
+
+        {!dbUnavailable ? (
+          <details
+            className="brand-card-soft rounded-3xl px-4 py-3"
+            onToggle={(event) => setCalendarOpen(event.currentTarget.open)}
+            open={calendarOpen}
+          >
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-extrabold text-brand-text">
+              전체 일정 · 지난 모임
+              <Icon className="brand-text-subtle text-[20px]" name={calendarOpen ? "expand_less" : "expand_more"} />
+            </summary>
+            <div className="pt-3">
+            <CalendarSection
+              year={year}
+              monthLabel={MONTH_NAMES_KO[month]}
+              calendarCells={calendarCells}
+              selectedDate={selectedDate}
+              today={today}
+              meetingsByDate={meetingsByDate}
+              onMoveMonth={moveMonth}
+              onSelectDate={selectCalendarDate}
+            />
+            </div>
+          </details>
         ) : null}
 
         {selectedDate && !hasSelectedMeetings && !dbUnavailable ? (

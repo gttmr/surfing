@@ -356,6 +356,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!participant) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if (action === "lodging-on" || action === "lodging-off") {
+    const groupMeetings = participant.meeting.meetingGroup?.meetings ?? [];
+    if (groupMeetings.length === 0) {
+      return NextResponse.json({ error: "1박 모임에서만 숙박을 바꿀 수 있습니다." }, { status: 400 });
+    }
+    if (groupMeetings.some((meeting) => meeting.settlementOpen)) {
+      return NextResponse.json({ error: "청구가 공개된 모임의 숙박은 정정 절차 후 변경할 수 있습니다." }, { status: 409 });
+    }
+    // 숙박은 일정 전체에 한 번 청구되므로 양일 신청을 함께 바꾼다.
+    await prisma.participant.updateMany({
+      where: {
+        meetingId: { in: groupMeetings.map((meeting) => meeting.id) },
+        kakaoId: participant.kakaoId,
+        companionId: participant.companionId,
+      },
+      data: { usesClubLodging: action === "lodging-on" },
+    });
+    return NextResponse.json(await prisma.participant.findUnique({ where: { id: participant.id } }));
+  }
+
   const attendanceByAction = {
     attended: "ATTENDED",
     absent: "ABSENT",

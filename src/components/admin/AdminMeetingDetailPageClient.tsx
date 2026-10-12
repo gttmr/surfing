@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminOvernightFeesSection } from "@/components/admin/AdminOvernightFeesSection";
 import { AdminMeetingParticipants, type ParticipantAction, type ParticipantTab } from "@/components/admin/AdminMeetingParticipants";
 import { isAdminMeetingDetail, meetingResponseError } from "@/components/admin/admin-meeting-response";
 import { Dialog } from "@/components/ui/Dialog";
@@ -32,31 +33,30 @@ function displayDate(dateValue: string): string {
 const PARTICIPANT_ACTION_COPY: Record<ParticipantAction, { readonly title: string; readonly button: string; readonly toast: string }> = {
   approve: { title: "참가를 확정할까요?", button: "참가 확정", toast: "참가를 확정 상태로 변경했습니다" },
   cancel: { title: "참가를 취소할까요?", button: "참가 취소", toast: "참가를 취소 상태로 변경했습니다" },
-  attended: { title: "실제 참석으로 기록할까요?", button: "참석 기록", toast: "실제 참석으로 기록했습니다" },
-  absent: { title: "불참으로 기록할까요?", button: "불참 기록", toast: "불참으로 기록했습니다" },
-  "attendance-pending": { title: "참석 상태를 미확인으로 돌릴까요?", button: "미확인으로 변경", toast: "참석 상태를 미확인으로 변경했습니다" },
+  attended: { title: "참석으로 되돌릴까요?", button: "참석으로 되돌리기", toast: "참석으로 되돌렸습니다" },
+  absent: { title: "불참으로 처리할까요?", button: "불참 처리", toast: "불참으로 처리했습니다" },
+  "lodging-on": { title: "숙박비를 청구할까요?", button: "숙박 포함", toast: "숙박 대상에 추가했습니다" },
+  "lodging-off": { title: "숙박비를 빼 줄까요?", button: "숙박 제외", toast: "숙박 대상에서 뺐습니다" },
 };
 
 const PARTICIPANT_ACTION_DESCRIPTION: Record<ParticipantAction, { readonly action: string; readonly consequence: string }> = {
   approve: { action: "참가를 확정합니다", consequence: "다른 참가자의 상태는 바뀌지 않습니다." },
   cancel: { action: "참가를 취소합니다", consequence: "패널티와 다른 참가자 상태는 바뀌지 않습니다." },
-  attended: { action: "실제 참석으로 기록합니다", consequence: "청구 금액은 이 단계에서 바뀌지 않습니다." },
-  absent: { action: "불참으로 기록합니다", consequence: "실제 이용과 청구 공개 전에 다시 확인할 수 있습니다." },
-  "attendance-pending": { action: "참석 상태를 미확인으로 돌립니다", consequence: "다시 확인하기 전에는 청구를 공개할 수 없습니다." },
+  attended: { action: "참석으로 되돌립니다", consequence: "실제 이용 확인 대상에 다시 포함됩니다." },
+  absent: { action: "불참으로 처리합니다", consequence: "참가비는 그대로 청구되고, 실제 이용 확인 대상에서만 빠집니다." },
+  "lodging-on": { action: "숙박 대상에 추가합니다", consequence: "1인 숙박비가 일정 전체에 한 번 청구됩니다." },
+  "lodging-off": { action: "숙박 대상에서 뺍니다", consequence: "숙박비가 청구되지 않습니다." },
 };
 
 function nextActionLabel(operations: AdminSettlementData): string {
-  if (operations.workflowStage === "RECRUITING") return "참가 신청 현황 확인";
-  if (operations.workflowStage === "UPCOMING") return "모임 준비 확인";
   const nextIncomplete = operations.readiness.checks.find((check) => !check.complete);
   if (operations.workflowStage === "PAYMENT_CONFIRMATION") return "회원 입금 확인하기";
-  if (operations.workflowStage === "FINAL_SETTLEMENT") return "샵·식음료 지급 마감하기";
+  if (operations.workflowStage === "FINAL_SETTLEMENT") return "샵 지급 기록하고 마감";
   if (operations.workflowStage === "COMPLETED") return "완료 보고서 확인하기";
   return nextIncomplete?.label ?? "청구 내역 검토하기";
 }
 
 function nextActionHref(operations: AdminSettlementData, meetingId: number): string {
-  if (operations.workflowStage === "RECRUITING" || operations.workflowStage === "UPCOMING") return "#participants";
   if (
     operations.workflowStage === "PAYMENT_CONFIRMATION"
     || operations.workflowStage === "FINAL_SETTLEMENT"
@@ -207,7 +207,10 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
       ? `${initialOperations.verifiedRecipientCount}/${initialOperations.recipients.length} 입금`
       : `${completedReadinessCount}/${initialOperations.readiness.checks.length} 확인`;
   const billingHref = `/admin/meetings/${meetingId}/settlement`;
+  const meetingEnded = initialOperations.workflowStage !== "RECRUITING" && initialOperations.workflowStage !== "UPCOMING";
   const nextHref = nextActionHref(initialOperations, meetingId);
+  const meetingEndDate = meeting.overnightGroup?.days.at(-1)?.date ?? meeting.date;
+  const waitlistedCount = meeting.participants.filter((participant) => participant.status === "WAITLISTED").length;
   const usageLinkLabel = initialOperations.workflowStage === "RECRUITING" || initialOperations.workflowStage === "UPCOMING"
     ? "이용 예정 현황"
     : "실제 이용 확인";
@@ -265,53 +268,100 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
           </div>
         ) : null}
 
-        <section className="brand-panel overflow-hidden rounded-2xl">
-          <div className="bg-brand-primary-soft px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
-                <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+        {meetingEnded ? (
+          <section className="brand-panel overflow-hidden rounded-2xl">
+            <div className="bg-brand-primary-soft px-4 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
+                  <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+                </div>
+                <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">{workflowProgressLabel}</span>
               </div>
-              <span className="brand-chip-soft rounded-full px-3 py-1 text-xs font-bold">{workflowProgressLabel}</span>
+              <Link className="mt-4 flex min-h-11 items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary" href={nextHref}>
+                <span><span className="brand-text-subtle mr-2 text-xs">다음 할 일</span>{nextActionLabel(initialOperations)}</span>
+                <Icon name="arrow_forward" />
+              </Link>
             </div>
-            <Link className="mt-4 flex min-h-11 items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary" href={nextHref}>
-              <span><span className="brand-text-subtle mr-2 text-xs">다음 할 일</span>{nextActionLabel(initialOperations)}</span>
-              <Icon name="arrow_forward" />
-            </Link>
-          </div>
-          {!initialOperations.meeting.settlementOpen ? (
-            <details>
-              <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
-                공개 전 확인 항목
-                <Icon className="brand-text-subtle" name="expand_more" />
-              </summary>
-              <div className="space-y-1 border-t border-brand-divider px-4 py-3">
-                {initialOperations.readiness.checks.map((check) => (
-                  <div className="flex min-h-11 items-center gap-3" key={check.id}>
-                    <Icon className={check.complete ? "text-brand-success" : "text-brand-text-subtle"} name={check.complete ? "check_circle" : "radio_button_unchecked"} />
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-brand-text">{check.label}</span>
-                    {!check.complete && check.href ? <Link className="flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-brand-primary" href={check.href}>확인</Link> : null}
-                  </div>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </section>
+            {!initialOperations.meeting.settlementOpen ? (
+              <details>
+                <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
+                  공개 전 확인 항목
+                  <Icon className="brand-text-subtle" name="expand_more" />
+                </summary>
+                <div className="space-y-1 border-t border-brand-divider px-4 py-3">
+                  {initialOperations.readiness.checks.map((check) => (
+                    <div className="flex min-h-11 items-center gap-3" key={check.id}>
+                      <Icon className={check.complete ? "text-brand-success" : "text-brand-text-subtle"} name={check.complete ? "check_circle" : "radio_button_unchecked"} />
+                      <span className="min-w-0 flex-1 text-sm font-semibold text-brand-text">{check.label}</span>
+                      {!check.complete && check.href ? <Link className="flex min-h-11 min-w-11 items-center justify-center text-xs font-bold text-brand-primary" href={check.href}>확인</Link> : null}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </section>
+        ) : (
+          <section className="brand-panel overflow-hidden rounded-2xl">
+            <div className="bg-brand-primary-soft px-4 py-4">
+              <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
+              <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
+              <p className="brand-text-muted mt-1 break-keep text-xs leading-5">
+                지금은 신청만 관리하면 됩니다. {displayDate(meetingEndDate)} 모임이 끝나면 이용 확인과 청구가 열립니다.
+              </p>
+              {waitlistedCount > 0 ? (
+                <button
+                  className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary"
+                  onClick={() => {
+                    setActiveTab("waitlisted");
+                    document.getElementById("participants")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  type="button"
+                >
+                  대기자 {waitlistedCount}명 확인하기
+                  <Icon name="arrow_forward" />
+                </button>
+              ) : null}
+              <button
+                className={`${meeting.isOpen ? "brand-button-primary" : "brand-button-secondary"} mt-3 min-h-11 w-full rounded-xl px-3 text-sm font-bold`}
+                disabled={working}
+                onClick={handleToggleOpen}
+                type="button"
+              >
+                {meeting.isOpen ? "신청 마감하기" : "신청 다시 열기"}
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="brand-admin-section scroll-mt-4 overflow-hidden" id="meeting-operations">
           <div className="brand-admin-section-header px-4 py-3"><h2 className="text-sm font-extrabold">모임 운영</h2></div>
           <div className="grid grid-cols-2 gap-2 px-4 py-4">
             <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/admin/meetings/${activeMeetingId}/orders`}>{activeDay ? `${activeDay.dayIndex}일차 식음료` : "식음료 주문"}</Link>
             <Link className="brand-button-secondary flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={`/shop/usage?meetingId=${activeMeetingId}`}>{activeDay ? `${activeDay.dayIndex}일차 ${usageLinkLabel}` : usageLinkLabel}</Link>
-            <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
-            <button className="brand-button-secondary rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={handleToggleOpen} type="button">{meeting.isOpen ? "신청 마감하기" : "신청 열기"}</button>
-            <button className="brand-button-danger rounded-xl px-3 py-2.5 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">모임 삭제</button>
+            {meetingEnded ? (
+              <Link className="brand-button-primary col-span-2 flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-xs font-bold" href={billingHref}>{initialOperations.meeting.settlementOpen ? "입금 현황 보기" : "청구 검토하기"}</Link>
+            ) : null}
           </div>
         </section>
 
+        {meeting.overnightGroup ? (
+          <AdminOvernightFeesSection
+            groupId={meeting.overnightGroup.id}
+            initialFees={meeting.overnightGroup}
+            locked={initialOperations.meeting.settlementOpen || Boolean(initialOperations.readiness.checks.find((check) => check.id === "billing-reviewed")?.complete)}
+            onSaved={(message, type) => addToast(message, type)}
+          />
+        ) : null}
+
         <div className="scroll-mt-4" id="participants">
-          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
+          <AdminMeetingParticipants activeTab={activeTab} attendanceLocked={initialOperations.meeting.settlementOpen} overnight={overnightDays.length === 2} onChangeTab={setActiveTab} onRequestAction={requestParticipantAction} participants={meeting.participants} />
         </div>
+
+        <button className="brand-inline-danger mx-auto flex min-h-11 items-center gap-1 rounded-xl px-4 text-xs font-bold" disabled={working} onClick={() => { setDialogError(""); setConfirmation({ kind: "delete" }); }} type="button">
+          <Icon className="text-[16px]" name="delete" />
+          모임 삭제
+        </button>
       </div>
 
       <Dialog className="[&_p]:break-keep" description={dialogDescription} onClose={() => { if (!working) setConfirmation(null); }} open={confirmation !== null} title={dialogTitle}>

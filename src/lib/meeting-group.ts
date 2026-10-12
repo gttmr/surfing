@@ -3,6 +3,16 @@ import { validateMeetingCreate, type MeetingCreateErrors, type MeetingCreateFiel
 
 export const OVERNIGHT_MEETING_GROUP_KIND = "OVERNIGHT" as const;
 
+/** 1박 참가비 기본값 = 당일 참가비 + 둘째 날 참가비. 모임 생성 시 미리 채우고 운영진이 고칠 수 있다. */
+export const OVERNIGHT_DAY2_FEE_DEFAULT = 25_000;
+
+export type OvernightFeeDefaults = {
+  readonly regularDayFee: number;
+  readonly companionDayFee: number;
+  readonly day2Fee: number;
+  readonly lodgingFee: number;
+};
+
 export type MeetingGroupDaySummary = {
   id: number;
   dayIndex: number;
@@ -263,10 +273,10 @@ export function validateOvernightMeetingCreate(
     errors.meetingType = "올바른 모임 유형을 선택해 주세요.";
   }
   if (!isNonNegativeInteger(input.regularBaseFee)) {
-    errors.regularBaseFee = "회원 기본 참가비는 0원 이상의 정수로 입력해 주세요.";
+    errors.regularBaseFee = "정회원 1박 참가비는 0원 이상의 정수로 입력해 주세요.";
   }
   if (!isNonNegativeInteger(input.companionBaseFee)) {
-    errors.companionBaseFee = "동반인 기본 참가비는 0원 이상의 정수로 입력해 주세요.";
+    errors.companionBaseFee = "동반인 1박 참가비는 0원 이상의 정수로 입력해 주세요.";
   }
   if (!isNonNegativeInteger(input.lodgingFee)) {
     errors.lodgingFee = "1인 숙박비는 0원 이상의 정수로 입력해 주세요.";
