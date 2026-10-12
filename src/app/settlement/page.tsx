@@ -7,7 +7,7 @@ import { PaymentReportControl } from "@/components/settlement/SettlementCompleti
 import { getSettlementChargeLines } from "@/lib/settlement-presentation";
 import { BillingAccountActions } from "@/components/settlement/BillingAccountActions";
 import { MemberDock, MobileAppHeader } from "@/components/ui/MobileShell";
-import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { isOvernightMeeting, lastMeetingDate } from "@/lib/meeting-days";
 
 export const dynamic = "force-dynamic";
 
@@ -115,12 +115,12 @@ type SettlementItem = Awaited<ReturnType<typeof getSettlementGroupsForKakaoId>>[
 
 function MeetingHeading({ item, compact = false }: { readonly item: SettlementItem; readonly compact?: boolean }) {
   const { meeting } = item;
-  const span = meeting.overnightGroup ? getOvernightMeetingSpan(meeting.overnightGroup) : null;
+  const overnight = isOvernightMeeting(meeting);
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="brand-text-subtle text-xs font-bold">{span ? `${span.startDate}–${span.endDate}` : meeting.date}</p>
-        {meeting.overnightGroup ? <span className="brand-chip-accent rounded-full px-2 py-0.5 text-[10px] font-bold">1박 2일</span> : null}
+        <p className="brand-text-subtle text-xs font-bold">{overnight ? `${meeting.date}–${lastMeetingDate(meeting)}` : meeting.date}</p>
+        {overnight ? <span className="brand-chip-accent rounded-full px-2 py-0.5 text-[10px] font-bold">1박 2일</span> : null}
       </div>
       <p className={`${compact ? "text-sm" : "text-base"} mt-0.5 truncate font-extrabold text-brand-text`}>{meeting.location}</p>
     </div>

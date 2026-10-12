@@ -16,6 +16,7 @@ import {
   GuestSignupPanel,
   RegularSignupPanel,
 } from "@/components/meeting/signup-form-panels";
+import { isOvernightMeeting, meetingDays } from "@/lib/meeting-days";
 import { useSignupFormState } from "@/components/meeting/useSignupFormState";
 
 interface SignupFormProps {
@@ -125,12 +126,13 @@ export function SignupForm({
     initialData,
     onMeetingChange,
   });
-  const overnightDay2 = meeting.overnightGroup?.days[1];
-  const overnightLodgingFee = meeting.overnightGroup?.lodgingFee ?? 0;
-  const overnightDay2Label = overnightDay2
+  const isOvernight = isOvernightMeeting(meeting);
+  const overnightDay2Date = isOvernight ? meetingDays(meeting)[1]?.date : undefined;
+  const overnightLodgingFee = meeting.lodgingFee;
+  const overnightDay2Label = overnightDay2Date
     ? (() => {
-        const date = new Date(`${overnightDay2.date}T00:00:00`);
-        const [, month, day] = overnightDay2.date.split("-");
+        const date = new Date(`${overnightDay2Date}T00:00:00`);
+        const [, month, day] = overnightDay2Date.split("-");
         return `${Number(month)}월 ${Number(day)}일(${DAY_KO[date.getDay()]})`;
       })()
     : "2일차";
@@ -170,10 +172,9 @@ export function SignupForm({
       <CompanionSignupPanel
         meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
-        isOvernight={Boolean(meeting.overnightGroup)}
+        isOvernight={isOvernight}
         overnightDay2Label={overnightDay2Label}
         overnightLodgingFee={overnightLodgingFee}
-        overnightDays={meeting.overnightGroup?.days}
         linkedStatus={linkedStatus}
         serverError={serverError}
         participantOptionPricingGuide={participantOptionPricingGuide}
@@ -222,10 +223,9 @@ export function SignupForm({
       <ExistingSignupPanel
         meetingId={meeting.id}
         isIrregularMeeting={isIrregularMeeting}
-        isOvernight={Boolean(meeting.overnightGroup)}
+        isOvernight={isOvernight}
         overnightDay2Label={overnightDay2Label}
         overnightLodgingFee={overnightLodgingFee}
-        overnightDays={meeting.overnightGroup?.days}
         meetingDisplay={meetingDisplay}
         participantOptionPricingGuide={participantOptionPricingGuide}
         pricingPreview={pricingPreview}
@@ -296,7 +296,7 @@ export function SignupForm({
   return (
     <RegularSignupPanel
       isIrregularMeeting={isIrregularMeeting}
-      isOvernight={Boolean(meeting.overnightGroup)}
+      isOvernight={isOvernight}
       overnightDay2Label={overnightDay2Label}
       overnightLodgingFee={overnightLodgingFee}
       duplicate={duplicate}

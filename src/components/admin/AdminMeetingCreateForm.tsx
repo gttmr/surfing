@@ -5,20 +5,20 @@ import { meetingResponseError } from "@/components/admin/admin-meeting-response"
 import { Icon } from "@/components/ui/Icon";
 import type { AdminMeetingListItem } from "@/lib/admin-page-data";
 import { getTodayInSeoul } from "@/lib/date";
+import { addDaysToDate, type MeetingFeeDefaults } from "@/lib/meeting-days";
 import {
-  addDaysToDate,
+  validateMeetingCreate,
   validateOvernightMeetingSpan,
-  type OvernightMeetingGroupSummary,
-  type OvernightFeeDefaults,
-} from "@/lib/meeting-group";
-import { validateMeetingCreate, type MeetingCreateErrors, type MeetingCreateField } from "@/lib/meeting-create-form";
+  type MeetingCreateErrors,
+  type MeetingCreateField,
+} from "@/lib/meeting-create-form";
 
 type CreateFormProps = {
   readonly initialDate: string;
   readonly initialType: string;
   readonly onCancel: () => void;
   readonly onCreated: (meeting: AdminMeetingListItem) => void;
-  readonly overnightFeeDefaults?: OvernightFeeDefaults;
+  readonly overnightFeeDefaults?: MeetingFeeDefaults;
 };
 
 type MeetingMode = "SINGLE" | "OVERNIGHT";
@@ -32,11 +32,7 @@ type CreatedMeeting = {
   meetingType: string;
   isOpen: boolean;
   createdByKakaoId: string | null;
-};
-
-type CreatedOvernightGroup = {
-  group: OvernightMeetingGroupSummary;
-  meetings: CreatedMeeting[];
+  endDate: string | null;
 };
 
 function isCreatedMeeting(value: unknown): value is CreatedMeeting {
@@ -49,30 +45,17 @@ function isCreatedMeeting(value: unknown): value is CreatedMeeting {
     && "meetingType" in value && typeof value.meetingType === "string"
     && "isOpen" in value && typeof value.isOpen === "boolean"
     && "createdByKakaoId" in value
-    && (typeof value.createdByKakaoId === "string" || value.createdByKakaoId === null);
-}
-
-function isCreatedOvernightGroup(value: unknown): value is CreatedOvernightGroup {
-  if (typeof value !== "object" || value === null || !("group" in value) || !("meetings" in value)) return false;
-  if (!Array.isArray(value.meetings) || value.meetings.length !== 2 || !value.meetings.every(isCreatedMeeting)) return false;
-  const group = value.group;
-  return typeof group === "object" && group !== null
-    && "id" in group && typeof group.id === "number"
-    && "kind" in group && group.kind === "OVERNIGHT"
-    && "regularBaseFee" in group && typeof group.regularBaseFee === "number"
-    && "companionBaseFee" in group && typeof group.companionBaseFee === "number"
-    && "lodgingFee" in group && typeof group.lodgingFee === "number"
-    && "days" in group && Array.isArray(group.days) && group.days.length === 2;
+    && (typeof value.createdByKakaoId === "string" || value.createdByKakaoId === null)
+    && "endDate" in value && (typeof value.endDate === "string" || value.endDate === null);
 }
 
 function won(value: string): number {
   return /^\d+$/.test(value) ? Number(value) : Number.NaN;
 }
 
-function createdListItem(meeting: CreatedMeeting, overnightGroup: OvernightMeetingGroupSummary | null): AdminMeetingListItem {
+function createdListItem(meeting: CreatedMeeting): AdminMeetingListItem {
   return {
     ...meeting,
-    overnightGroup,
     approvedCount: 0,
     workflowStage: "RECRUITING",
     workflowLabel: "모집 중",
@@ -151,26 +134,22 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
     setCreating(true);
     setSubmitError("");
     try {
-      const response = await fetch(mode === "OVERNIGHT" ? "/api/admin/meeting-groups" : "/api/meetings", {
+      const response = await fetch("/api/meetings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "OVERNIGHT" ? {
-          meetingType,
-          regularBaseFee: won(regularBaseFee),
-          companionBaseFee: won(companionBaseFee),
-          lodgingFee: won(lodgingFee),
-          startDate: date,
-          startTime,
-          endTime,
-          location: location.trim(),
-          description: description.trim() || null,
-        } : {
+        body: JSON.stringify({
           date,
           startTime,
           endTime,
           location: location.trim(),
           meetingType,
           description: description.trim() || null,
+          ...(mode === "OVERNIGHT" ? {
+            overnight: true,
+            regularFee: won(regularBaseFee),
+            companionFee: won(companionBaseFee),
+            lodgingFee: won(lodgingFee),
+          } : {}),
         }),
       });
       if (!response.ok) {
@@ -178,13 +157,8 @@ export function AdminMeetingCreateForm({ initialDate, initialType, onCancel, onC
         return;
       }
       const value: unknown = await response.json();
-      if (mode === "OVERNIGHT" && isCreatedOvernightGroup(value)) {
-        const firstMeeting = [...value.meetings].sort((left, right) => left.date.localeCompare(right.date))[0];
-        onCreated(createdListItem(firstMeeting, value.group));
-        return;
-      }
-      if (mode === "SINGLE" && isCreatedMeeting(value)) {
-        onCreated(createdListItem(value, null));
+      if (isCreatedMeeting(value)) {
+        onCreated(createdListItem(value));
         return;
       }
       setSubmitError("생성된 모임 정보를 읽지 못했습니다. 목록에서 다시 확인해 주세요.");

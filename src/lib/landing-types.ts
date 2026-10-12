@@ -35,7 +35,7 @@ export type SettlementSummary = {
     startTime: string;
     endTime: string;
     location: string;
-    settlementOpen: boolean;
+    billingPublished: boolean;
   };
   group: {
     totalFee: number;
@@ -82,9 +82,11 @@ export type MeetingParticipantItem = {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  /** 1박: 둘째 날 장비 대여 */
+  hasDay2Rental: boolean;
   usesClubLodging: boolean;
   status: string;
-  attendanceStatus: string;
+  absent: boolean;
   kakaoId: string;
   companionId: number | null;
   waitlistPosition?: number | null;
@@ -102,7 +104,6 @@ export type CompanionItem = {
 
 export type SignedUpCompanionData = {
   participantId: number;
-  day2ParticipantId?: number;
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
@@ -112,7 +113,6 @@ export type SignedUpCompanionData = {
 
 export type MyParticipantData = {
   id: number;
-  day2ParticipantId?: number;
   status: string;
   waitlistPosition: number | null;
   note: string;
@@ -140,7 +140,6 @@ export type LinkedCompanionStatus = {
     hasLesson: boolean;
     hasBus: boolean;
     hasRental: boolean;
-    day2ParticipantId?: number;
     day2HasRental?: boolean;
     usesClubLodging?: boolean;
   } | null;
@@ -172,7 +171,7 @@ export type AdminSettlementRecipientSummary = {
 export type AdminSettlementStatusSummary = {
   meeting: {
     id: number;
-    settlementOpen: boolean;
+    billingPublished: boolean;
   };
   summary: {
     totalRecipientCount: number;

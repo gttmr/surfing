@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getTodayInSeoul } from "@/lib/date";
+import { lastMeetingDate } from "@/lib/meeting-days";
 import {
   getFoodOrderParticipantAccess,
   isMeetingOrderOpen,
@@ -172,6 +173,7 @@ export async function getParticipantMeetingFoodOrdersData(
       select: {
         id: true,
         date: true,
+        endDate: true,
         participants: {
           where: {
             status: "APPROVED",
@@ -238,7 +240,7 @@ export async function getParticipantMeetingFoodOrdersData(
     meeting: {
       id: meeting.id,
       date: meeting.date,
-      orderOpen: isMeetingOrderOpen(meeting.date),
+      orderOpen: isMeetingOrderOpen(meeting),
     },
     supportCap,
     menus,
@@ -581,7 +583,6 @@ export type ShopDashboardData = {
   selectedMeetingId: number | null;
   selectedMeetingData: AdminMeetingFoodOrdersData | null;
   selectedUsageData: ShopMeetingSurfUsageData | null;
-  selectedUsageDataByDay: ShopMeetingSurfUsageData[];
 };
 
 export async function getShopDashboardData(requestedMeetingId?: number): Promise<ShopDashboardData> {
@@ -590,49 +591,36 @@ export async function getShopDashboardData(requestedMeetingId?: number): Promise
     select: {
       id: true,
       date: true,
+      endDate: true,
       startTime: true,
       location: true,
-      meetingGroup: {
-        select: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-            select: { id: true },
-          },
-        },
-      },
     },
   });
 
+  // 오늘 진행 중인 모임(1박은 일정 중 아무 날) → 다음 모임 → 마지막 모임 순으로 고른다.
   const today = getTodayInSeoul();
   const selectedMeeting =
     meetings.find((meeting) => meeting.id === requestedMeetingId) ??
-    meetings.find((meeting) => meeting.date === today) ??
+    meetings.find((meeting) => meeting.date <= today && today <= lastMeetingDate(meeting)) ??
     meetings.find((meeting) => meeting.date >= today) ??
     meetings.at(-1) ??
     null;
 
-  const selectedUsageMeetingIds = selectedMeeting?.meetingGroup?.meetings.map((meeting) => meeting.id)
-    ?? (selectedMeeting ? [selectedMeeting.id] : []);
-  const selectedResults = selectedMeeting
+  const [selectedMeetingData, selectedUsageData] = selectedMeeting
     ? await Promise.all([
         getAdminMeetingFoodOrdersData(selectedMeeting.id),
-        ...selectedUsageMeetingIds.map((meetingId) => getShopMeetingSurfUsageData(meetingId)),
+        getShopMeetingSurfUsageData(selectedMeeting.id),
       ])
-    : [];
-  const selectedMeetingData = (selectedResults[0] as AdminMeetingFoodOrdersData | null | undefined) ?? null;
-  const selectedUsageDataByDay = selectedResults.slice(1)
-    .filter((data): data is ShopMeetingSurfUsageData => data !== null);
-  const selectedUsageData = selectedUsageDataByDay.find((data) => data.meeting.id === selectedMeeting?.id) ?? null;
+    : [null, null];
 
   return {
     meetings: meetings.map((meeting) => ({
       id: meeting.id,
       date: meeting.date,
-      label: `${meeting.date} ${meeting.startTime} · ${meeting.location}`,
+      label: `${meeting.date}${meeting.endDate && meeting.endDate !== meeting.date ? `~${meeting.endDate.slice(5)}` : ""} ${meeting.startTime} · ${meeting.location}`,
     })),
     selectedMeetingId: selectedMeeting?.id ?? null,
     selectedMeetingData,
     selectedUsageData,
-    selectedUsageDataByDay,
   };
 }

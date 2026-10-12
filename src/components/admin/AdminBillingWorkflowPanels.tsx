@@ -7,7 +7,7 @@ import { formatWon } from "@/lib/format";
 
 /** 청구 공개 전 운영 확인 항목. 회원별 금액 검토는 공개 버튼에서 함께 처리한다. */
 export function AdminBillingReadinessPanel({ data }: { readonly data: AdminSettlementData }) {
-  const operationalChecks = data.readiness.checks.filter((check) => check.id !== "billing-reviewed");
+  const operationalChecks = data.readiness.checks;
   const completeCount = operationalChecks.filter((check) => check.complete).length;
 
   return (

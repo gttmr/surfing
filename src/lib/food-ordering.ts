@@ -1,5 +1,6 @@
 import type { ParticipantFoodOrderItem } from "@prisma/client";
 import { getTodayInSeoul } from "./date";
+import { lastMeetingDate, type MeetingSchedule } from "@/lib/meeting-days";
 
 export const UNCATEGORIZED_MENU_NAME = "미분류";
 export const UNCATEGORIZED_MENU_ORDER = Number.MAX_SAFE_INTEGER;
@@ -47,6 +48,8 @@ export type FoodOrderItemSnapshot = Pick<
   cancelledAt?: Date | string | null;
   cancelledReasonCode?: string | null;
   cancelledReasonText?: string | null;
+  /** 주문 시각. 1박에서 몇째 날 주문인지(식음료 지원 한도) 가리는 데 쓴다 */
+  createdAt?: Date | string;
 };
 
 export type FoodOrderParticipantAccessInput = {
@@ -134,8 +137,9 @@ export function canCancelFoodOrderItems(
   return items.length > 0 && items.every((item) => !isFoodOrderItemCancelled(item) && item.servedQuantity <= 0);
 }
 
-export function isMeetingOrderOpen(meetingDate: string, today = getTodayInSeoul()) {
-  return meetingDate === today;
+/** 식음료 주문은 모임 기간(1박은 첫날~마지막 날)에만 받는다. */
+export function isMeetingOrderOpen(meeting: MeetingSchedule, today = getTodayInSeoul()) {
+  return meeting.date <= today && today <= lastMeetingDate(meeting);
 }
 
 export function getFoodOrderSummary(items: FoodOrderItemSnapshot[], supportCap: number): FoodOrderSummary {

@@ -26,8 +26,6 @@ async function prepareShopUsageTest(context: BrowserContext) {
     data: {
       date: endedDate.toISOString().slice(0, 10),
       isOpen: false,
-      settlementOpen: false,
-      billingReviewConfirmedAt: null,
       billingPublishedAt: null,
     },
   });

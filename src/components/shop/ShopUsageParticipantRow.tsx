@@ -4,6 +4,7 @@ import type { ShopMeetingSurfUsageData } from "@/lib/surf-usage-data";
 import {
   SHOP_USAGE_STATUS_LABELS,
   hasShopUsageVariance,
+  usageSlotKey,
   type ShopUsageDrafts,
   type ShopUsageParticipant,
 } from "./shop-usage-review";
@@ -22,9 +23,16 @@ export type ShopUsageActionError = {
 
 type UsageItem = ShopMeetingSurfUsageData["usageItems"][number];
 type UsageEntry = ShopMeetingSurfUsageData["participantRows"][number]["entries"][number];
+type MeetingDay = ShopMeetingSurfUsageData["meeting"]["days"][number];
 
-function ReadOnlyUsage({ entries }: {
+function dayLabel(day: MeetingDay) {
+  const [, month, date] = day.date.split("-");
+  return `${day.dayIndex}일차 · ${Number(month)}.${Number(date)}`;
+}
+
+function ReadOnlyUsage({ entries, overnight }: {
   readonly entries: readonly UsageEntry[];
+  readonly overnight: boolean;
 }) {
   const usedEntries = entries.filter((entry) => entry.quantity > 0);
   if (usedEntries.length === 0) {
@@ -34,7 +42,7 @@ function ReadOnlyUsage({ entries }: {
     <dl className="divide-y divide-brand-divider">
       {usedEntries.map((entry) => (
         <div className="flex items-center justify-between gap-3 px-4 py-3" key={entry.id}>
-          <dt className="min-w-0 text-sm font-semibold text-brand-text">{entry.usageItemName}</dt>
+          <dt className="min-w-0 text-sm font-semibold text-brand-text">{overnight ? `${entry.day}일차 ` : ""}{entry.usageItemName}</dt>
           <dd className="shrink-0 text-sm font-extrabold text-brand-text">
             {entry.quantity}개 · {formatWon(entry.amount)}
           </dd>
@@ -44,57 +52,68 @@ function ReadOnlyUsage({ entries }: {
   );
 }
 
-function UsageEditor({ items, onQuantityChange, participant, values }: {
+function UsageEditor({ days, items, onQuantityChange, participant, values }: {
+  readonly days: readonly MeetingDay[];
   readonly items: readonly UsageItem[];
-  readonly onQuantityChange: (participantId: number, usageItemId: number, quantity: number) => void;
+  readonly onQuantityChange: (participantId: number, slotKey: string, quantity: number) => void;
   readonly participant: ShopUsageParticipant;
   readonly values: ShopUsageDrafts[number];
 }) {
   return (
     <div className="divide-y divide-brand-divider">
-      {items.map((item) => {
-        const quantity = values[item.id] ?? 0;
-        return (
-          <div className="flex items-center justify-between gap-3 px-4 py-3" key={item.id}>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-brand-text">{item.name}</p>
-              <p className="brand-text-subtle mt-0.5 text-[11px]">{formatWon(item.shopPrice)}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                aria-label={`${participant.participantName} ${item.name} 수량 줄이기`}
-                className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full"
-                disabled={quantity === 0}
-                onClick={() => onQuantityChange(participant.participantId, item.id, quantity - 1)}
-                type="button"
-              >
-                <Icon className="text-[20px]" name="remove" />
-              </button>
-              <output
-                aria-label={`${participant.participantName} ${item.name} 수량`}
-                className="w-8 text-center text-sm font-extrabold tabular-nums text-brand-text"
-              >
-                {quantity}
-              </output>
-              <button
-                aria-label={`${participant.participantName} ${item.name} 수량 늘리기`}
-                className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full"
-                disabled={quantity === 20}
-                onClick={() => onQuantityChange(participant.participantId, item.id, quantity + 1)}
-                type="button"
-              >
-                <Icon className="text-[20px]" name="add" />
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      {days.map((day) => (
+        <div key={day.dayIndex}>
+          {days.length > 1 ? (
+            <p className="brand-text-subtle bg-brand-surface px-4 pb-1 pt-3 text-xs font-extrabold">{dayLabel(day)}</p>
+          ) : null}
+          {items.map((item) => {
+            const key = usageSlotKey(day.dayIndex, item.id);
+            const quantity = values[key] ?? 0;
+            const label = days.length > 1 ? `${day.dayIndex}일차 ${item.name}` : item.name;
+            return (
+              <div className="flex items-center justify-between gap-3 px-4 py-3" key={key}>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-brand-text">{item.name}</p>
+                  <p className="brand-text-subtle mt-0.5 text-[11px]">{formatWon(item.shopPrice)}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    aria-label={`${participant.participantName} ${label} 수량 줄이기`}
+                    className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full"
+                    disabled={quantity === 0}
+                    onClick={() => onQuantityChange(participant.participantId, key, quantity - 1)}
+                    type="button"
+                  >
+                    <Icon className="text-[20px]" name="remove" />
+                  </button>
+                  <output
+                    aria-label={`${participant.participantName} ${label} 수량`}
+                    className="w-8 text-center text-sm font-extrabold tabular-nums text-brand-text"
+                  >
+                    {quantity}
+                  </output>
+                  <button
+                    aria-label={`${participant.participantName} ${label} 수량 늘리기`}
+                    className="brand-button-secondary flex h-11 w-11 items-center justify-center rounded-full"
+                    disabled={quantity === 20}
+                    onClick={() => onQuantityChange(participant.participantId, key, quantity + 1)}
+                    type="button"
+                  >
+                    <Icon className="text-[20px]" name="add" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
 
 export function ShopUsageParticipantRow({
   actionError,
+  days,
   dirty,
   items,
   lockedAction,
@@ -107,11 +126,12 @@ export function ShopUsageParticipantRow({
   values,
 }: {
   readonly actionError: ShopUsageActionError | null;
+  readonly days: readonly MeetingDay[];
   readonly dirty: boolean;
   readonly items: readonly UsageItem[];
   readonly lockedAction: "save" | "confirm" | null;
   readonly onConfirm: (participantId: number) => void;
-  readonly onQuantityChange: (participantId: number, usageItemId: number, quantity: number) => void;
+  readonly onQuantityChange: (participantId: number, slotKey: string, quantity: number) => void;
   readonly onSave: (participantId: number) => void;
   readonly onToggle: (participantId: number) => void;
   readonly open: boolean;
@@ -123,14 +143,13 @@ export function ShopUsageParticipantRow({
   const canConfirm = participant.submissionStatus === "submitted" && !dirty && lockedAction === null;
   const submittedAt = participant.submittedAt ? formatRelativeTimeKo(participant.submittedAt) : null;
   const hasVariance = hasShopUsageVariance(participant);
-  const actualUsageLabel = items
-    .filter((item) => (values[item.id] ?? 0) > 0)
-    .map((item) => `${item.name} ${values[item.id]}`)
+  const overnight = days.length > 1;
+  const slots = days.flatMap((day) => items.map((item) => ({ day, item, quantity: values[usageSlotKey(day.dayIndex, item.id)] ?? 0 })));
+  const actualUsageLabel = slots
+    .filter((slot) => slot.quantity > 0)
+    .map((slot) => `${overnight ? `${slot.day.dayIndex}일차 ` : ""}${slot.item.name} ${slot.quantity}`)
     .join(" · ") || "이용 없음";
-  const draftShopAmount = items.reduce(
-    (total, item) => total + item.shopPrice * (values[item.id] ?? 0),
-    0
-  );
+  const draftShopAmount = slots.reduce((total, slot) => total + slot.item.shopPrice * slot.quantity, 0);
 
   return (
     <article className={`brand-panel-white overflow-hidden rounded-[1.6rem] ${open ? "brand-list-item-active" : ""}`} data-participant-id={participant.participantId}>
@@ -170,9 +189,9 @@ export function ShopUsageParticipantRow({
             <dd className="font-bold text-brand-text">{actualUsageLabel}</dd>
           </dl>
           {confirmed ? (
-            <ReadOnlyUsage entries={participant.entries} />
+            <ReadOnlyUsage entries={participant.entries} overnight={overnight} />
           ) : (
-            <UsageEditor items={items} onQuantityChange={onQuantityChange} participant={participant} values={values} />
+            <UsageEditor days={days} items={items} onQuantityChange={onQuantityChange} participant={participant} values={values} />
           )}
 
           {actionError ? (

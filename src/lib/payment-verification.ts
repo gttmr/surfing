@@ -7,9 +7,8 @@ import type { AdminSettlementData } from "@/lib/admin-page-data";
 
 export const BANK_AUTO_ACTOR = "bank-auto";
 
-export function billingDateLabel(meeting: Pick<AdminSettlementData["meeting"], "date" | "overnightGroup">): string {
-  const days = meeting.overnightGroup?.days;
-  return days ? `${days[0].date}~${days[1].date}` : meeting.date;
+export function billingDateLabel(meeting: Pick<AdminSettlementData["meeting"], "date" | "endDate">): string {
+  return meeting.endDate && meeting.endDate !== meeting.date ? `${meeting.date}~${meeting.endDate}` : meeting.date;
 }
 
 export function verifyPaymentOperations(input: {

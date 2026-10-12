@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Participant } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import {
@@ -8,6 +7,7 @@ import {
 } from "@/lib/participant-options";
 import { createParticipantWithRecoveredSequence } from "@/lib/participant-sequence";
 import { runSerializableTransaction } from "@/lib/transaction";
+import { isOvernightMeeting } from "@/lib/meeting-days";
 
 // 참가 완료 후 동반인 추가 신청
 export async function POST(req: NextRequest) {
@@ -38,27 +38,23 @@ export async function POST(req: NextRequest) {
   const cid = parseInt(companionId);
 
   const result = await runSerializableTransaction(async (tx) => {
-    const meeting = await tx.meeting.findUnique({
-      where: { id: mid },
-      include: {
-        meetingGroup: {
-          include: { meetings: { orderBy: { groupDayIndex: "asc" } } },
-        },
-      },
-    });
+    const meeting = await tx.meeting.findUnique({ where: { id: mid } });
     if (!meeting) {
       return { status: 404, body: { error: "모임을 찾을 수 없습니다" } };
     }
-    const day1 = meeting.meetingGroup?.meetings.find((day) => day.groupDayIndex === 1) ?? meeting;
-    const day2 = meeting.meetingGroup?.meetings.find((day) => day.groupDayIndex === 2) ?? null;
-    const targetMeetings = day2 ? [day1, day2] : [day1];
-    if (targetMeetings.some((day) => !day.isOpen)) {
+    if (!meeting.isOpen) {
       return { status: 400, body: { error: "신청이 마감된 모임입니다" } };
     }
+    const overnight = isOvernightMeeting(meeting);
+    const signupOptions = {
+      ...options,
+      hasDay2Rental: overnight && day2HasRental === true,
+      usesClubLodging: overnight && usesClubLodging === true,
+    };
 
     const myParticipant = await tx.participant.findFirst({
       where: {
-        meetingId: day1.id,
+        meetingId: mid,
         kakaoId: user.kakaoId,
         companionId: null,
         status: { not: "CANCELLED" },
@@ -74,57 +70,43 @@ export async function POST(req: NextRequest) {
     }
 
     const existing = await tx.participant.findFirst({
-      where: { meetingId: { in: targetMeetings.map((day) => day.id) }, companionId: cid, status: { not: "CANCELLED" } },
+      where: { meetingId: mid, companionId: cid, status: { not: "CANCELLED" } },
       select: { id: true },
     });
     if (existing) {
       return { status: 409, body: { error: "이미 신청된 동반인입니다" } };
     }
 
-    const created: Participant[] = [];
-    for (const [index, targetMeeting] of targetMeetings.entries()) {
-      const targetOptions = index === 0
-        ? options
-        : { hasLesson: false, hasBus: options.hasBus, hasRental: !!day2HasRental };
-      const cancelledRecord = await tx.participant.findFirst({
-        where: { meetingId: targetMeeting.id, companionId: cid, status: "CANCELLED" },
-        orderBy: { submittedAt: "desc" },
-      });
-      const participant = cancelledRecord
-        ? await tx.participant.update({
-            where: { id: cancelledRecord.id },
-            data: {
-              ...targetOptions,
-              usesClubLodging: !!usesClubLodging,
-              status: "APPROVED",
-              waitlistPosition: null,
-              cancelledAt: null,
-              submittedAt: new Date(),
-            },
-          })
-        : await createParticipantWithRecoveredSequence(tx, {
-            meetingId: targetMeeting.id,
-            name: companion.name,
-            kakaoId: user.kakaoId,
-            kakaoNickname: companion.name,
-            companionId: cid,
-            note: `${myParticipant.name}의 동반`,
-            ...targetOptions,
-            usesClubLodging: !!usesClubLodging,
+    const cancelledRecord = await tx.participant.findFirst({
+      where: { meetingId: mid, companionId: cid, status: "CANCELLED" },
+      orderBy: { submittedAt: "desc" },
+    });
+    const participant = cancelledRecord
+      ? await tx.participant.update({
+          where: { id: cancelledRecord.id },
+          data: {
+            ...signupOptions,
             status: "APPROVED",
-          });
-      created.push(participant);
-    }
+            waitlistPosition: null,
+            cancelledAt: null,
+            absentAt: null,
+            usageSubmittedAt: null,
+            usageConfirmedAt: null,
+            submittedAt: new Date(),
+          },
+        })
+      : await createParticipantWithRecoveredSequence(tx, {
+          meetingId: mid,
+          name: companion.name,
+          kakaoId: user.kakaoId,
+          kakaoNickname: companion.name,
+          companionId: cid,
+          note: `${myParticipant.name}의 동반`,
+          ...signupOptions,
+          status: "APPROVED",
+        });
 
-    return {
-      status: 201,
-      body: {
-        ...created[0],
-        day2ParticipantId: created[1]?.id,
-        day2HasRental: created[1]?.hasRental ?? false,
-        usesClubLodging: created[0]?.usesClubLodging ?? false,
-      },
-    };
+    return { status: 201, body: participant };
   });
 
   return NextResponse.json(result.body, { status: result.status });
@@ -151,22 +133,15 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "내 동반인이 아닙니다" }, { status: 403 });
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: mid },
-    include: { meetingGroup: { include: { meetings: true } } },
-  });
-  if (!meeting) return NextResponse.json({ error: "모임을 찾을 수 없습니다" }, { status: 404 });
-  const meetingIds = meeting.meetingGroup?.meetings.map((day) => day.id) ?? [meeting.id];
-
   const participant = await prisma.participant.findFirst({
-    where: { meetingId: { in: meetingIds }, companionId: cid, status: { not: "CANCELLED" } },
+    where: { meetingId: mid, companionId: cid, status: { not: "CANCELLED" } },
   });
   if (!participant) {
     return NextResponse.json({ error: "취소할 신청이 없습니다" }, { status: 404 });
   }
 
-  await prisma.participant.updateMany({
-    where: { meetingId: { in: meetingIds }, companionId: cid, status: { not: "CANCELLED" } },
+  await prisma.participant.update({
+    where: { id: participant.id },
     data: { status: "CANCELLED", cancelledAt: new Date() },
   });
 

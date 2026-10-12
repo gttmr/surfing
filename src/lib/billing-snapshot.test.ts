@@ -10,6 +10,7 @@ const DATA: MeetingBillingSnapshotSource = {
     startTime: "07:00",
     endTime: "22:00",
     location: "고성",
+    endDate: null,
   },
   participants: [
     {
@@ -98,25 +99,24 @@ test("billing snapshot guard refuses incomplete values", () => {
   assert.equal(isMeetingBillingSnapshotPayload({ version: 1, recipients: [] }), false);
 });
 
-test("overnight billing snapshot keeps the two-day range in version 2", () => {
+test("an overnight snapshot keeps the trip's end date", () => {
   const snapshot = buildMeetingBillingSnapshot({
     ...DATA,
-    meeting: {
-      ...DATA.meeting,
-      overnightGroup: {
-        id: 3,
-        kind: "OVERNIGHT",
-        regularBaseFee: 35_000,
-        companionBaseFee: 45_000,
-        lodgingFee: 50_000,
-        days: [
-          { id: 13, dayIndex: 1, date: "2026-09-12", startTime: "07:00", endTime: "22:00", location: "고성" },
-          { id: 14, dayIndex: 2, date: "2026-09-13", startTime: "08:00", endTime: "17:00", location: "고성" },
-        ],
-      },
-    },
+    meeting: { ...DATA.meeting, date: "2026-09-12", endDate: "2026-09-13" },
   });
-  assert.equal(snapshot.payload.version, 2);
-  assert.equal("overnightGroup" in snapshot.payload && snapshot.payload.overnightGroup.days[1].id, 14);
+  assert.equal(snapshot.payload.version, 1);
+  assert.equal(snapshot.payload.meeting.endDate, "2026-09-13");
   assert.equal(isMeetingBillingSnapshotPayload(snapshot.payload), true);
+});
+
+test("snapshots published when overnight days were separate meetings are still readable", () => {
+  const legacy = {
+    version: 2,
+    meeting: DATA.meeting,
+    participants: [],
+    recipients: [],
+    surfUsageSummary: { shopChargeAmount: 0, memberChargeAmount: 0, operationsCoveredAmount: 0 },
+    overnightGroup: { days: [{ date: "2026-09-12" }, { date: "2026-09-13" }] },
+  };
+  assert.equal(isMeetingBillingSnapshotPayload(legacy), true);
 });

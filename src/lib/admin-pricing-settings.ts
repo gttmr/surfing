@@ -8,10 +8,6 @@ export type SettingsInputErrors = Partial<Record<keyof AdminSettingsFormData, st
 export const PRICING_AMOUNT_KEYS = [
   PRICING_SETTING_KEYS.regularBaseFee,
   PRICING_SETTING_KEYS.companionBaseFee,
-  PRICING_SETTING_KEYS.regularLessonFee,
-  PRICING_SETTING_KEYS.companionLessonFee,
-  PRICING_SETTING_KEYS.regularRentalFee,
-  PRICING_SETTING_KEYS.companionRentalFee,
   "foodOrderSupportCap",
   "companySupportPerRegular",
 ] as const satisfies readonly PricingInputKey[];
@@ -19,10 +15,6 @@ export const PRICING_AMOUNT_KEYS = [
 export const MEMBER_FEE_KEYS = [
   PRICING_SETTING_KEYS.regularBaseFee,
   PRICING_SETTING_KEYS.companionBaseFee,
-  PRICING_SETTING_KEYS.regularLessonFee,
-  PRICING_SETTING_KEYS.companionLessonFee,
-  PRICING_SETTING_KEYS.regularRentalFee,
-  PRICING_SETTING_KEYS.companionRentalFee,
 ] as const satisfies readonly PricingSettingKey[];
 export const SETTINGS_INPUT_KEYS = [
   "penaltyDays",
@@ -74,20 +66,12 @@ export function validatePricingDraft(draft: AdminPricingState): PricingValidatio
 
   const regularBaseFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.regularBaseFee]);
   const companionBaseFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.companionBaseFee]);
-  const regularLessonFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.regularLessonFee]);
-  const companionLessonFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.companionLessonFee]);
-  const regularRentalFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.regularRentalFee]);
-  const companionRentalFee = parsePricingAmount(draft[PRICING_SETTING_KEYS.companionRentalFee]);
   const foodOrderSupportCap = parsePricingAmount(draft.foodOrderSupportCap);
   const companySupportPerRegular = parsePricingAmount(draft.companySupportPerRegular);
 
   if (
     regularBaseFee === null ||
     companionBaseFee === null ||
-    regularLessonFee === null ||
-    companionLessonFee === null ||
-    regularRentalFee === null ||
-    companionRentalFee === null ||
     foodOrderSupportCap === null ||
     companySupportPerRegular === null
   ) {
@@ -103,10 +87,6 @@ export function validatePricingDraft(draft: AdminPricingState): PricingValidatio
     value: {
       [PRICING_SETTING_KEYS.regularBaseFee]: String(regularBaseFee),
       [PRICING_SETTING_KEYS.companionBaseFee]: String(companionBaseFee),
-      [PRICING_SETTING_KEYS.regularLessonFee]: String(regularLessonFee),
-      [PRICING_SETTING_KEYS.companionLessonFee]: String(companionLessonFee),
-      [PRICING_SETTING_KEYS.regularRentalFee]: String(regularRentalFee),
-      [PRICING_SETTING_KEYS.companionRentalFee]: String(companionRentalFee),
       foodOrderSupportCap: String(foodOrderSupportCap),
       companySupportPerRegular: String(companySupportPerRegular),
     },

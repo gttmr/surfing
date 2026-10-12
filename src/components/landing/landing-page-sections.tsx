@@ -13,6 +13,7 @@ import type {
   UserNotificationItem,
 } from "@/lib/landing-types";
 import { formatWon } from "@/lib/format";
+import { lastMeetingDate } from "@/lib/meeting-days";
 import { Icon } from "@/components/ui/Icon";
 import { Dialog } from "@/components/ui/Dialog";
 import { Tabs } from "@/components/ui/Tabs";
@@ -485,8 +486,7 @@ const UPCOMING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", { month: "long"
 
 export function getUpcomingMeetings(meetings: readonly MeetingWithCounts[], today: string): MeetingWithCounts[] {
   return meetings
-    .filter((meeting) => meeting.date >= today)
-    .filter((meeting) => !meeting.overnightGroup || meeting.overnightGroup.days[0]?.id === meeting.id)
+    .filter((meeting) => lastMeetingDate(meeting) >= today)
     .slice(0, UPCOMING_LIMIT);
 }
 
@@ -527,9 +527,9 @@ export function UpcomingMeetings({
           {upcoming.map((meeting) => {
             const status = upcomingStatus(meeting, myParticipationByMeetingId[meeting.id]);
             const selected = selectedDate === meeting.date;
-            const lastDay = meeting.overnightGroup?.days[meeting.overnightGroup.days.length - 1];
-            const dateLabel = lastDay
-              ? `${UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`))} – ${UPCOMING_DATE_FORMATTER.format(new Date(`${lastDay.date}T12:00:00`))}`
+            const lastDate = lastMeetingDate(meeting);
+            const dateLabel = lastDate !== meeting.date
+              ? `${UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`))} – ${UPCOMING_DATE_FORMATTER.format(new Date(`${lastDate}T12:00:00`))}`
               : UPCOMING_DATE_FORMATTER.format(new Date(`${meeting.date}T12:00:00`));
             return (
               <li key={meeting.id}>
@@ -555,5 +555,48 @@ export function UpcomingMeetings({
         </ul>
       )}
     </section>
+  );
+}
+
+/** 모임 안내 탭: 이번 모임의 별도 안내(있을 때)를 위에, 운영진이 상단 고정한 공지(메인 안내)를 아래에 둔다. */
+export function MeetingInfoPanel({
+  meetingNote,
+  mainNotice,
+}: {
+  readonly meetingNote: string | null;
+  readonly mainNotice: Pick<NoticeItem, "title" | "body"> | null;
+}) {
+  if (!meetingNote && !mainNotice) {
+    return (
+      <div className="border-y border-brand-divider py-8 text-center" role="status">
+        <Icon className="brand-text-subtle text-[28px]" name="info" />
+        <p className="brand-text-muted mt-2 text-sm">등록된 안내가 없습니다.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {meetingNote ? (
+        <section aria-labelledby="meeting-note-title" className="brand-highlight-panel rounded-2xl px-4 py-4">
+          <h3 className="flex items-center gap-1.5 text-sm font-extrabold text-brand-text" id="meeting-note-title">
+            <Icon className="text-[18px] text-brand-primary" name="campaign" />
+            이번 모임 안내
+          </h3>
+          <p className="mt-2 whitespace-pre-line break-keep text-sm leading-6 text-brand-text">{meetingNote}</p>
+        </section>
+      ) : null}
+      {mainNotice ? (
+        <section aria-labelledby="main-notice-title" className="border-y border-brand-divider py-5">
+          <div className="flex items-start gap-3">
+            <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="info" /></span>
+            <div className="min-w-0">
+              <h3 className="text-base font-extrabold text-brand-text" id="main-notice-title">{mainNotice.title}</h3>
+              <p className="brand-text-muted mt-1 whitespace-pre-line break-keep text-sm leading-6">{mainNotice.body}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }

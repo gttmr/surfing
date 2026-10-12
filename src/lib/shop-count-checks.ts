@@ -17,13 +17,11 @@ export async function getPendingShopCountChecks(now = new Date()): Promise<Pendi
     where: {
       date: { lte: getTodayInSeoul(now) },
       shopUsageCheckedAt: null,
-      billingReviewConfirmedAt: null,
       billingPublishedAt: null,
-      settlementOpen: false,
-      surfUsageSubmissions: { some: { OR: [{ status: "CONFIRMED" }, { confirmedAt: { not: null } }] } },
+      participants: { some: { usageConfirmedAt: { not: null } } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
-    select: { id: true, date: true, endTime: true, location: true },
+    select: { id: true, date: true, endDate: true, endTime: true, location: true },
   });
 
   return meetings

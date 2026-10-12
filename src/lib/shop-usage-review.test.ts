@@ -15,6 +15,7 @@ const participants: readonly ShopUsageParticipant[] = [
     participantName: "합성 회원 01",
     companionId: null,
     requestedOptionLabel: "강습과 보드 대여",
+    requestedByDay: ["LESSON_PACKAGE"],
     submissionStatus: "missing",
     submittedAt: null,
     confirmedAt: null,
@@ -26,6 +27,7 @@ const participants: readonly ShopUsageParticipant[] = [
     participantName: "합성 회원 02",
     companionId: null,
     requestedOptionLabel: "샤워만 이용",
+    requestedByDay: [null],
     submissionStatus: "submitted",
     submittedAt: "2026-07-15T01:00:00.000Z",
     confirmedAt: null,
@@ -37,6 +39,7 @@ const participants: readonly ShopUsageParticipant[] = [
     participantName: "합성 회원 03",
     companionId: null,
     requestedOptionLabel: "개인 장비",
+    requestedByDay: [null],
     submissionStatus: "confirmed",
     submittedAt: "2026-07-15T01:00:00.000Z",
     confirmedAt: "2026-07-15T02:00:00.000Z",
@@ -76,10 +79,10 @@ test("shop usage review searches participant names and request labels", () => {
 });
 
 test("shop usage review marks only active-item differences as dirty", () => {
-  const savedDrafts: ShopUsageDrafts = { 1: { 10: 1, 20: 4, 30: 2 } };
-  const localDrafts: ShopUsageDrafts = { 1: { 10: 2, 20: 4, 30: 9 } };
-  assert.equal(isShopUsageDraftDirty(1, [10, 20], savedDrafts, localDrafts), true);
-  assert.equal(isShopUsageDraftDirty(1, [20], savedDrafts, localDrafts), false);
+  const savedDrafts: ShopUsageDrafts = { 1: { "1:10": 1, "1:20": 4, "1:30": 2 } };
+  const localDrafts: ShopUsageDrafts = { 1: { "1:10": 2, "1:20": 4, "1:30": 9 } };
+  assert.equal(isShopUsageDraftDirty(1, ["1:10", "1:20"], savedDrafts, localDrafts), true);
+  assert.equal(isShopUsageDraftDirty(1, ["1:20"], savedDrafts, localDrafts), false);
 });
 
 const validUsageResponse = {
@@ -89,6 +92,7 @@ const validUsageResponse = {
     startTime: "09:30",
     endTime: "13:00",
     location: "합성 해변",
+    days: [{ dayIndex: 1, date: "2026-07-15" }],
     shopUsageCheckedAt: null,
     actualUsageReview: {
       state: "OPEN",
@@ -102,7 +106,6 @@ const validUsageResponse = {
     description: null,
     serviceType: "EQUIPMENT_RENTAL",
     shopPrice: 30_000,
-    isDefault: true,
     isActive: true,
     displayOrder: 1,
   }],
@@ -123,18 +126,21 @@ const validUsageResponse = {
     amount: 30_000,
     confirmedQuantity: 1,
     confirmedAmount: 30_000,
+    confirmedQuantityByDay: [1],
   }],
   participantRows: [{
     participantId: 1,
     participantName: "합성 회원",
     companionId: null,
     requestedOptionLabel: "장비 대여",
+    requestedByDay: ["EQUIPMENT_RENTAL"],
     submissionStatus: "confirmed",
     submittedAt: "2026-07-15T01:00:00.000Z",
     confirmedAt: "2026-07-15T02:00:00.000Z",
     shopAmount: 30_000,
     entries: [{
       id: 20,
+      day: 1,
       usageItemId: 10,
       usageItemName: "장비 대여",
       serviceType: "EQUIPMENT_RENTAL",
@@ -155,4 +161,18 @@ test("shop usage response guard accepts complete data and rejects incomplete pay
     itemRows: [],
     participantRows: [],
   }), false);
+});
+
+test("a participant with no record is prefilled per day from the signup, and 1박 day two counts separately", async () => {
+  const { buildUsageDraft } = await import("./surf-usage-slots");
+  const days = [{ dayIndex: 1 }, { dayIndex: 2 }];
+  const items = [{ id: 1, serviceType: "LESSON_PACKAGE" }, { id: 2, serviceType: "EQUIPMENT_RENTAL" }];
+  assert.deepEqual(
+    buildUsageDraft({ submissionStatus: "missing", entries: [], requestedByDay: ["LESSON_PACKAGE", "EQUIPMENT_RENTAL"] }, days, items),
+    { "1:1": 1, "1:2": 0, "2:1": 0, "2:2": 1 },
+  );
+  assert.deepEqual(
+    buildUsageDraft({ submissionStatus: "submitted", entries: [{ day: 2, usageItemId: 2, quantity: 2 }], requestedByDay: ["LESSON_PACKAGE", null] }, days, items),
+    { "1:1": 0, "1:2": 0, "2:1": 0, "2:2": 2 },
+  );
 });

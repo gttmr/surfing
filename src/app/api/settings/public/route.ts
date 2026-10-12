@@ -12,6 +12,7 @@ import {
   DEFAULT_PRICING_SETTINGS,
   PRICING_SETTING_KEYS,
 } from "@/lib/settings";
+import { getSurfUsageItems } from "@/lib/surf-usage-data";
 
 export async function GET() {
   const settings = await prisma.setting.findMany({
@@ -40,5 +41,13 @@ export async function GET() {
     map[setting.key] = setting.value;
   }
 
-  return NextResponse.json(map);
+  // 신청 화면의 강습·장비 예상 금액은 이용 항목표 가격을 쓴다.
+  const usageItems = (await getSurfUsageItems()).map((item) => ({
+    serviceType: item.serviceType,
+    shopPrice: item.shopPrice,
+    regularPrice: item.regularPrice,
+    isActive: item.isActive,
+  }));
+
+  return NextResponse.json({ ...map, usageItems });
 }

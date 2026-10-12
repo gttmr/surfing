@@ -2,23 +2,21 @@ import { prisma } from "@/lib/db";
 import { withResolvedProfileImage } from "@/lib/profile-image";
 import { resolveProfileImage } from "@/lib/profile-image";
 import {
+  getFoodSupportCap,
   getParticipantChargeBreakdown,
-  getSettlementPricingBundle,
-  groupOvernightParticipantsForSettlement,
   groupParticipantsForSettlement,
   type SettlementRecipientGroup,
 } from "@/lib/pricing";
 import { DEFAULT_PENALTY_MESSAGE } from "@/lib/penalty";
 import { getConfirmedSurfUsageBillingByParticipant } from "@/lib/surf-usage-data";
 import { isMeetingBillingSnapshotPayload } from "@/lib/billing-snapshot";
-import { getMeetingBillingReadiness, getMeetingGroupBillingReadiness } from "@/lib/meeting-readiness-data";
+import { getMeetingBillingReadiness } from "@/lib/meeting-readiness-data";
 import {
   getMeetingWorkflowStage,
   MEETING_WORKFLOW_LABELS,
   type MeetingWorkflowStage,
 } from "@/lib/meeting-lifecycle";
 import type { AdminSettlementStatusSummary } from "@/lib/landing-types";
-import { toOvernightMeetingGroupSummary, type OvernightMeetingGroupSummary } from "@/lib/meeting-group";
 import {
   CANCELLATION_PENALTY_DAYS_KEY,
   CANCELLATION_PENALTY_MESSAGE_KEY,
@@ -83,7 +81,8 @@ export type AdminMeetingListItem = {
   isOpen: boolean;
   approvedCount: number;
   createdByKakaoId: string | null;
-  overnightGroup: OvernightMeetingGroupSummary | null;
+  /** 1박 이상이면 마지막 날 */
+  endDate: string | null;
   workflowStage: MeetingWorkflowStage;
   workflowLabel: string;
   nextAction: string;
@@ -116,9 +115,10 @@ export type AdminMeetingParticipant = {
   hasLesson: boolean;
   hasBus: boolean;
   hasRental: boolean;
+  hasDay2Rental: boolean;
   usesClubLodging: boolean;
   status: string;
-  attendanceStatus: string;
+  absent: boolean;
   waitlistPosition: number | null;
   isPenalized: boolean;
   cancelledAt: string | null;
@@ -135,7 +135,13 @@ export type AdminMeetingDetail = {
   description: string | null;
   isOpen: boolean;
   meetingType: string;
-  overnightGroup: OvernightMeetingGroupSummary | null;
+  /** 1박 이상이면 마지막 날 */
+  endDate: string | null;
+  regularFee: number;
+  companionFee: number;
+  lodgingFee: number;
+  /** 청구가 공개되면 참가비를 바꿀 수 없다 */
+  billingPublished: boolean;
   participants: AdminMeetingParticipant[];
   approvedCount: number;
 };
@@ -164,6 +170,7 @@ export type AdminSettlementParticipant = {
   }[];
   surfUsageLines: {
     id: number;
+    day?: number;
     usageItemId: number;
     usageItemName: string;
     serviceType: string;
@@ -208,8 +215,9 @@ export type AdminSettlementData = {
     endTime: string;
     location: string;
     isOpen: boolean;
-    settlementOpen: boolean;
-    overnightGroup: OvernightMeetingGroupSummary | null;
+    /** 1박 이상이면 마지막 날 */
+    endDate: string | null;
+    billingPublished: boolean;
   };
   participants: AdminSettlementParticipant[];
   surfUsageSummary: {
@@ -240,8 +248,6 @@ export type AdminSettlementData = {
       foodPayableTotal: number;
       clubSupportTotal: number;
     };
-    shopPayout: { paidAt: string | null; amount: number | null };
-    foodPayout: { paidAt: string | null; amount: number | null };
     /** 장비와 식음료는 같은 샵에 한 번에 지급한다. */
     shopTotal: {
       payable: number;
@@ -304,21 +310,8 @@ export async function getAdminMembers(): Promise<AdminMemberListItem[]> {
 
 export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
   const meetings = await prisma.meeting.findMany({
-    where: {
-      OR: [
-        { meetingGroupId: null },
-        { groupDayIndex: 1 },
-      ],
-    },
     orderBy: { date: "asc" },
     include: {
-      meetingGroup: {
-        include: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-          },
-        },
-      },
       billingSnapshot: true,
       settlementConfirmations: {
         select: { recipientKakaoId: true, verifiedAt: true },
@@ -334,8 +327,6 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
   });
 
   return meetings.map((meeting) => {
-    const overnightGroup = toOvernightMeetingGroupSummary(meeting.meetingGroup);
-    const finalDay = overnightGroup?.days.at(-1);
     const snapshot = meeting.billingSnapshot && isMeetingBillingSnapshotPayload(meeting.billingSnapshot.data)
       ? meeting.billingSnapshot.data
       : null;
@@ -348,11 +339,11 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       if (recipient.totalFee === 0) verifiedRecipientIds.add(recipient.recipientKakaoId);
     }
     const workflowStage = getMeetingWorkflowStage({
-      date: finalDay?.date ?? meeting.date,
-      endTime: finalDay?.endTime ?? meeting.endTime,
+      date: meeting.date,
+      endDate: meeting.endDate,
+      endTime: meeting.endTime,
       isOpen: meeting.isOpen,
-      settlementOpen: meeting.settlementOpen,
-      billingEvidenceReady: Boolean(meeting.billingReviewConfirmedAt),
+      billingPublished: meeting.billingPublishedAt !== null,
       recipientCount: snapshot?.recipients.length ?? meeting.settlementConfirmations.length,
       verifiedRecipientCount: verifiedRecipientIds.size,
       settlementCompletedAt: meeting.settlementCompletedAt,
@@ -361,7 +352,6 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       RECRUITING: "신청 관리",
       UPCOMING: "참가자 보기",
       ACTUALS_REVIEW: "이용 확인 후 청구 공개",
-      BILLING_REVIEW: "청구 공개",
       PAYMENT_CONFIRMATION: "남은 입금 확인하기",
       FINAL_SETTLEMENT: "샵 지급 기록하고 마감",
       COMPLETED: "완료 보고서 보기",
@@ -375,7 +365,7 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       meetingType: meeting.meetingType,
       isOpen: meeting.isOpen,
       createdByKakaoId: meeting.createdByKakaoId,
-      overnightGroup,
+      endDate: meeting.endDate,
       approvedCount: meeting._count.participants,
       workflowStage,
       workflowLabel: MEETING_WORKFLOW_LABELS[workflowStage],
@@ -391,13 +381,6 @@ export async function getAdminMeetingDetail(meetingId: number): Promise<AdminMee
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
     include: {
-      meetingGroup: {
-        include: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-          },
-        },
-      },
       participants: {
         orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
         include: {
@@ -423,9 +406,10 @@ export async function getAdminMeetingDetail(meetingId: number): Promise<AdminMee
     hasLesson: participant.hasLesson,
     hasBus: participant.hasBus,
     hasRental: participant.hasRental,
+    hasDay2Rental: participant.hasDay2Rental,
     usesClubLodging: participant.usesClubLodging,
     status: participant.status,
-    attendanceStatus: participant.attendanceStatus,
+    absent: participant.absentAt !== null,
     waitlistPosition: participant.waitlistPosition,
     isPenalized: participant.isPenalized,
     cancelledAt: participant.cancelledAt?.toISOString() ?? null,
@@ -443,7 +427,11 @@ export async function getAdminMeetingDetail(meetingId: number): Promise<AdminMee
     description: meeting.description,
     isOpen: meeting.isOpen,
     meetingType: meeting.meetingType,
-    overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
+    endDate: meeting.endDate,
+    regularFee: meeting.regularFee,
+    companionFee: meeting.companionFee,
+    lodgingFee: meeting.lodgingFee,
+    billingPublished: meeting.billingPublishedAt !== null,
     approvedCount: participants.filter((participant) => participant.status === "APPROVED").length,
     participants,
   };
@@ -454,12 +442,18 @@ function sortSettlementItems<T extends { id: number; kakaoId: string; companionI
   const companions = items.filter((item) => item.companionId !== null);
   const result: T[] = [];
 
+  // 같은 카카오 계정으로 정회원 신청이 둘 있어도 동반인은 한 번만 넣는다.
+  const placed = new Set<number>();
   for (const regular of regulars) {
     result.push(regular);
-    result.push(...companions.filter((companion) => companion.kakaoId === regular.kakaoId));
+    for (const companion of companions) {
+      if (companion.kakaoId === regular.kakaoId && !placed.has(companion.id)) {
+        result.push(companion);
+        placed.add(companion.id);
+      }
+    }
   }
 
-  const placed = new Set(result.map((item) => item.id));
   for (const companion of companions) {
     if (!placed.has(companion.id)) result.push(companion);
   }
@@ -468,32 +462,10 @@ function sortSettlementItems<T extends { id: number; kakaoId: string; companionI
 }
 
 async function loadSettlementContext(meetingId: number) {
-  const requestedMeeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: {
-      id: true,
-      meetingGroup: {
-        select: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-            select: { id: true, groupDayIndex: true },
-          },
-        },
-      },
-    },
-  });
-  if (!requestedMeeting) return null;
-  const canonicalMeetingId = requestedMeeting.meetingGroup?.meetings.find((meeting) => meeting.groupDayIndex === 1)?.id
-    ?? meetingId;
-  const [meeting, { pricing, foodSupportCap }, confirmations, surfUsageBilling] = await Promise.all([
+  const [meeting, foodSupportCap, confirmations, surfUsageBilling] = await Promise.all([
     prisma.meeting.findUnique({
-      where: { id: canonicalMeetingId },
+      where: { id: meetingId },
       include: {
-        meetingGroup: {
-          include: {
-            meetings: { orderBy: { groupDayIndex: "asc" } },
-          },
-        },
         billingSnapshot: true,
         participants: {
           where: { status: "APPROVED" },
@@ -525,11 +497,11 @@ async function loadSettlementContext(meetingId: number) {
         },
       },
     }),
-    getSettlementPricingBundle(),
+    getFoodSupportCap(),
     prisma.settlementConfirmation.findMany({
-      where: { meetingId: canonicalMeetingId },
+      where: { meetingId },
     }),
-    getConfirmedSurfUsageBillingByParticipant(canonicalMeetingId),
+    getConfirmedSurfUsageBillingByParticipant(meetingId),
   ]);
 
   if (!meeting) return null;
@@ -573,176 +545,21 @@ async function loadSettlementContext(meetingId: number) {
         cancelledAt: item.cancelledAt?.toISOString() ?? null,
         cancelledReasonCode: item.cancelledReasonCode,
         cancelledReasonText: item.cancelledReasonText,
+        createdAt: item.createdAt.toISOString(),
       })),
     ])
   );
 
-  let liveRecipients = groupParticipantsForSettlement(
+  const liveRecipients = groupParticipantsForSettlement(
+    meeting,
     meeting.participants,
-    pricing,
     adjustmentMap,
     foodOrderMap,
     foodSupportCap,
     surfUsageBilling.billingMap,
-    surfUsageBilling.confirmedParticipantIds
   );
-  let overnightContext: {
-    group: OvernightMeetingGroupSummary;
-    meetingIds: [number, number];
-    finalDate: string;
-    finalEndTime: string;
-    liveParticipants: AdminSettlementParticipant[];
-    surfUsageSummary: AdminSettlementData["surfUsageSummary"];
-  } | null = null;
-  const overnightGroup = toOvernightMeetingGroupSummary(meeting.meetingGroup);
-  const secondDayId = overnightGroup?.days[1]?.id;
-  if (overnightGroup && secondDayId) {
-    const [secondMeeting, secondSurfUsageBilling] = await Promise.all([
-      prisma.meeting.findUnique({
-        where: { id: secondDayId },
-        include: {
-          participants: {
-            where: { status: "APPROVED" },
-            orderBy: { submittedAt: "asc" },
-            include: {
-              user: { select: { memberType: true, name: true } },
-              companion: {
-                include: { owner: { select: { kakaoId: true, name: true } } },
-              },
-              chargeAdjustments: { orderBy: { createdAt: "asc" } },
-              foodOrderItems: { orderBy: { createdAt: "asc" } },
-            },
-          },
-        },
-      }),
-      getConfirmedSurfUsageBillingByParticipant(secondDayId),
-    ]);
-    if (secondMeeting) {
-      const secondAdjustmentMap = new Map(
-        secondMeeting.participants.map((participant) => [
-          participant.id,
-          participant.chargeAdjustments.map((adjustment) => ({
-            id: adjustment.id,
-            label: adjustment.label,
-            amount: adjustment.amount,
-          })),
-        ])
-      );
-      const secondFoodOrderMap = new Map(
-        secondMeeting.participants.map((participant) => [
-          participant.id,
-          participant.foodOrderItems.map((item) => ({
-            id: item.id,
-            participantId: item.participantId,
-            menuItemId: item.menuItemId,
-            menuOptionChoiceId: item.menuOptionChoiceId,
-            menuNameSnapshot: item.menuNameSnapshot,
-            optionGroupNameSnapshot: item.optionGroupNameSnapshot,
-            optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
-            unitPriceSnapshot: item.unitPriceSnapshot,
-            quantity: item.quantity,
-            preparingQuantity: item.preparingQuantity,
-            servedQuantity: item.servedQuantity,
-            cancelledAt: item.cancelledAt?.toISOString() ?? null,
-            cancelledReasonCode: item.cancelledReasonCode,
-            cancelledReasonText: item.cancelledReasonText,
-          })),
-        ])
-      );
-      liveRecipients = groupOvernightParticipantsForSettlement([
-        {
-          meetingId: meeting.id,
-          date: meeting.date,
-          participants: meeting.participants,
-          adjustmentMap,
-          foodOrderMap,
-          surfUsageMap: surfUsageBilling.billingMap,
-          surfUsageLedgerParticipantIds: surfUsageBilling.confirmedParticipantIds,
-        },
-        {
-          meetingId: secondMeeting.id,
-          date: secondMeeting.date,
-          participants: secondMeeting.participants,
-          adjustmentMap: secondAdjustmentMap,
-          foodOrderMap: secondFoodOrderMap,
-          surfUsageMap: secondSurfUsageBilling.billingMap,
-          surfUsageLedgerParticipantIds: secondSurfUsageBilling.confirmedParticipantIds,
-        },
-      ], {
-        regular: overnightGroup.regularBaseFee,
-        companion: overnightGroup.companionBaseFee,
-        lodging: overnightGroup.lodgingFee,
-      }, pricing, foodSupportCap);
-      const lineByParticipantId = new Map(
-        liveRecipients.flatMap((recipient) => recipient.items).map((line) => [line.participantId, line])
-      );
-      const liveParticipants = sortSettlementItems(meeting.participants).flatMap((participant) => {
-        const line = lineByParticipantId.get(participant.id);
-        if (!line) return [];
-        return [{
-          id: participant.id,
-          name: participant.name,
-          kakaoId: participant.kakaoId,
-          companionId: participant.companionId,
-          hasLesson: participant.hasLesson,
-          hasBus: participant.hasBus,
-          hasRental: participant.hasRental,
-          usesClubLodging: participant.usesClubLodging,
-          adjustments: line.adjustments,
-          foodOrders: line.foodOrders.map((item) => ({
-            id: item.id,
-            menuNameSnapshot: item.menuNameSnapshot,
-            optionChoiceLabelSnapshot: item.optionChoiceLabelSnapshot,
-            unitPriceSnapshot: item.unitPriceSnapshot,
-            quantity: item.quantity,
-            preparingQuantity: item.preparingQuantity,
-            servedQuantity: item.servedQuantity,
-            cancelledAt: item.cancelledAt instanceof Date ? item.cancelledAt.toISOString() : item.cancelledAt ?? null,
-            cancelledReasonCode: item.cancelledReasonCode ?? null,
-            cancelledReasonText: item.cancelledReasonText ?? null,
-          })),
-          surfUsageLines: line.surfUsageLines.map((usageLine) => ({
-            id: usageLine.id,
-            usageItemId: usageLine.usageItemId,
-            usageItemName: usageLine.usageItemName,
-            serviceType: usageLine.serviceType,
-            quantity: usageLine.quantity,
-            shopUnitPrice: usageLine.shopUnitPrice,
-            memberBillingPolicy: usageLine.memberBillingPolicy,
-            regularMemberUnitPrice: usageLine.regularMemberUnitPrice,
-          })),
-          breakdown: {
-            baseFee: line.baseFee,
-            lodgingFee: line.lodgingFee,
-            lessonFee: line.lessonFee,
-            rentalFee: line.rentalFee,
-            surfUsageShopFee: line.surfUsageShopFee,
-            surfUsageMemberFee: line.surfUsageMemberFee,
-            surfUsageCoveredFee: line.surfUsageCoveredFee,
-            adjustmentFee: line.adjustmentFee,
-            foodSubtotal: line.foodSubtotal,
-            foodSupportApplied: line.foodSupportApplied,
-            foodCharge: line.foodCharge,
-            totalFee: line.totalFee,
-          },
-          dailyBreakdowns: line.dailyBreakdowns,
-        }];
-      });
-      overnightContext = {
-        group: overnightGroup,
-        meetingIds: [meeting.id, secondMeeting.id],
-        finalDate: secondMeeting.date,
-        finalEndTime: secondMeeting.endTime,
-        liveParticipants,
-        surfUsageSummary: liveParticipants.reduce((summary, participant) => ({
-          shopChargeAmount: summary.shopChargeAmount + participant.breakdown.surfUsageShopFee,
-          memberChargeAmount: summary.memberChargeAmount + participant.breakdown.surfUsageMemberFee,
-          operationsCoveredAmount: summary.operationsCoveredAmount + participant.breakdown.surfUsageCoveredFee,
-        }), { shopChargeAmount: 0, memberChargeAmount: 0, operationsCoveredAmount: 0 }),
-      };
-    }
-  }
-  const snapshotPayload = meeting.settlementOpen
+  // 공개된 청구는 공개 시점에 고정한 금액을 쓴다.
+  const snapshotPayload = meeting.billingPublishedAt
     && meeting.billingSnapshot
     && isMeetingBillingSnapshotPayload(meeting.billingSnapshot.data)
       ? meeting.billingSnapshot.data
@@ -765,7 +582,6 @@ async function loadSettlementContext(meetingId: number) {
 
   return {
     meeting,
-    pricing,
     adjustmentMap,
     foodOrderMap,
     foodSupportCap,
@@ -773,7 +589,6 @@ async function loadSettlementContext(meetingId: number) {
     recipients,
     snapshotPayload,
     liveRecipients,
-    overnightContext,
   };
 }
 
@@ -783,29 +598,24 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
 
   const {
     meeting,
-    pricing,
     adjustmentMap,
     foodOrderMap,
     foodSupportCap,
     surfUsageBilling,
     recipients,
     snapshotPayload,
-    overnightContext,
   } = context;
 
-  const singleDayLiveParticipants = sortSettlementItems(meeting.participants).map((participant) => {
+  const liveParticipants: AdminSettlementParticipant[] = sortSettlementItems(meeting.participants).map((participant) => {
     const adjustments = adjustmentMap.get(participant.id) ?? [];
     const foodOrders = foodOrderMap.get(participant.id) ?? [];
-    const surfUsageLines = surfUsageBilling.billingMap.get(participant.id) ?? [];
-    const adjustmentFee = adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    const breakdown = getParticipantChargeBreakdown(
+    const { surfUsageLines, dailyBreakdowns, ...breakdown } = getParticipantChargeBreakdown(
+      meeting,
       participant,
-      pricing,
-      adjustmentFee,
+      adjustments,
       foodOrders,
       foodSupportCap,
-      surfUsageLines,
-      surfUsageBilling.confirmedParticipantIds.has(participant.id)
+      surfUsageBilling.billingMap.get(participant.id) ?? [],
     );
 
     return {
@@ -821,6 +631,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       foodOrders,
       surfUsageLines: surfUsageLines.map((line) => ({
         id: line.id,
+        day: line.day,
         usageItemId: line.usageItemId,
         usageItemName: line.usageItemName,
         serviceType: line.serviceType,
@@ -830,28 +641,27 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
         regularMemberUnitPrice: line.regularMemberUnitPrice,
       })),
       breakdown,
+      ...(dailyBreakdowns ? { dailyBreakdowns } : {}),
     };
   });
-  const liveParticipants = overnightContext?.liveParticipants ?? singleDayLiveParticipants;
   const participants = snapshotPayload
     ? snapshotPayload.participants.map((participant) => ({ ...participant }))
     : liveParticipants;
-  const effectiveSurfUsageSummary = snapshotPayload?.surfUsageSummary
-    ?? overnightContext?.surfUsageSummary
-    ?? surfUsageBilling.summary;
-  const readiness = overnightContext
-    ? await getMeetingGroupBillingReadiness(overnightContext.meetingIds)
-    : await getMeetingBillingReadiness(meeting.id);
+  const liveSurfUsageSummary = liveParticipants.reduce((summary, participant) => ({
+    shopChargeAmount: summary.shopChargeAmount + participant.breakdown.surfUsageShopFee,
+    memberChargeAmount: summary.memberChargeAmount + participant.breakdown.surfUsageMemberFee,
+    operationsCoveredAmount: summary.operationsCoveredAmount + participant.breakdown.surfUsageCoveredFee,
+  }), { shopChargeAmount: 0, memberChargeAmount: 0, operationsCoveredAmount: 0 });
+  const effectiveSurfUsageSummary = snapshotPayload?.surfUsageSummary ?? liveSurfUsageSummary;
+  const readiness = await getMeetingBillingReadiness(meeting.id);
   if (!readiness) return null;
-  const evidenceReady = readiness.checks
-    .filter((check) => check.id !== "billing-reviewed")
-    .every((check) => check.complete);
+  const billingPublished = meeting.billingPublishedAt !== null;
   const workflowStage = getMeetingWorkflowStage({
-    date: overnightContext?.finalDate ?? meeting.date,
-    endTime: overnightContext?.finalEndTime ?? meeting.endTime,
+    date: meeting.date,
+    endDate: meeting.endDate,
+    endTime: meeting.endTime,
     isOpen: meeting.isOpen,
-    settlementOpen: meeting.settlementOpen,
-    billingEvidenceReady: evidenceReady,
+    billingPublished,
     recipientCount: recipients.length,
     verifiedRecipientCount: recipients.filter((recipient) => recipient.totalFee === 0 || recipient.verified).length,
     settlementCompletedAt: meeting.settlementCompletedAt,
@@ -869,10 +679,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
   const memberChargeTotal = meeting.billingSnapshot?.memberChargeTotal
     ?? recipients.reduce((total, recipient) => total + recipient.totalFee, 0);
   const shopPayableTotal = meeting.billingSnapshot?.shopPayableTotal ?? effectiveSurfUsageSummary.shopChargeAmount;
-  const shopComplete = shopPayableTotal === 0 || Boolean(meeting.shopPaidAt);
-  const foodComplete = foodPayableTotal === 0 || Boolean(meeting.foodPaidAt);
-  const shopPaidTimes = [meeting.shopPaidAt, meeting.foodPaidAt].filter((value): value is Date => value !== null);
-  const shopTotalPaid = shopPaidTimes.length > 0;
+  const shopTotalPayable = shopPayableTotal + foodPayableTotal;
 
   return {
     meeting: {
@@ -882,8 +689,8 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
       endTime: meeting.endTime,
       location: meeting.location,
       isOpen: meeting.isOpen,
-      settlementOpen: meeting.settlementOpen,
-      overnightGroup: overnightContext?.group ?? null,
+      endDate: meeting.endDate,
+      billingPublished,
     },
     participants,
     surfUsageSummary: effectiveSurfUsageSummary,
@@ -910,28 +717,18 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
         clubSupportTotal: meeting.billingSnapshot?.clubSupportTotal
           ?? effectiveSurfUsageSummary.operationsCoveredAmount + foodSupportTotal,
       },
-      shopPayout: {
-        paidAt: meeting.shopPaidAt?.toISOString() ?? null,
-        amount: meeting.shopPaidAmount,
-      },
-      foodPayout: {
-        paidAt: meeting.foodPaidAt?.toISOString() ?? null,
-        amount: meeting.foodPaidAmount,
-      },
       shopTotal: {
-        payable: shopPayableTotal + foodPayableTotal,
-        paidAt: shopTotalPaid
-          ? new Date(Math.max(...shopPaidTimes.map((value) => value.getTime()))).toISOString()
-          : null,
-        paidAmount: shopTotalPaid ? (meeting.shopPaidAmount ?? 0) + (meeting.foodPaidAmount ?? 0) : null,
-        complete: shopComplete && foodComplete,
+        payable: shopTotalPayable,
+        paidAt: meeting.shopPaidAt?.toISOString() ?? null,
+        paidAmount: meeting.shopPaidAt ? meeting.shopPaidAmount : null,
+        complete: shopTotalPayable === 0 || meeting.shopPaidAt !== null,
       },
       companySupport: {
         perRegular: companySupportPerRegular,
         regularCount,
         total: companySupportPerRegular * regularCount,
       },
-      balance: memberChargeTotal + companySupportPerRegular * regularCount - (shopPayableTotal + foodPayableTotal),
+      balance: memberChargeTotal + companySupportPerRegular * regularCount - shopTotalPayable,
       settlementCompletedAt: meeting.settlementCompletedAt?.toISOString() ?? null,
       settlementNote: meeting.settlementNote,
     },
@@ -947,17 +744,18 @@ export async function getAdminSettlementStatusData(meetingId: number): Promise<A
     .sort((a, b) => a.recipientType.localeCompare(b.recipientType))
     .sort((a, b) => a.recipientName.localeCompare(b.recipientName, "ko-KR"));
 
-  const completedCount = meeting.settlementOpen
+  const billingPublished = meeting.billingPublishedAt !== null;
+  const completedCount = billingPublished
     ? sortedRecipients.filter((recipient) => recipient.completed).length
     : 0;
-  const pendingCount = meeting.settlementOpen
+  const pendingCount = billingPublished
     ? sortedRecipients.filter((recipient) => !recipient.completed).length
     : 0;
 
   return {
     meeting: {
       id: meeting.id,
-      settlementOpen: meeting.settlementOpen,
+      billingPublished,
     },
     summary: {
       totalRecipientCount: sortedRecipients.length,
@@ -970,8 +768,8 @@ export async function getAdminSettlementStatusData(meetingId: number): Promise<A
       recipientType: recipient.recipientType,
       totalFee: recipient.totalFee,
       itemCount: recipient.items.length,
-      completed: meeting.settlementOpen ? recipient.completed : false,
-      completedAt: meeting.settlementOpen ? recipient.completedAt : null,
+      completed: billingPublished ? recipient.completed : false,
+      completedAt: billingPublished ? recipient.completedAt : null,
     })),
   };
 }
@@ -1002,18 +800,6 @@ export async function getAdminPricingState(): Promise<AdminPricingState> {
     [PRICING_SETTING_KEYS.companionBaseFee]:
       settings[PRICING_SETTING_KEYS.companionBaseFee] ??
       DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionBaseFee],
-    [PRICING_SETTING_KEYS.regularLessonFee]:
-      settings[PRICING_SETTING_KEYS.regularLessonFee] ??
-      DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularLessonFee],
-    [PRICING_SETTING_KEYS.companionLessonFee]:
-      settings[PRICING_SETTING_KEYS.companionLessonFee] ??
-      DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionLessonFee],
-    [PRICING_SETTING_KEYS.regularRentalFee]:
-      settings[PRICING_SETTING_KEYS.regularRentalFee] ??
-      DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularRentalFee],
-    [PRICING_SETTING_KEYS.companionRentalFee]:
-      settings[PRICING_SETTING_KEYS.companionRentalFee] ??
-      DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.companionRentalFee],
     foodOrderSupportCap:
       settings[FOOD_ORDER_SUPPORT_CAP_KEY] ?? DEFAULT_FOOD_ORDER_SUPPORT_CAP,
     companySupportPerRegular:

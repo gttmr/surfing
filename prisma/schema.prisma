@@ -8,87 +8,67 @@ datasource db {
 }
 
 model Meeting {
-  id                              Int                              @id @default(autoincrement())
-  date                            String // "2026-03-21"
-  startTime                       String // "10:00"
-  endTime                         String // "12:00"
-  location                        String
-  description                     String?
-  isOpen                          Boolean                          @default(true)
-  settlementOpen                  Boolean                          @default(false)
-  billingReviewConfirmedAt        DateTime?
-  billingReviewConfirmedByKakaoId String?
-  billingPublishedAt              DateTime?
-  billingPublishedByKakaoId       String?
-  billingCorrectionReason         String?
-  shopPaidAt                      DateTime?
-  shopPaidAmount                  Int?
-  foodPaidAt                      DateTime?
-  foodPaidAmount                  Int?
-  settlementCompletedAt           DateTime?
-  settlementCompletedByKakaoId    String?
-  settlementNote                  String?
-  shopUsageCheckedAt              DateTime? // 샵이 항목별 이용 수량을 확인한 시각 (이용 내역이 바뀌면 초기화)
-  shopUsageCheckedByKakaoId       String?
-  meetingType                     String                           @default("정기") // 정기 | 비정기
-  createdByKakaoId                String? // null = admin, otherwise member's kakaoId
-  meetingGroupId                  Int?
-  groupDayIndex                   Int?
-  meetingGroup                    MeetingGroup?                    @relation(fields: [meetingGroupId], references: [id], onDelete: Cascade)
-  participants                    Participant[]
-  foodOrderItems                  ParticipantFoodOrderItem[]
-  foodOrders                      ParticipantFoodOrder[]
-  surfUsageItems                  SurfUsageItem[]
-  surfUsages                      ParticipantSurfUsage[]
-  surfUsageSubmissions            ParticipantSurfUsageSubmission[]
-  chargeAdjustments               ParticipantChargeAdjustment[]
-  settlementConfirmations         SettlementConfirmation[]
-  billingSnapshot                 MeetingBillingSnapshot?
-  createdAt                       DateTime                         @default(now())
-
-  @@unique([meetingGroupId, groupDayIndex])
-  @@index([meetingGroupId])
-}
-
-model MeetingGroup {
-  id               Int       @id @default(autoincrement())
-  kind             String    @default("OVERNIGHT")
-  regularBaseFee   Int       @default(0)
-  companionBaseFee Int       @default(0)
-  lodgingFee       Int       @default(0)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  meetings         Meeting[]
+  id                           Int                           @id @default(autoincrement())
+  date                         String // 시작일 "2026-03-21"
+  endDate                      String? // 1박 이상이면 마지막 날. 당일 모임은 null
+  startTime                    String // 첫날 시작 "07:00"
+  endTime                      String // 마지막 날 종료 "22:00"
+  location                     String
+  description                  String?
+  isOpen                       Boolean                       @default(true)
+  regularFee                   Int // 정회원 참가비 (1박은 둘째 날 포함 총액)
+  companionFee                 Int // 동반인 참가비
+  lodgingFee                   Int                           @default(0) // 숙박 대상자 1인 숙박비
+  billingPublishedAt           DateTime? // 청구 공개 시각. null 이면 공개 전
+  billingPublishedByKakaoId    String?
+  billingCorrectionReason      String?
+  shopPaidAt                   DateTime? // 샵(장비+식음료) 지급
+  shopPaidAmount               Int?
+  settlementCompletedAt        DateTime?
+  settlementCompletedByKakaoId String?
+  settlementNote               String?
+  shopUsageCheckedAt           DateTime? // 샵이 항목별 이용 수량을 확인한 시각 (이용 내역이 바뀌면 초기화)
+  shopUsageCheckedByKakaoId    String?
+  meetingType                  String                        @default("정기") // 정기 | 비정기
+  createdByKakaoId             String? // null = admin, otherwise member's kakaoId
+  participants                 Participant[]
+  foodOrderItems               ParticipantFoodOrderItem[]
+  foodOrders                   ParticipantFoodOrder[]
+  surfUsages                   ParticipantSurfUsage[]
+  chargeAdjustments            ParticipantChargeAdjustment[]
+  settlementConfirmations      SettlementConfirmation[]
+  billingSnapshot              MeetingBillingSnapshot?
+  createdAt                    DateTime                      @default(now())
 }
 
 model Participant {
-  id                         Int                              @id @default(autoincrement())
-  meetingId                  Int
-  meeting                    Meeting                          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  name                       String
-  kakaoId                    String
-  user                       User?                            @relation(fields: [kakaoId], references: [kakaoId])
-  kakaoNickname              String // 카카오 프로필 닉네임 (참고용)
-  companionId                Int? // 동반인인 경우 Companion.id
-  companion                  Companion?                       @relation(fields: [companionId], references: [id])
-  note                       String?
-  hasLesson                  Boolean                          @default(false) // 강습 여부
-  hasBus                     Boolean                          @default(false) // 버스 이용 여부
-  hasRental                  Boolean                          @default(false) // 장비 대여 여부
-  usesClubLodging            Boolean                          @default(false) // 연결 모임의 공동 숙박 이용 여부
-  status                     String                           @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
-  attendanceStatus           String                           @default("PENDING") // PENDING | ATTENDED | ABSENT
-  attendanceUpdatedAt        DateTime?
-  attendanceUpdatedByKakaoId String?
-  waitlistPosition           Int?
-  cancelledAt                DateTime?
-  isPenalized                Boolean                          @default(false) // 취소 시 패널티 적용 여부
-  submittedAt                DateTime                         @default(now())
-  foodOrderItems             ParticipantFoodOrderItem[]
-  foodOrders                 ParticipantFoodOrder[]
-  surfUsages                 ParticipantSurfUsage[]
-  surfUsageSubmissions       ParticipantSurfUsageSubmission[]
-  chargeAdjustments          ParticipantChargeAdjustment[]
+  id                Int                           @id @default(autoincrement())
+  meetingId         Int
+  meeting           Meeting                       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name              String
+  kakaoId           String
+  user              User?                         @relation(fields: [kakaoId], references: [kakaoId])
+  kakaoNickname     String // 카카오 프로필 닉네임 (참고용)
+  companionId       Int? // 동반인인 경우 Companion.id
+  companion         Companion?                    @relation(fields: [companionId], references: [id])
+  note              String?
+  hasLesson         Boolean                       @default(false) // 강습 신청 (첫날)
+  hasBus            Boolean                       @default(false) // 버스 이용
+  hasRental         Boolean                       @default(false) // 장비 대여 필요 (첫날)
+  hasDay2Rental     Boolean                       @default(false) // 1박: 둘째 날 장비 대여 필요
+  usesClubLodging   Boolean                       @default(false) // 1박: 숙박비 청구 대상
+  status            String                        @default("APPROVED") // APPROVED | WAITLISTED | CANCELLED
+  absentAt          DateTime? // 운영진이 불참 처리한 시각. 참가비는 그대로 청구하고 실제 이용 확인에서만 뺀다
+  waitlistPosition  Int?
+  cancelledAt       DateTime?
+  isPenalized       Boolean                       @default(false) // 취소 시 패널티 적용 여부
+  usageSubmittedAt  DateTime? // 회원이 실제 이용을 직접 제출(수정)한 시각
+  usageConfirmedAt  DateTime? // 운영진·샵이 실제 이용을 확정한 시각. 확정된 이용만 청구에 반영
+  submittedAt       DateTime                      @default(now())
+  foodOrderItems    ParticipantFoodOrderItem[]
+  foodOrders        ParticipantFoodOrder[]
+  surfUsages        ParticipantSurfUsage[]
+  chargeAdjustments ParticipantChargeAdjustment[]
 
   @@unique([meetingId, kakaoId, companionId])
 }
@@ -205,69 +185,42 @@ model UserNotification {
   @@index([foodOrderItemId])
 }
 
+// 샵 이용 항목표(모든 모임 공통). 기록할 때 가격을 함께 저장하므로 바꿔도 지난 기록은 그대로다.
 model SurfUsageItem {
-  id                  Int                    @id @default(autoincrement())
-  meetingId           Int
-  name                String
-  description         String?
-  serviceType         String
-  shopPrice           Int
-  memberBillingPolicy String
-  regularMemberPrice  Int                    @default(0)
-  isDefault           Boolean                @default(false)
-  isActive            Boolean                @default(true)
-  displayOrder        Int                    @default(0)
-  createdByKakaoId    String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  meeting             Meeting                @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  usages              ParticipantSurfUsage[]
-
-  @@index([meetingId, displayOrder])
-  @@index([meetingId, serviceType])
+  id           Int                    @id @default(autoincrement())
+  name         String
+  description  String?
+  serviceType  String // LESSON_PACKAGE | EQUIPMENT_RENTAL | WETSUIT_ONLY | SHOWER | CUSTOM
+  shopPrice    Int
+  regularPrice Int? // 정회원 가격. 0 = 동호회 지원, 금액 = 고정, null = 샵 가격. 동반인은 항상 샵 가격
+  isActive     Boolean                @default(true)
+  displayOrder Int                    @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  usages       ParticipantSurfUsage[]
 }
 
 model ParticipantSurfUsage {
-  id                          Int           @id @default(autoincrement())
-  meetingId                   Int
-  participantId               Int
-  usageItemId                 Int
-  quantity                    Int
-  usageItemNameSnapshot       String
-  serviceTypeSnapshot         String
-  shopUnitPriceSnapshot       Int
-  memberBillingPolicySnapshot String
-  regularMemberPriceSnapshot  Int           @default(0)
-  source                      String        @default("participant")
-  submittedByKakaoId          String?
-  note                        String?
-  createdAt                   DateTime      @default(now())
-  updatedAt                   DateTime      @updatedAt
-  meeting                     Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  participant                 Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
-  usageItem                   SurfUsageItem @relation(fields: [usageItemId], references: [id], onDelete: Restrict)
+  id                    Int           @id @default(autoincrement())
+  meetingId             Int
+  participantId         Int
+  day                   Int           @default(1) // 1박의 몇째 날
+  usageItemId           Int
+  quantity              Int
+  usageItemNameSnapshot String
+  serviceTypeSnapshot   String
+  shopUnitPriceSnapshot Int
+  regularPriceSnapshot  Int? // 기록 시점의 정회원 가격 (null = 샵 가격)
+  source                String        @default("participant") // participant | shop | signup
+  submittedByKakaoId    String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  meeting               Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant           Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  usageItem             SurfUsageItem @relation(fields: [usageItemId], references: [id], onDelete: Restrict)
 
   @@index([meetingId, participantId])
   @@index([usageItemId])
-}
-
-model ParticipantSurfUsageSubmission {
-  id                 Int         @id @default(autoincrement())
-  meetingId          Int
-  participantId      Int
-  submittedByKakaoId String?
-  status             String      @default("SUBMITTED")
-  confirmedAt        DateTime?
-  confirmedByKakaoId String?
-  note               String?
-  submittedAt        DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  meeting            Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  participant        Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
-
-  @@unique([meetingId, participantId])
-  @@index([meetingId, status])
-  @@index([participantId])
 }
 
 model SettlementConfirmation {

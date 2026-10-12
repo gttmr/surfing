@@ -1,6 +1,6 @@
 "use client";
 
-import type { OvernightFeeDefaults } from "@/lib/meeting-group";
+import type { MeetingFeeDefaults } from "@/lib/meeting-days";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -16,7 +16,7 @@ type AdminMeetingsPageClientProps = {
   readonly initialShowCreate?: boolean;
   readonly initialCreateDate?: string;
   readonly initialCreateType?: string;
-  readonly overnightFeeDefaults?: OvernightFeeDefaults;
+  readonly overnightFeeDefaults?: MeetingFeeDefaults;
 };
 
 export function AdminMeetingsPageClient({

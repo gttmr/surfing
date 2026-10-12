@@ -20,22 +20,15 @@ export const DEFAULT_SETTLEMENT_ACCOUNT_HOLDER = "";
 export const DEFAULT_FOOD_ORDER_SUPPORT_CAP = "10000";
 export const DEFAULT_COMPANY_SUPPORT_PER_REGULAR = "50000";
 
+/** 새 모임의 기본 참가비. 모임마다 저장된 참가비가 실제 청구 기준이다. 강습·장비 가격은 이용 항목표에 있다. */
 export const PRICING_SETTING_KEYS = {
   regularBaseFee: "pricing_regular_base_fee",
   companionBaseFee: "pricing_companion_base_fee",
-  regularLessonFee: "pricing_regular_lesson_fee",
-  companionLessonFee: "pricing_companion_lesson_fee",
-  regularRentalFee: "pricing_regular_rental_fee",
-  companionRentalFee: "pricing_companion_rental_fee",
 } as const;
 
 export const DEFAULT_PRICING_SETTINGS: Record<(typeof PRICING_SETTING_KEYS)[keyof typeof PRICING_SETTING_KEYS], string> = {
   [PRICING_SETTING_KEYS.regularBaseFee]: "0",
   [PRICING_SETTING_KEYS.companionBaseFee]: "0",
-  [PRICING_SETTING_KEYS.regularLessonFee]: "10000",
-  [PRICING_SETTING_KEYS.companionLessonFee]: "50000",
-  [PRICING_SETTING_KEYS.regularRentalFee]: "0",
-  [PRICING_SETTING_KEYS.companionRentalFee]: "30000",
 };
 
 export type PricingSettingKey = (typeof PRICING_SETTING_KEYS)[keyof typeof PRICING_SETTING_KEYS];

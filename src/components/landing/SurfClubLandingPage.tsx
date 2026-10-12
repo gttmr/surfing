@@ -22,6 +22,7 @@ import {
   type AlertItem,
   CalendarSection,
   LandingHeader,
+  MeetingInfoPanel,
   MeetingTabs,
   PendingBillingAlert,
   UpcomingMeetings,
@@ -32,7 +33,7 @@ import { formatWon, MONTH_NAMES_KO, pad } from "@/lib/format";
 import { Icon } from "@/components/ui/Icon";
 import { buildCalendarCells } from "@/lib/home-view";
 import { MemberDock } from "@/components/ui/MobileShell";
-import { getOvernightMeetingSpan } from "@/lib/meeting-group";
+import { isOvernightMeeting, lastMeetingDate, meetingDays } from "@/lib/meeting-days";
 import { getTodayInSeoul } from "@/lib/date";
 
 const MEETING_DATE_FORMATTER = new Intl.DateTimeFormat("ko-KR", {
@@ -167,54 +168,33 @@ export default function SurfClubLandingPage({
   const hasUserNotifications = userNotifications.length > 0;
   const hasAlertCenter = hasNotices || hasPendingSettlement || hasUserNotifications;
 
+  // 1박은 일정의 모든 날짜에 같은 모임으로 걸린다.
   const meetingsByDate = sortedMeetings.reduce<Record<string, MeetingWithCounts[]>>((acc, meeting) => {
-    if (!acc[meeting.date]) acc[meeting.date] = [];
-    acc[meeting.date].push({
-      ...meeting,
-      approvedCount: meetingApprovedCountOverrides[meeting.id] ?? meeting.approvedCount,
-    });
+    for (const day of meetingDays(meeting)) {
+      if (!acc[day.date]) acc[day.date] = [];
+      acc[day.date].push({
+        ...meeting,
+        approvedCount: meetingApprovedCountOverrides[meeting.id] ?? meeting.approvedCount,
+      });
+    }
     return acc;
   }, {});
 
   const monthKey = `${year}-${pad(month + 1)}`;
   const monthMeetings = sortedMeetings.filter((meeting) => meeting.date.startsWith(monthKey));
-  const meetingsById = new Map(sortedMeetings.map((meeting) => [meeting.id, meeting]));
-  const selectedSourceMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
-  const selectedMeetings = selectedSourceMeetings.reduce<MeetingWithCounts[]>((result, meeting) => {
-    const canonicalMeeting = meeting.overnightGroup?.days[0]?.id
-      ? meetingsById.get(meeting.overnightGroup.days[0].id) ?? meeting
-      : meeting;
-    if (!result.some((item) => item.id === canonicalMeeting.id)) result.push(canonicalMeeting);
-    return result;
-  }, []);
+  const selectedMeetings = selectedDate ? (meetingsByDate[selectedDate] ?? []) : monthMeetings;
   const hasSelectedMeetings = selectedMeetings.length > 0;
   const selectedMeeting = selectedMeetings[0];
-  const selectedOvernightSpan = selectedMeeting?.overnightGroup
-    ? getOvernightMeetingSpan(selectedMeeting.overnightGroup)
-    : null;
   const selectedMeetingDateLabel = selectedMeeting
-    ? selectedOvernightSpan
-      ? [selectedOvernightSpan.startDate, selectedOvernightSpan.endDate]
-          .map((date) => MEETING_DATE_FORMATTER.format(new Date(`${date}T12:00:00`)))
-          .join("–")
-      : MEETING_DATE_FORMATTER.format(new Date(`${selectedMeeting.date}T12:00:00`))
+    ? [...new Set([selectedMeeting.date, lastMeetingDate(selectedMeeting)])]
+        .map((date) => MEETING_DATE_FORMATTER.format(new Date(`${date}T12:00:00`)))
+        .join("–")
     : "";
-  const selectedMeetingDescription = selectedMeeting?.overnightGroup
-    ? (() => {
-        const dailyDescriptions = selectedMeeting.overnightGroup.days.map((day) => ({
-          dayIndex: day.dayIndex,
-          description: initialMeetingDetailsById[day.id]?.description?.trim() ?? "",
-        }));
-        const descriptions = dailyDescriptions.map((day) => day.description).filter(Boolean);
-        if (descriptions.length === 0) return "운영진이 등록한 추가 안내가 없습니다.";
-        if (descriptions.length === dailyDescriptions.length && new Set(descriptions).size === 1) return descriptions[0];
-        return dailyDescriptions
-          .map((day) => `${day.dayIndex}일차${day.description ? `\n${day.description}` : " · 추가 안내 없음"}`)
-          .join("\n\n");
-      })()
-    : selectedMeeting?.description || "운영진이 등록한 추가 안내가 없습니다.";
+  // 이번 모임의 별도 안내(모임 설명)
+  const selectedMeetingNote = selectedMeeting?.description?.trim() || null;
+  const mainNotice = notices.find((notice) => notice.isPinned) ?? null;
   // 다가오는 모임 카드에서 고른 모임은 카드에 날짜·장소가 이미 보이므로 요약 헤더를 생략한다.
-  const selectedLastDate = selectedMeeting?.overnightGroup?.days.at(-1)?.date ?? selectedMeeting?.date;
+  const selectedLastDate = selectedMeeting ? lastMeetingDate(selectedMeeting) : undefined;
   const selectedMeetingEnded = Boolean(selectedLastDate && selectedLastDate < today);
   const selectedIsUpcomingCard = Boolean(
     selectedMeeting && getUpcomingMeetings(sortedMeetings, today).some((meeting) => meeting.id === selectedMeeting.id)
@@ -361,9 +341,9 @@ export default function SurfClubLandingPage({
                 <h2 className="mt-1 font-headline text-xl font-extrabold tracking-[-0.04em]" id="selected-meeting-title">
                   {selectedMeetingDateLabel}
                 </h2>
-                {selectedOvernightSpan ? (
+                {isOvernightMeeting(selectedMeeting) ? (
                   <p className="brand-text-muted mt-2 text-sm leading-6">
-                    {selectedOvernightSpan.startTime} 시작 · {selectedOvernightSpan.endTime} 종료 · {selectedOvernightSpan.location}
+                    {selectedMeeting.startTime} 시작 · {selectedMeeting.endTime} 종료 · {selectedMeeting.location}
                   </p>
                 ) : (
                   <p className="brand-text-muted mt-2 text-sm leading-6">
@@ -372,7 +352,7 @@ export default function SurfClubLandingPage({
                 )}
               </div>
               <span className="brand-chip-dark shrink-0 rounded-full px-3 py-1.5 text-xs font-bold">
-                {selectedMeeting.overnightGroup ? `1박 2일 · ${selectedMeeting.meetingType}` : selectedMeeting.meetingType}
+                {isOvernightMeeting(selectedMeeting) ? `1박 2일 · ${selectedMeeting.meetingType}` : selectedMeeting.meetingType}
               </span>
             </div>
             <div className="mt-4 rounded-2xl bg-brand-primary-soft px-4 py-3">
@@ -403,17 +383,7 @@ export default function SurfClubLandingPage({
           >
             <section id="meeting-details">
               {activeMeetingTab === "settlement" ? (
-                <div className="border-y border-brand-divider py-5">
-                  <div className="flex items-start gap-3">
-                    <span className="brand-chip-soft flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Icon name="info" /></span>
-                    <div>
-                      <h3 className="text-base font-extrabold text-brand-text">모임 안내</h3>
-                      <p className="brand-text-muted mt-1 whitespace-pre-line text-sm leading-6">
-                        {selectedMeetingDescription}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <MeetingInfoPanel mainNotice={mainNotice} meetingNote={selectedMeetingNote} />
               ) : (
                 <div className="space-y-4">
                   {selectedMeetings.map((meeting) => (

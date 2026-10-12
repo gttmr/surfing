@@ -159,7 +159,7 @@ export function useLandingState({
     setMeetingSettlementStatusOverrides((prev) => (
       prev[meetingId]?.summary.pendingCount === status.summary.pendingCount &&
       prev[meetingId]?.summary.completedCount === status.summary.completedCount &&
-      prev[meetingId]?.meeting.settlementOpen === status.meeting.settlementOpen
+      prev[meetingId]?.meeting.billingPublished === status.meeting.billingPublished
         ? prev
         : { ...prev, [meetingId]: status }
     ));

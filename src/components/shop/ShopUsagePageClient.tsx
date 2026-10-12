@@ -77,7 +77,7 @@ function LockedUsageOverview({ usageData }: { usageData: ShopMeetingSurfUsageDat
         {usageData.participantRows.map((participant) => {
           const actual = participant.entries
             .filter((entry) => entry.quantity > 0)
-            .map((entry) => `${entry.usageItemName} ${entry.quantity}`)
+            .map((entry) => `${usageData.meeting.days.length > 1 ? `${entry.day}일차 ` : ""}${entry.usageItemName} ${entry.quantity}`)
             .join(" · ") || "이용 없음";
           return (
             <div className="px-4 py-3" key={participant.participantId}>
@@ -114,17 +114,14 @@ export function ShopUsagePageClient({
   selectedMeetingId,
   initialData,
   initialUsageData,
-  initialUsageDataByDay,
 }: {
   meetings: ShopMeetingOption[];
   selectedMeetingId: number | null;
   initialData: AdminMeetingFoodOrdersData | null;
   initialUsageData: ShopMeetingSurfUsageData | null;
-  initialUsageDataByDay: ShopMeetingSurfUsageData[];
 }) {
   const [foodData, setFoodData] = useState(initialData);
   const [usageData, setUsageData] = useState(initialUsageData);
-  const [usageDataByDay, setUsageDataByDay] = useState(initialUsageDataByDay);
 
   useEffect(() => {
     setFoodData(initialData);
@@ -132,28 +129,15 @@ export function ShopUsagePageClient({
 
   useEffect(() => {
     setUsageData(initialUsageData);
-    setUsageDataByDay(initialUsageDataByDay);
-  }, [initialUsageData, initialUsageDataByDay]);
+  }, [initialUsageData]);
 
   function handleUsageDataChange(nextData: ShopMeetingSurfUsageData) {
     setUsageData(nextData);
-    setUsageDataByDay((current) => current.map((item) => (
-      item.meeting.id === nextData.meeting.id ? nextData : item
-    )));
   }
 
   const meetingInfo = foodData?.meeting ?? usageData?.meeting ?? null;
   const reviewState = usageData?.meeting.actualUsageReview.state ?? "WAITING";
   const waiting = reviewState === "WAITING";
-  const isOvernight = usageDataByDay.length === 2;
-  const combinedSummary = usageDataByDay.reduce((summary, day) => ({
-    approvedCount: summary.approvedCount + day.summary.approvedCount,
-    missingCount: summary.missingCount + day.summary.missingCount,
-    reviewCount: summary.reviewCount + day.summary.reviewCount,
-    confirmedCount: summary.confirmedCount + day.summary.confirmedCount,
-    confirmedShopAmount: summary.confirmedShopAmount + day.summary.confirmedShopAmount,
-  }), { approvedCount: 0, missingCount: 0, reviewCount: 0, confirmedCount: 0, confirmedShopAmount: 0 });
-
   return (
     <ShopLayout>
       <header className="mb-4">
@@ -166,40 +150,6 @@ export function ShopUsagePageClient({
         selectedMeetingId={selectedMeetingId}
         meetingInfo={meetingInfo}
       />
-
-      {isOvernight ? (
-        <section className="mb-5 space-y-3" aria-label="1박2일 실제 이용 현황">
-          <div className="brand-panel-strong rounded-2xl px-4 py-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="brand-text-subtle text-xs font-bold">2일 합산 샵 금액</p>
-                <p className="mt-1 text-sm font-extrabold text-brand-text">확정 {combinedSummary.confirmedCount}/{combinedSummary.approvedCount}건</p>
-              </div>
-              <p className="text-xl font-extrabold text-brand-text">{formatWon(combinedSummary.confirmedShopAmount)}</p>
-            </div>
-            <p className="brand-text-muted mt-2 text-xs">예정과 다른 제출·확인 필요 {combinedSummary.reviewCount}건 · 미제출 {combinedSummary.missingCount}건</p>
-          </div>
-          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-brand-surface p-1.5" role="tablist" aria-label="확인할 날짜">
-            {usageDataByDay.map((day, index) => {
-              const [, month, date] = day.meeting.date.split("-");
-              const active = usageData?.meeting.id === day.meeting.id;
-              return (
-                <button
-                  aria-selected={active}
-                  className={`min-h-12 rounded-xl px-2 py-2 text-xs font-extrabold ${active ? "brand-filter-tab-active" : "brand-text-subtle"}`}
-                  key={day.meeting.id}
-                  onClick={() => setUsageData(day)}
-                  role="tab"
-                  type="button"
-                >
-                  {index + 1}일차 · {Number(month)}.{Number(date)}
-                  <span className="mt-0.5 block text-[10px] font-semibold">확인 {day.summary.reviewCount} · 미제출 {day.summary.missingCount}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
 
       {usageData ? (
         <div className="space-y-8">

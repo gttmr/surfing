@@ -10,10 +10,6 @@ import { DEFAULT_PRICING_SETTINGS, PRICING_SETTING_KEYS } from "@/lib/settings";
 const validPricing = {
   [PRICING_SETTING_KEYS.regularBaseFee]: "0",
   [PRICING_SETTING_KEYS.companionBaseFee]: "10000",
-  [PRICING_SETTING_KEYS.regularLessonFee]: "20000",
-  [PRICING_SETTING_KEYS.companionLessonFee]: "30000",
-  [PRICING_SETTING_KEYS.regularRentalFee]: "40000",
-  [PRICING_SETTING_KEYS.companionRentalFee]: "50000",
   foodOrderSupportCap: "10000",
   companySupportPerRegular: "50000",
 } satisfies AdminPricingState;
@@ -27,8 +23,11 @@ const validSettings = {
   settlementAccountHolder: "합성클럽",
 } satisfies AdminSettingsFormData;
 
-test("default pricing keeps the regular lesson fee at the current policy", () => {
-  assert.equal(DEFAULT_PRICING_SETTINGS[PRICING_SETTING_KEYS.regularLessonFee], "10000");
+test("pricing settings only hold the default meeting fees", () => {
+  assert.deepEqual(Object.keys(DEFAULT_PRICING_SETTINGS).sort(), [
+    PRICING_SETTING_KEYS.companionBaseFee,
+    PRICING_SETTING_KEYS.regularBaseFee,
+  ].sort());
 });
 
 test("pricing validation rejects empty, non-numeric, negative, and unsafe amounts", () => {

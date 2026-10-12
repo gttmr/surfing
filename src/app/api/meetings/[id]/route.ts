@@ -3,20 +3,13 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { getActiveSessionFromRequest } from "@/lib/active-session";
 import { resolveProfileImage } from "@/lib/profile-image";
-import { toOvernightMeetingGroupSummary } from "@/lib/meeting-group";
+import { parseMeetingFee } from "@/lib/meeting-create-form";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const meeting = await prisma.meeting.findUnique({
     where: { id: parseInt(id) },
     include: {
-      meetingGroup: {
-        include: {
-          meetings: {
-            orderBy: { groupDayIndex: "asc" },
-          },
-        },
-      },
       participants: {
         orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
         include: {
@@ -63,9 +56,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       hasLesson: isAdmin ? participant.hasLesson : false,
       hasBus: isAdmin ? participant.hasBus : false,
       hasRental: isAdmin ? participant.hasRental : false,
+      hasDay2Rental: isAdmin ? participant.hasDay2Rental : false,
       usesClubLodging: isAdmin || participant.kakaoId === session?.kakaoId ? participant.usesClubLodging : false,
       status: participant.status,
-      attendanceStatus: participant.attendanceStatus,
+      absent: participant.absentAt !== null,
       waitlistPosition: participant.waitlistPosition,
       isPenalized: isAdmin ? participant.isPenalized : false,
       cancelledAt: participant.cancelledAt,
@@ -76,7 +70,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({
     ...meeting,
-    overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
+    billingPublished: meeting.billingPublishedAt !== null,
     participants,
     approvedCount,
     waitlistedCount,
@@ -89,23 +83,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const { date, startTime, endTime, location, description, isOpen, meetingType } = body;
   const meetingId = parseInt(id);
   const current = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: {
-      id: true,
-      meetingGroup: { select: { meetings: { select: { id: true } } } },
-    },
+    select: { id: true, billingPublishedAt: true },
   });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (isOpen !== undefined && current.meetingGroup) {
-    await prisma.meeting.updateMany({
-      where: { id: { in: current.meetingGroup.meetings.map((meeting) => meeting.id) } },
-      data: { isOpen },
-    });
+  // 참가비·숙박비는 청구 공개 전까지만 바꿀 수 있다(공개 후에는 청구 정정 절차).
+  const fees = {
+    regularFee: parseMeetingFee(body.regularFee, "정회원 참가비"),
+    companionFee: parseMeetingFee(body.companionFee, "동반인 참가비"),
+    lodgingFee: parseMeetingFee(body.lodgingFee, "숙박비"),
+  };
+  const feeData: { regularFee?: number; companionFee?: number; lodgingFee?: number } = {};
+  for (const [key, fee] of Object.entries(fees) as [keyof typeof fees, (typeof fees)[keyof typeof fees]][]) {
+    if (!fee.ok) return NextResponse.json({ error: fee.error }, { status: 400 });
+    if (fee.value !== null) feeData[key] = fee.value;
+  }
+  if (Object.keys(feeData).length > 0 && current.billingPublishedAt) {
+    return NextResponse.json({ error: "청구가 공개되어 참가비를 바꿀 수 없습니다. 청구 정정 후 바꿔 주세요." }, { status: 409 });
   }
 
   const meeting = await prisma.meeting.update({
@@ -116,8 +115,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ...(endTime && { endTime }),
       ...(location && { location }),
       ...(description !== undefined && { description: description || null }),
-      ...(isOpen !== undefined && !current.meetingGroup && { isOpen }),
+      ...(isOpen !== undefined && { isOpen }),
       ...(meetingType && { meetingType }),
+      ...feeData,
     },
   });
 
@@ -131,16 +131,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params;
   const meetingId = parseInt(id);
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: { meetingGroupId: true },
-  });
+  const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { id: true } });
   if (!meeting) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (meeting.meetingGroupId) {
-    await prisma.meetingGroup.delete({ where: { id: meeting.meetingGroupId } });
-  } else {
-    await prisma.meeting.delete({ where: { id: meetingId } });
-  }
+  await prisma.meeting.delete({ where: { id: meetingId } });
 
   return NextResponse.json({ ok: true });
 }

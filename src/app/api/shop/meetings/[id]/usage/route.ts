@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (action === "save") {
       await saveShopParticipantSurfUsage(meetingId, participantId, body?.items, session?.kakaoId ?? null);
     } else if (action === "confirm") {
-      await confirmShopParticipantSurfUsage(meetingId, participantId, session?.kakaoId ?? null);
+      await confirmShopParticipantSurfUsage(meetingId, participantId);
     } else {
       return NextResponse.json({ error: "지원하지 않는 action입니다." }, { status: 400 });
     }

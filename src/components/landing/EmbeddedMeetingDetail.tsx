@@ -44,7 +44,10 @@ function normalizeMeetingDetail(data: {
   meetingType: string;
   createdByKakaoId: string | null;
   approvedCount: number;
-  overnightGroup: DetailedMeeting["overnightGroup"];
+  endDate: string | null;
+  regularFee: number;
+  companionFee: number;
+  lodgingFee: number;
   participants?: MeetingParticipantItem[];
 }): DetailedMeeting {
   return {
@@ -58,7 +61,10 @@ function normalizeMeetingDetail(data: {
     meetingType: data.meetingType,
     createdByKakaoId: data.createdByKakaoId,
     approvedCount: data.approvedCount,
-    overnightGroup: data.overnightGroup,
+    endDate: data.endDate,
+    regularFee: data.regularFee,
+    companionFee: data.companionFee,
+    lodgingFee: data.lodgingFee,
     participantsList: (data.participants ?? []).filter((participant) => participant.status !== "CANCELLED"),
   };
 }
@@ -369,7 +375,7 @@ export default function EmbeddedMeetingDetail({
                             <div className="flex flex-wrap items-center gap-1.5">
                               <p className="font-semibold text-brand-text">{participant.name}</p>
                               {isCompanion ? <span className="brand-chip-companion rounded px-1.5 py-0.5 text-[10px] font-bold">동반</span> : null}
-                              {participant.attendanceStatus === "ABSENT" ? <span className="brand-chip-dimmed rounded px-1.5 py-0.5 text-[10px] font-bold">불참</span> : null}
+                              {participant.absent ? <span className="brand-chip-dimmed rounded px-1.5 py-0.5 text-[10px] font-bold">불참</span> : null}
                               {isAdmin && participant.hasBus ? <span className="brand-chip-soft rounded px-1.5 py-0.5 text-[10px] font-bold">셔틀</span> : null}
                               {isAdmin && participant.hasLesson ? <span className="brand-chip-dark rounded px-1.5 py-0.5 text-[10px] font-bold">강습·장비</span> : null}
                               {isAdmin && participant.hasRental ? <span className="brand-chip-strong rounded px-1.5 py-0.5 text-[10px] font-bold">장비 대여</span> : null}
@@ -457,7 +463,7 @@ export default function EmbeddedMeetingDetail({
                 </div>
               </div>
 
-              {!settlementStatus.meeting.settlementOpen ? (
+              {!settlementStatus.meeting.billingPublished ? (
                 <div className="brand-panel-white rounded-2xl px-4 py-8 text-center text-sm brand-text-subtle">
                   청구 내역이 아직 공개되지 않았습니다. 청구 검토에서 공개하면 여기서 입금 현황을 볼 수 있습니다.
                 </div>

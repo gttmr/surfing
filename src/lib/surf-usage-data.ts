@@ -1,21 +1,23 @@
 import { prisma } from "@/lib/db";
-import {
-  getFoodOrderParticipantAccess,
-  isMeetingOrderOpen,
-} from "@/lib/food-ordering";
+import { getFoodOrderParticipantAccess } from "@/lib/food-ordering";
 import {
   getActualUsageReviewAvailability,
   type ActualUsageReviewAvailability,
 } from "@/lib/meeting-lifecycle";
+import { isOvernightMeeting, lastMeetingDate, meetingDays, type MeetingDay, type MeetingSchedule } from "@/lib/meeting-days";
 import {
   DEFAULT_SURF_USAGE_ITEMS,
+  billingPolicyFromRegularPrice,
   getSurfUsageLineShopAmount,
+  regularUnitPrice,
   summarizeUsageBilling,
   type SurfUsageBillingLine,
-  type SurfUsageMemberBillingPolicy,
   type SurfUsageServiceType,
 } from "@/lib/surf-usage-billing";
 import { getTodayInSeoul } from "@/lib/date";
+
+// 실제 이용 기록. 이용 항목표는 모든 모임 공통이고, 기록할 때 이름·가격을 함께 저장한다.
+// 참가자의 상태: 기록 없음(missing) → 기록됨·확인 필요(submitted) → 확정(confirmed). 확정된 이용만 청구에 반영한다.
 
 type UsageItemRow = {
   id: number;
@@ -23,9 +25,7 @@ type UsageItemRow = {
   description: string | null;
   serviceType: string;
   shopPrice: number;
-  memberBillingPolicy: string;
-  regularMemberPrice: number;
-  isDefault: boolean;
+  regularPrice: number | null;
   isActive: boolean;
   displayOrder: number;
 };
@@ -33,33 +33,50 @@ type UsageItemRow = {
 type UsageEntryRow = {
   id: number;
   participantId: number;
+  day: number;
   usageItemId: number;
   quantity: number;
   usageItemNameSnapshot: string;
   serviceTypeSnapshot: string;
   shopUnitPriceSnapshot: number;
-  memberBillingPolicySnapshot: string;
-  regularMemberPriceSnapshot: number;
+  regularPriceSnapshot: number | null;
   source: string;
-  submittedByKakaoId: string | null;
-  note: string | null;
-  createdAt: Date;
 };
 
-type UsageSubmissionRow = {
-  status: string;
-  submittedByKakaoId: string | null;
-  submittedAt: Date;
-  confirmedAt: Date | null;
-  confirmedByKakaoId: string | null;
-  note: string | null;
+type UsageStatusFields = {
+  usageSubmittedAt: Date | null;
+  usageConfirmedAt: Date | null;
 };
 
-export function isParticipantActualUsageOpen(
-  meeting: { date: string; meetingGroupId?: number | null },
-  today = getTodayInSeoul(),
-): boolean {
-  return meeting.meetingGroupId ? meeting.date <= today : isMeetingOrderOpen(meeting.date, today);
+export type SurfUsageSubmissionStatus = "missing" | "submitted" | "confirmed";
+
+const USAGE_ITEM_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  serviceType: true,
+  shopPrice: true,
+  regularPrice: true,
+  isActive: true,
+  displayOrder: true,
+} as const;
+
+const USAGE_ENTRY_SELECT = {
+  id: true,
+  participantId: true,
+  day: true,
+  usageItemId: true,
+  quantity: true,
+  usageItemNameSnapshot: true,
+  serviceTypeSnapshot: true,
+  shopUnitPriceSnapshot: true,
+  regularPriceSnapshot: true,
+  source: true,
+} as const;
+
+/** 회원은 모임 첫날부터 마지막 날까지 자기 실제 이용을 직접 고칠 수 있다. */
+export function isParticipantActualUsageOpen(meeting: MeetingSchedule, today = getTodayInSeoul()): boolean {
+  return meeting.date <= today && today <= lastMeetingDate(meeting);
 }
 
 export type ParticipantMeetingSurfUsageData = {
@@ -67,6 +84,7 @@ export type ParticipantMeetingSurfUsageData = {
     id: number;
     date: string;
     usageOpen: boolean;
+    days: MeetingDay[];
   };
   usageItems: Array<{
     id: number;
@@ -82,12 +100,15 @@ export type ParticipantMeetingSurfUsageData = {
     companionId: number | null;
     requestedOptionLabel: string;
     requestedServiceType: SurfUsageServiceType | null;
+    /** 날짜별 신청 내용 (1일차, 2일차…) */
+    requestedByDay: Array<SurfUsageServiceType | null>;
     canSubmit: boolean;
     roleLabel: string;
     lockedReason: string | null;
-    submissionStatus: "missing" | "submitted" | "confirmed";
+    submissionStatus: SurfUsageSubmissionStatus;
     entries: Array<{
       id: number;
+      day: number;
       usageItemId: number;
       usageItemName: string;
       serviceType: SurfUsageServiceType;
@@ -104,6 +125,7 @@ export type ShopMeetingSurfUsageData = {
     startTime: string;
     endTime: string;
     location: string;
+    days: MeetingDay[];
     actualUsageReview: ActualUsageReviewAvailability;
     shopUsageCheckedAt: string | null;
   };
@@ -113,7 +135,6 @@ export type ShopMeetingSurfUsageData = {
     description: string | null;
     serviceType: SurfUsageServiceType;
     shopPrice: number;
-    isDefault: boolean;
     isActive: boolean;
     displayOrder: number;
   }>;
@@ -134,6 +155,8 @@ export type ShopMeetingSurfUsageData = {
     amount: number;
     confirmedQuantity: number;
     confirmedAmount: number;
+    /** 1박이면 날짜별 확정 수량 */
+    confirmedQuantityByDay: number[];
   }>;
   participantRows: Array<{
     participantId: number;
@@ -141,12 +164,15 @@ export type ShopMeetingSurfUsageData = {
     companionId: number | null;
     requestedOptionLabel: string;
     requestedServiceType?: SurfUsageServiceType | null;
-    submissionStatus: "missing" | "submitted" | "confirmed";
+    /** 날짜별 신청 내용 (1일차, 2일차…) */
+    requestedByDay: Array<SurfUsageServiceType | null>;
+    submissionStatus: SurfUsageSubmissionStatus;
     submittedAt: string | null;
     confirmedAt: string | null;
     shopAmount: number;
     entries: Array<{
       id: number;
+      day: number;
       usageItemId: number;
       usageItemName: string;
       serviceType: SurfUsageServiceType;
@@ -179,36 +205,36 @@ function asServiceType(value: string): SurfUsageServiceType {
   return "CUSTOM";
 }
 
-function asBillingPolicy(value: string): SurfUsageMemberBillingPolicy {
-  if (
-    value === "REGULAR_FIXED_COMPANION_SHOP" ||
-    value === "REGULAR_FREE_COMPANION_SHOP" ||
-    value === "ALL_SHOP"
-  ) {
-    return value;
-  }
-  return "ALL_SHOP";
-}
-
 function getParticipantType(companionId: number | null) {
   return companionId === null ? "REGULAR" : "COMPANION";
 }
 
-function getRequestedOptionLabel(participant: { hasLesson: boolean; hasRental: boolean }) {
-  if (participant.hasLesson) return "강습";
-  if (participant.hasRental) return "장비 대여";
-  return "장비 없음";
+type SignupChoice = { hasLesson: boolean; hasRental: boolean; hasDay2Rental?: boolean };
+
+function getRequestedOptionLabel(participant: SignupChoice, overnight: boolean) {
+  const firstDay = participant.hasLesson ? "강습" : participant.hasRental ? "장비 대여" : "장비 없음";
+  if (!overnight) return firstDay;
+  return `1일차 ${firstDay} · 2일차 ${participant.hasDay2Rental ? "장비 대여" : "장비 없음"}`;
 }
 
-function getRequestedServiceType(participant: { hasLesson: boolean; hasRental: boolean }): SurfUsageServiceType | null {
+function getRequestedServiceType(participant: SignupChoice): SurfUsageServiceType | null {
   if (participant.hasLesson) return "LESSON_PACKAGE";
   if (participant.hasRental) return "EQUIPMENT_RENTAL";
   return null;
 }
 
-function getSubmissionStatus(submission: UsageSubmissionRow | null): "missing" | "submitted" | "confirmed" {
-  if (!submission) return "missing";
-  return submission.status === "CONFIRMED" ? "confirmed" : "submitted";
+/** 첫날은 강습/장비 신청, 1박 둘째 날은 둘째 날 장비 신청 */
+function getRequestedByDay(participant: SignupChoice, dayCount: number): Array<SurfUsageServiceType | null> {
+  return Array.from({ length: dayCount }, (_, index) => (
+    index === 0
+      ? getRequestedServiceType(participant)
+      : index === 1 && participant.hasDay2Rental ? "EQUIPMENT_RENTAL" : null
+  ));
+}
+
+export function getSubmissionStatus(participant: UsageStatusFields): SurfUsageSubmissionStatus {
+  if (participant.usageConfirmedAt) return "confirmed";
+  return participant.usageSubmittedAt ? "submitted" : "missing";
 }
 
 function entryToBillingLine(
@@ -219,14 +245,14 @@ function entryToBillingLine(
   return {
     id: entry.id,
     participantId: entry.participantId,
+    day: entry.day,
     participantType: getParticipantType(participant.companionId),
     usageItemId: entry.usageItemId,
     usageItemName: entry.usageItemNameSnapshot,
     serviceType: asServiceType(entry.serviceTypeSnapshot),
     quantity: entry.quantity,
     shopUnitPrice: entry.shopUnitPriceSnapshot,
-    memberBillingPolicy: asBillingPolicy(entry.memberBillingPolicySnapshot),
-    regularMemberUnitPrice: entry.regularMemberPriceSnapshot,
+    ...billingPolicyFromRegularPrice(entry.regularPriceSnapshot),
     confirmed,
   };
 }
@@ -234,6 +260,7 @@ function entryToBillingLine(
 function mapParticipantEntry(entry: UsageEntryRow) {
   return {
     id: entry.id,
+    day: entry.day,
     usageItemId: entry.usageItemId,
     usageItemName: entry.usageItemNameSnapshot,
     serviceType: asServiceType(entry.serviceTypeSnapshot),
@@ -242,57 +269,30 @@ function mapParticipantEntry(entry: UsageEntryRow) {
   };
 }
 
-async function ensureMeetingSurfUsageItems(meetingId: number): Promise<UsageItemRow[]> {
+/** 이용 항목표. 비어 있으면 기본 항목으로 채운다. */
+export async function getSurfUsageItems(): Promise<UsageItemRow[]> {
   const existing = await prisma.surfUsageItem.findMany({
-    where: { meetingId },
     orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      serviceType: true,
-      shopPrice: true,
-      memberBillingPolicy: true,
-      regularMemberPrice: true,
-      isDefault: true,
-      isActive: true,
-      displayOrder: true,
-    },
+    select: USAGE_ITEM_SELECT,
   });
-
   if (existing.length > 0) return existing;
 
   await prisma.surfUsageItem.createMany({
-    data: DEFAULT_SURF_USAGE_ITEMS.map((item) => ({
-      meetingId,
-      name: item.name,
-      description: item.description,
-      serviceType: item.serviceType,
-      shopPrice: item.shopPrice,
-      memberBillingPolicy: item.memberBillingPolicy,
-      regularMemberPrice: item.regularMemberPrice,
-      isDefault: true,
-      isActive: true,
-      displayOrder: item.displayOrder,
-    })),
+    data: DEFAULT_SURF_USAGE_ITEMS.map((item) => ({ ...item, isActive: true })),
   });
-
   return prisma.surfUsageItem.findMany({
-    where: { meetingId },
     orderBy: [{ displayOrder: "asc" }, { id: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      serviceType: true,
-      shopPrice: true,
-      memberBillingPolicy: true,
-      regularMemberPrice: true,
-      isDefault: true,
-      isActive: true,
-      displayOrder: true,
-    },
+    select: USAGE_ITEM_SELECT,
   });
+}
+
+function entrySnapshot(usageItem: UsageItemRow) {
+  return {
+    usageItemNameSnapshot: usageItem.name,
+    serviceTypeSnapshot: usageItem.serviceType,
+    shopUnitPriceSnapshot: usageItem.shopPrice,
+    regularPriceSnapshot: usageItem.regularPrice,
+  };
 }
 
 export async function getParticipantMeetingSurfUsageData(
@@ -304,7 +304,7 @@ export async function getParticipantMeetingSurfUsageData(
     select: {
       id: true,
       date: true,
-      meetingGroupId: true,
+      endDate: true,
       participants: {
         where: {
           status: "APPROVED",
@@ -322,6 +322,9 @@ export async function getParticipantMeetingSurfUsageData(
           companionId: true,
           hasLesson: true,
           hasRental: true,
+          hasDay2Rental: true,
+          usageSubmittedAt: true,
+          usageConfirmedAt: true,
           companion: {
             select: {
               ownerKakaoId: true,
@@ -329,34 +332,8 @@ export async function getParticipantMeetingSurfUsageData(
             },
           },
           surfUsages: {
-            where: { meetingId },
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              participantId: true,
-              usageItemId: true,
-              quantity: true,
-              usageItemNameSnapshot: true,
-              serviceTypeSnapshot: true,
-              shopUnitPriceSnapshot: true,
-              memberBillingPolicySnapshot: true,
-              regularMemberPriceSnapshot: true,
-              source: true,
-              submittedByKakaoId: true,
-              note: true,
-              createdAt: true,
-            },
-          },
-          surfUsageSubmissions: {
-            where: { meetingId },
-            select: {
-              status: true,
-              submittedByKakaoId: true,
-              submittedAt: true,
-              confirmedAt: true,
-              confirmedByKakaoId: true,
-              note: true,
-            },
+            orderBy: [{ day: "asc" }, { createdAt: "asc" }],
+            select: USAGE_ENTRY_SELECT,
           },
         },
       },
@@ -365,14 +342,16 @@ export async function getParticipantMeetingSurfUsageData(
 
   if (!meeting) return null;
 
-  const usageItems = await ensureMeetingSurfUsageItems(meetingId);
+  const usageItems = await getSurfUsageItems();
   const usageOpen = isParticipantActualUsageOpen(meeting);
+  const overnight = isOvernightMeeting(meeting);
 
   return {
     meeting: {
       id: meeting.id,
       date: meeting.date,
       usageOpen,
+      days: meetingDays(meeting),
     },
     usageItems: usageItems
       .filter((item) => item.isActive)
@@ -381,11 +360,7 @@ export async function getParticipantMeetingSurfUsageData(
         name: item.name,
         description: item.description,
         serviceType: asServiceType(item.serviceType),
-        regularMemberUnitPrice: item.memberBillingPolicy === "ALL_SHOP"
-          ? item.shopPrice
-          : item.memberBillingPolicy === "REGULAR_FIXED_COMPANION_SHOP"
-            ? item.regularMemberPrice
-            : 0,
+        regularMemberUnitPrice: regularUnitPrice(item),
         companionMemberUnitPrice: item.shopPrice,
       })),
     participants: meeting.participants.map((participant) => {
@@ -396,13 +371,10 @@ export async function getParticipantMeetingSurfUsageData(
         companionOwnerKakaoId: participant.companion?.ownerKakaoId ?? null,
         companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
       });
-      const submission = participant.surfUsageSubmissions[0] ?? null;
-      const status = getSubmissionStatus(submission);
+      const status = getSubmissionStatus(participant);
       const canSubmit = access.canOrder && usageOpen && status !== "confirmed";
       const lockedReason = !usageOpen
-        ? meeting.meetingGroupId
-          ? "해당 날짜가 시작되면 실제 이용을 제출할 수 있습니다."
-          : "이용 내역은 모임 당일에만 제출할 수 있습니다."
+        ? "이용 내역은 모임 기간에만 제출할 수 있습니다."
         : status === "confirmed"
           ? "샵에서 이용 내역을 확정했습니다."
           : access.lockedReason;
@@ -411,8 +383,9 @@ export async function getParticipantMeetingSurfUsageData(
         participantId: participant.id,
         name: participant.name,
         companionId: participant.companionId,
-        requestedOptionLabel: getRequestedOptionLabel(participant),
+        requestedOptionLabel: getRequestedOptionLabel(participant, overnight),
         requestedServiceType: getRequestedServiceType(participant),
+        requestedByDay: getRequestedByDay(participant, meetingDays(meeting).length),
         canSubmit,
         roleLabel:
           access.orderRole === "owner_proxy"
@@ -430,19 +403,22 @@ export async function getParticipantMeetingSurfUsageData(
 
 function normalizeUsageInput(
   rawItems: unknown,
-  usageItems: UsageItemRow[]
-): Array<{ usageItem: UsageItemRow; quantity: number }> {
+  usageItems: UsageItemRow[],
+  dayCount: number,
+): Array<{ usageItem: UsageItemRow; quantity: number; day: number }> {
   if (!Array.isArray(rawItems)) {
     throw new Error("items가 필요합니다.");
   }
 
   const itemMap = new Map(usageItems.filter((item) => item.isActive).map((item) => [item.id, item]));
-  const quantityByItemId = new Map<number, number>();
+  const quantityByKey = new Map<string, { usageItemId: number; day: number; quantity: number }>();
 
   for (const rawItem of rawItems) {
     if (!rawItem || typeof rawItem !== "object") continue;
     const usageItemId = Number((rawItem as { usageItemId?: unknown }).usageItemId);
     const quantity = Number((rawItem as { quantity?: unknown }).quantity);
+    const rawDay = (rawItem as { day?: unknown }).day;
+    const day = rawDay === undefined ? 1 : Number(rawDay);
 
     if (!Number.isInteger(usageItemId) || !itemMap.has(usageItemId)) {
       throw new Error("사용 가능한 이용 항목만 선택할 수 있습니다.");
@@ -450,14 +426,59 @@ function normalizeUsageInput(
     if (!Number.isInteger(quantity) || quantity < 0 || quantity > 20) {
       throw new Error("수량은 0부터 20까지 입력할 수 있습니다.");
     }
+    if (!Number.isInteger(day) || day < 1 || day > dayCount) {
+      throw new Error("모임 일정 안의 날짜만 선택할 수 있습니다.");
+    }
 
-    quantityByItemId.set(usageItemId, quantity);
+    quantityByKey.set(`${day}:${usageItemId}`, { usageItemId, day, quantity });
   }
 
-  return Array.from(quantityByItemId.entries()).map(([usageItemId, quantity]) => ({
+  return Array.from(quantityByKey.values()).map(({ usageItemId, day, quantity }) => ({
     usageItem: itemMap.get(usageItemId)!,
+    day,
     quantity,
   }));
+}
+
+/** 참가자의 이용 기록을 통째로 바꾸고 "기록됨·확인 필요"로 둔다. */
+async function replaceParticipantUsage(input: {
+  meetingId: number;
+  participantId: number;
+  rawItems: unknown;
+  dayCount: number;
+  source: "participant" | "shop";
+  actorKakaoId: string | null;
+}) {
+  const usageItems = await getSurfUsageItems();
+  const entriesToCreate = normalizeUsageInput(input.rawItems, usageItems, input.dayCount)
+    .filter((item) => item.quantity > 0);
+
+  await prisma.$transaction([
+    resetShopUsageCheck(input.meetingId),
+    prisma.participantSurfUsage.deleteMany({
+      where: { meetingId: input.meetingId, participantId: input.participantId },
+    }),
+    prisma.participant.update({
+      where: { id: input.participantId },
+      data: { usageSubmittedAt: new Date(), usageConfirmedAt: null },
+    }),
+    ...(entriesToCreate.length > 0
+      ? [
+          prisma.participantSurfUsage.createMany({
+            data: entriesToCreate.map(({ usageItem, quantity, day }) => ({
+              meetingId: input.meetingId,
+              participantId: input.participantId,
+              day,
+              usageItemId: usageItem.id,
+              quantity,
+              ...entrySnapshot(usageItem),
+              source: input.source,
+              submittedByKakaoId: input.actorKakaoId,
+            })),
+          }),
+        ]
+      : []),
+  ]);
 }
 
 export async function submitParticipantSurfUsage(
@@ -468,14 +489,7 @@ export async function submitParticipantSurfUsage(
 ) {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: {
-      id: true,
-      date: true,
-      meetingGroupId: true,
-      billingReviewConfirmedAt: true,
-      billingPublishedAt: true,
-      settlementOpen: true,
-    },
+    select: { id: true, date: true, endDate: true, billingPublishedAt: true },
   });
 
   if (!meeting) {
@@ -483,13 +497,11 @@ export async function submitParticipantSurfUsage(
   }
 
   if (!isParticipantActualUsageOpen(meeting)) {
-    throw new Error(meeting.meetingGroupId
-      ? "해당 날짜가 시작되면 실제 이용을 제출할 수 있습니다."
-      : "이용 내역은 모임 당일에만 제출할 수 있습니다.");
+    throw new Error("이용 내역은 모임 기간에만 제출할 수 있습니다.");
   }
 
-  if (meeting.billingReviewConfirmedAt || meeting.billingPublishedAt || meeting.settlementOpen) {
-    throw new Error("청구 검토가 시작되어 실제 이용 내역이 잠겼습니다.");
+  if (meeting.billingPublishedAt) {
+    throw new Error("청구가 공개되어 실제 이용 내역이 잠겼습니다.");
   }
 
   const participant = await prisma.participant.findFirst({
@@ -498,15 +510,12 @@ export async function submitParticipantSurfUsage(
       id: true,
       kakaoId: true,
       companionId: true,
+      usageConfirmedAt: true,
       companion: {
         select: {
           ownerKakaoId: true,
           linkedKakaoId: true,
         },
-      },
-      surfUsageSubmissions: {
-        where: { meetingId },
-        select: { status: true },
       },
     },
   });
@@ -527,55 +536,18 @@ export async function submitParticipantSurfUsage(
     throw new Error(access.lockedReason ?? "이용 내역 제출 권한이 없습니다.");
   }
 
-  if (participant.surfUsageSubmissions[0]?.status === "CONFIRMED") {
+  if (participant.usageConfirmedAt) {
     throw new Error("샵에서 확정한 이용 내역은 다시 제출할 수 없습니다.");
   }
 
-  const usageItems = await ensureMeetingSurfUsageItems(meetingId);
-  const normalizedItems = normalizeUsageInput(rawItems, usageItems);
-  const entriesToCreate = normalizedItems.filter((item) => item.quantity > 0);
-
-  await prisma.$transaction([
-    resetShopUsageCheck(meetingId),
-    prisma.participantSurfUsage.deleteMany({
-      where: { meetingId, participantId },
-    }),
-    prisma.participantSurfUsageSubmission.upsert({
-      where: { meetingId_participantId: { meetingId, participantId } },
-      update: {
-        status: "SUBMITTED",
-        submittedByKakaoId: kakaoId,
-        submittedAt: new Date(),
-        confirmedAt: null,
-        confirmedByKakaoId: null,
-      },
-      create: {
-        meetingId,
-        participantId,
-        status: "SUBMITTED",
-        submittedByKakaoId: kakaoId,
-      },
-    }),
-    ...(entriesToCreate.length > 0
-      ? [
-          prisma.participantSurfUsage.createMany({
-            data: entriesToCreate.map(({ usageItem, quantity }) => ({
-              meetingId,
-              participantId,
-              usageItemId: usageItem.id,
-              quantity,
-              usageItemNameSnapshot: usageItem.name,
-              serviceTypeSnapshot: usageItem.serviceType,
-              shopUnitPriceSnapshot: usageItem.shopPrice,
-              memberBillingPolicySnapshot: usageItem.memberBillingPolicy,
-              regularMemberPriceSnapshot: usageItem.regularMemberPrice,
-              source: "participant",
-              submittedByKakaoId: kakaoId,
-            })),
-          }),
-        ]
-      : []),
-  ]);
+  await replaceParticipantUsage({
+    meetingId,
+    participantId,
+    rawItems,
+    dayCount: meetingDays(meeting).length,
+    source: "participant",
+    actorKakaoId: kakaoId,
+  });
 }
 
 export async function getShopMeetingSurfUsageData(meetingId: number): Promise<ShopMeetingSurfUsageData | null> {
@@ -584,12 +556,11 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
     select: {
       id: true,
       date: true,
+      endDate: true,
       startTime: true,
       endTime: true,
       location: true,
-      billingReviewConfirmedAt: true,
       billingPublishedAt: true,
-      settlementOpen: true,
       shopUsageCheckedAt: true,
       participants: {
         where: { status: "APPROVED" },
@@ -600,35 +571,12 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
           companionId: true,
           hasLesson: true,
           hasRental: true,
+          hasDay2Rental: true,
+          usageSubmittedAt: true,
+          usageConfirmedAt: true,
           surfUsages: {
-            where: { meetingId },
-            orderBy: { createdAt: "asc" },
-            select: {
-              id: true,
-              participantId: true,
-              usageItemId: true,
-              quantity: true,
-              usageItemNameSnapshot: true,
-              serviceTypeSnapshot: true,
-              shopUnitPriceSnapshot: true,
-              memberBillingPolicySnapshot: true,
-              regularMemberPriceSnapshot: true,
-              source: true,
-              submittedByKakaoId: true,
-              note: true,
-              createdAt: true,
-            },
-          },
-          surfUsageSubmissions: {
-            where: { meetingId },
-            select: {
-              status: true,
-              submittedByKakaoId: true,
-              submittedAt: true,
-              confirmedAt: true,
-              confirmedByKakaoId: true,
-              note: true,
-            },
+            orderBy: [{ day: "asc" }, { createdAt: "asc" }],
+            select: USAGE_ENTRY_SELECT,
           },
         },
       },
@@ -637,8 +585,10 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
 
   if (!meeting) return null;
 
-  const usageItems = await ensureMeetingSurfUsageItems(meetingId);
-  const itemTotals = new Map<number, { quantity: number; amount: number; confirmedQuantity: number; confirmedAmount: number }>();
+  const days = meetingDays(meeting);
+  const overnight = days.length > 1;
+  const usageItems = await getSurfUsageItems();
+  const itemTotals = new Map<number, { quantity: number; amount: number; confirmedQuantity: number; confirmedAmount: number; confirmedQuantityByDay: number[] }>();
   let submittedShopAmount = 0;
   let confirmedShopAmount = 0;
   let submittedCount = 0;
@@ -646,8 +596,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
   let confirmedCount = 0;
 
   const participantRows = meeting.participants.map((participant) => {
-    const submission = participant.surfUsageSubmissions[0] ?? null;
-    const submissionStatus = getSubmissionStatus(submission);
+    const submissionStatus = getSubmissionStatus(participant);
     const confirmed = submissionStatus === "confirmed";
     if (submissionStatus !== "missing") submittedCount += 1;
     if (submissionStatus === "submitted") reviewCount += 1;
@@ -660,16 +609,21 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
         amount: 0,
         confirmedQuantity: 0,
         confirmedAmount: 0,
+        confirmedQuantityByDay: days.map(() => 0),
       };
       existing.quantity += entry.quantity;
       existing.amount += amount;
       if (confirmed) {
         existing.confirmedQuantity += entry.quantity;
         existing.confirmedAmount += amount;
+        if (existing.confirmedQuantityByDay[entry.day - 1] !== undefined) {
+          existing.confirmedQuantityByDay[entry.day - 1] += entry.quantity;
+        }
       }
       itemTotals.set(entry.usageItemId, existing);
       return {
         id: entry.id,
+        day: entry.day,
         usageItemId: entry.usageItemId,
         usageItemName: entry.usageItemNameSnapshot,
         serviceType: asServiceType(entry.serviceTypeSnapshot),
@@ -687,15 +641,24 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       participantId: participant.id,
       participantName: participant.name,
       companionId: participant.companionId,
-      requestedOptionLabel: getRequestedOptionLabel(participant),
+      requestedOptionLabel: getRequestedOptionLabel(participant, overnight),
       requestedServiceType: getRequestedServiceType(participant),
+      requestedByDay: getRequestedByDay(participant, days.length),
       submissionStatus,
-      submittedAt: submission?.submittedAt.toISOString() ?? null,
-      confirmedAt: submission?.confirmedAt?.toISOString() ?? null,
+      submittedAt: participant.usageSubmittedAt?.toISOString() ?? null,
+      confirmedAt: participant.usageConfirmedAt?.toISOString() ?? null,
       shopAmount,
       entries,
     };
   });
+
+  // 지난 기록에만 남은 항목(이름·가격이 바뀌기 전 기록)도 합계에 보이도록 항목표에 없는 것을 덧붙인다.
+  const knownItemIds = new Set(usageItems.map((item) => item.id));
+  const extraItemRows = participantRows
+    .flatMap((row) => row.entries)
+    .filter((entry) => !knownItemIds.has(entry.usageItemId))
+    .filter((entry, index, all) => all.findIndex((other) => other.usageItemId === entry.usageItemId) === index)
+    .map((entry) => ({ id: entry.usageItemId, name: entry.usageItemName, serviceType: entry.serviceType }));
 
   return {
     meeting: {
@@ -704,6 +667,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       startTime: meeting.startTime,
       endTime: meeting.endTime,
       location: meeting.location,
+      days,
       actualUsageReview: getActualUsageReviewAvailability(meeting),
       shopUsageCheckedAt: meeting.shopUsageCheckedAt?.toISOString() ?? null,
     },
@@ -713,7 +677,6 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       description: item.description,
       serviceType: asServiceType(item.serviceType),
       shopPrice: item.shopPrice,
-      isDefault: item.isDefault,
       isActive: item.isActive,
       displayOrder: item.displayOrder,
     })),
@@ -726,8 +689,14 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       submittedShopAmount,
       confirmedShopAmount,
     },
-    itemRows: usageItems.map((item) => {
-      const totals = itemTotals.get(item.id) ?? { quantity: 0, amount: 0, confirmedQuantity: 0, confirmedAmount: 0 };
+    itemRows: [...usageItems, ...extraItemRows].map((item) => {
+      const totals = itemTotals.get(item.id) ?? {
+        quantity: 0,
+        amount: 0,
+        confirmedQuantity: 0,
+        confirmedAmount: 0,
+        confirmedQuantityByDay: days.map(() => 0),
+      };
       return {
         usageItemId: item.id,
         name: item.name,
@@ -739,7 +708,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
   };
 }
 
-/** 이용 내역·항목이 바뀌면 샵의 수량 확인을 다시 받아야 한다. */
+/** 이용 내역이 바뀌면 샵의 수량 확인을 다시 받아야 한다. */
 function resetShopUsageCheck(meetingId: number) {
   return prisma.meeting.updateMany({
     where: { id: meetingId, shopUsageCheckedAt: { not: null } },
@@ -749,8 +718,8 @@ function resetShopUsageCheck(meetingId: number) {
 
 export async function markShopUsageChecked(meetingId: number, actorKakaoId: string | null) {
   await requireActualUsageReviewOpen(meetingId);
-  const pending = await prisma.participantSurfUsageSubmission.count({
-    where: { meetingId, status: { not: "CONFIRMED" } },
+  const pending = await prisma.participant.count({
+    where: { meetingId, status: "APPROVED", absentAt: null, usageConfirmedAt: null },
   });
   if (pending > 0) throw new Error("확정되지 않은 이용 내역이 있어 수량을 확인할 수 없습니다.");
   await prisma.meeting.update({
@@ -764,10 +733,9 @@ async function requireActualUsageReviewOpen(meetingId: number) {
     where: { id: meetingId },
     select: {
       date: true,
+      endDate: true,
       endTime: true,
-      billingReviewConfirmedAt: true,
       billingPublishedAt: true,
-      settlementOpen: true,
     },
   });
 
@@ -775,6 +743,7 @@ async function requireActualUsageReviewOpen(meetingId: number) {
 
   const availability = getActualUsageReviewAvailability(meeting);
   if (!availability.editable) throw new Error(availability.reason);
+  return meeting;
 }
 
 export async function saveShopParticipantSurfUsage(
@@ -783,7 +752,7 @@ export async function saveShopParticipantSurfUsage(
   rawItems: unknown,
   actorKakaoId: string | null
 ) {
-  await requireActualUsageReviewOpen(meetingId);
+  const meeting = await requireActualUsageReviewOpen(meetingId);
 
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, meetingId, status: "APPROVED" },
@@ -794,186 +763,110 @@ export async function saveShopParticipantSurfUsage(
     throw new Error("참가자를 찾을 수 없습니다.");
   }
 
-  const usageItems = await ensureMeetingSurfUsageItems(meetingId);
-  const normalizedItems = normalizeUsageInput(rawItems, usageItems);
-  const entriesToCreate = normalizedItems.filter((item) => item.quantity > 0);
+  await replaceParticipantUsage({
+    meetingId,
+    participantId,
+    rawItems,
+    dayCount: meetingDays(meeting).length,
+    source: "shop",
+    actorKakaoId,
+  });
+}
 
+export async function confirmShopParticipantSurfUsage(meetingId: number, participantId: number) {
+  await requireActualUsageReviewOpen(meetingId);
+
+  const participant = await prisma.participant.findFirst({
+    where: { id: participantId, meetingId, status: "APPROVED" },
+    select: { id: true, usageSubmittedAt: true },
+  });
+
+  if (!participant) {
+    throw new Error("참가자를 찾을 수 없습니다.");
+  }
+
+  const now = new Date();
   await prisma.$transaction([
     resetShopUsageCheck(meetingId),
-    prisma.participantSurfUsage.deleteMany({
-      where: { meetingId, participantId },
+    prisma.participant.update({
+      where: { id: participantId },
+      data: { usageSubmittedAt: participant.usageSubmittedAt ?? now, usageConfirmedAt: now },
     }),
-    prisma.participantSurfUsageSubmission.upsert({
-      where: { meetingId_participantId: { meetingId, participantId } },
-      update: {
-        status: "SUBMITTED",
-        submittedByKakaoId: actorKakaoId,
-        submittedAt: new Date(),
-        confirmedAt: null,
-        confirmedByKakaoId: null,
-      },
-      create: {
-        meetingId,
-        participantId,
-        status: "SUBMITTED",
-        submittedByKakaoId: actorKakaoId,
-      },
-    }),
-    ...(entriesToCreate.length > 0
-      ? [
-          prisma.participantSurfUsage.createMany({
-            data: entriesToCreate.map(({ usageItem, quantity }) => ({
-              meetingId,
-              participantId,
-              usageItemId: usageItem.id,
-              quantity,
-              usageItemNameSnapshot: usageItem.name,
-              serviceTypeSnapshot: usageItem.serviceType,
-              shopUnitPriceSnapshot: usageItem.shopPrice,
-              memberBillingPolicySnapshot: usageItem.memberBillingPolicy,
-              regularMemberPriceSnapshot: usageItem.regularMemberPrice,
-              source: "shop",
-              submittedByKakaoId: actorKakaoId,
-            })),
-          }),
-        ]
-      : []),
   ]);
 }
 
-export async function confirmShopParticipantSurfUsage(
-  meetingId: number,
-  participantId: number,
-  actorKakaoId: string | null
-) {
-  await requireActualUsageReviewOpen(meetingId);
-
-  const participant = await prisma.participant.findFirst({
-    where: { id: participantId, meetingId, status: "APPROVED" },
-    select: { id: true },
-  });
-
-  if (!participant) {
-    throw new Error("참가자를 찾을 수 없습니다.");
-  }
-
-  await resetShopUsageCheck(meetingId);
-  await prisma.participantSurfUsageSubmission.upsert({
-    where: { meetingId_participantId: { meetingId, participantId } },
-    update: {
-      status: "CONFIRMED",
-      confirmedAt: new Date(),
-      confirmedByKakaoId: actorKakaoId,
-    },
-    create: {
-      meetingId,
-      participantId,
-      status: "CONFIRMED",
-      submittedByKakaoId: actorKakaoId,
-      confirmedAt: new Date(),
-      confirmedByKakaoId: actorKakaoId,
-    },
-  });
-}
-
 /**
- * 아직 이용 내역이 없는 참가자를 신청 내용(강습 → 강습 패키지, 장비 대여 필요 → 장비대여)으로 채우고 확정한다.
- * 운영진은 이후 다르게 이용한 사람만 고친다. 불참자와 이미 입력된 참가자는 건드리지 않는다.
+ * 아직 이용 기록이 없는 참가자를 신청 내용으로 채우고 확정한다.
+ * 첫날: 강습 → 강습 패키지, 장비 대여 필요 → 장비대여. 1박 둘째 날: 둘째 날 장비 대여 필요 → 장비대여.
+ * 운영진은 이후 다르게 이용한 사람만 고친다. 불참자와 이미 기록된 참가자는 건드리지 않는다.
  * 채운 참가자 수를 반환한다.
  */
 export async function fillMissingSurfUsageFromSignup(meetingId: number, actorKakaoId: string | null): Promise<number> {
-  await requireActualUsageReviewOpen(meetingId);
+  const meeting = await requireActualUsageReviewOpen(meetingId);
+  const dayCount = meetingDays(meeting).length;
 
   const [usageItems, participants] = await Promise.all([
-    ensureMeetingSurfUsageItems(meetingId),
+    getSurfUsageItems(),
     prisma.participant.findMany({
       where: {
         meetingId,
         status: "APPROVED",
-        attendanceStatus: { not: "ABSENT" },
-        surfUsageSubmissions: { none: {} },
+        absentAt: null,
+        usageSubmittedAt: null,
+        usageConfirmedAt: null,
       },
-      select: { id: true, hasLesson: true, hasRental: true },
+      select: { id: true, hasLesson: true, hasRental: true, hasDay2Rental: true },
     }),
   ]);
   if (participants.length === 0) return 0;
 
   const itemFor = (serviceType: SurfUsageServiceType) =>
-    usageItems.find((item) => item.isActive && item.serviceType === serviceType && item.isDefault)
-    ?? usageItems.find((item) => item.isActive && item.serviceType === serviceType)
-    ?? null;
+    usageItems.find((item) => item.isActive && item.serviceType === serviceType) ?? null;
 
   const now = new Date();
   await resetShopUsageCheck(meetingId);
   return prisma.$transaction(async (tx) => {
     let filled = 0;
     for (const participant of participants) {
-      // 다른 운영진이 그사이 입력했다면 제출 기록이 이미 있으므로 건너뛴다.
-      const { count } = await tx.participantSurfUsageSubmission.createMany({
-        data: [{
-          meetingId,
-          participantId: participant.id,
-          status: "CONFIRMED",
-          submittedByKakaoId: actorKakaoId,
-          submittedAt: now,
-          confirmedAt: now,
-          confirmedByKakaoId: actorKakaoId,
-        }],
-        skipDuplicates: true,
+      // 다른 운영진이 그사이 기록했다면 건너뛴다.
+      const { count } = await tx.participant.updateMany({
+        where: { id: participant.id, usageSubmittedAt: null, usageConfirmedAt: null },
+        data: { usageSubmittedAt: now, usageConfirmedAt: now },
       });
       if (count === 0) continue;
       filled += 1;
 
-      const serviceType = getRequestedServiceType(participant);
-      const usageItem = serviceType ? itemFor(serviceType) : null;
-      if (!usageItem) continue;
-      await tx.participantSurfUsage.create({
-        data: {
-          meetingId,
-          participantId: participant.id,
-          usageItemId: usageItem.id,
-          quantity: 1,
-          usageItemNameSnapshot: usageItem.name,
-          serviceTypeSnapshot: usageItem.serviceType,
-          shopUnitPriceSnapshot: usageItem.shopPrice,
-          memberBillingPolicySnapshot: usageItem.memberBillingPolicy,
-          regularMemberPriceSnapshot: usageItem.regularMemberPrice,
-          source: "signup",
-          submittedByKakaoId: actorKakaoId,
-        },
-      });
+      const planned = getRequestedByDay(participant, dayCount);
+      for (const [index, serviceType] of planned.entries()) {
+        const day = index + 1;
+        const usageItem = serviceType ? itemFor(serviceType) : null;
+        if (!usageItem) continue;
+        await tx.participantSurfUsage.create({
+          data: {
+            meetingId,
+            participantId: participant.id,
+            day,
+            usageItemId: usageItem.id,
+            quantity: 1,
+            ...entrySnapshot(usageItem),
+            source: "signup",
+            submittedByKakaoId: actorKakaoId,
+          },
+        });
+      }
     }
     return filled;
   });
 }
 
-export async function saveShopSurfUsageCatalog(
-  meetingId: number,
-  rawItems: SurfUsageCatalogInput[],
-  actorKakaoId: string | null
-) {
+/** 이용 항목표 저장. 모든 모임 공통이며 이미 기록된 이용은 기록 시점 가격을 유지한다. */
+export async function saveShopSurfUsageCatalog(rawItems: SurfUsageCatalogInput[]) {
   if (!Array.isArray(rawItems)) {
     throw new Error("items가 필요합니다.");
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: {
-      billingReviewConfirmedAt: true,
-      billingPublishedAt: true,
-      settlementOpen: true,
-    },
-  });
-  if (!meeting) throw new Error("모임을 찾을 수 없습니다.");
-  if (meeting.billingReviewConfirmedAt || meeting.billingPublishedAt || meeting.settlementOpen) {
-    throw new Error("청구 검토가 시작되어 이용 항목 설정이 잠겼습니다.");
-  }
-
-  await ensureMeetingSurfUsageItems(meetingId);
-  await resetShopUsageCheck(meetingId);
-
+  await getSurfUsageItems();
   const currentItems = await prisma.surfUsageItem.findMany({
-    where: { meetingId },
     select: { id: true, displayOrder: true },
     orderBy: { displayOrder: "desc" },
   });
@@ -1004,19 +897,16 @@ export async function saveShopSurfUsageCatalog(
         },
       });
     } else {
+      // 샵에서 새로 만든 항목은 정회원도 샵 가격을 낸다.
       await prisma.surfUsageItem.create({
         data: {
-          meetingId,
           name,
           description,
           shopPrice,
           serviceType: "CUSTOM",
-          memberBillingPolicy: "ALL_SHOP",
-          regularMemberPrice: 0,
-          isDefault: false,
+          regularPrice: null,
           isActive: true,
           displayOrder: nextDisplayOrder,
-          createdByKakaoId: actorKakaoId,
         },
       });
       nextDisplayOrder += 10;
@@ -1024,34 +914,17 @@ export async function saveShopSurfUsageCatalog(
   }
 }
 
+/** 청구 계산용: 참가자별 이용 기록. 확정된 참가자의 기록만 청구에 반영된다. */
 export async function getConfirmedSurfUsageBillingByParticipant(meetingId: number) {
   const participants = await prisma.participant.findMany({
     where: { meetingId, status: "APPROVED" },
     select: {
       id: true,
       companionId: true,
+      usageConfirmedAt: true,
       surfUsages: {
-        where: { meetingId },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          participantId: true,
-          usageItemId: true,
-          quantity: true,
-          usageItemNameSnapshot: true,
-          serviceTypeSnapshot: true,
-          shopUnitPriceSnapshot: true,
-          memberBillingPolicySnapshot: true,
-          regularMemberPriceSnapshot: true,
-          source: true,
-          submittedByKakaoId: true,
-          note: true,
-          createdAt: true,
-        },
-      },
-      surfUsageSubmissions: {
-        where: { meetingId, status: "CONFIRMED" },
-        select: { id: true },
+        orderBy: [{ day: "asc" }, { createdAt: "asc" }],
+        select: USAGE_ENTRY_SELECT,
       },
     },
   });
@@ -1061,7 +934,7 @@ export async function getConfirmedSurfUsageBillingByParticipant(meetingId: numbe
   const allLines: SurfUsageBillingLine[] = [];
 
   for (const participant of participants) {
-    const confirmed = participant.surfUsageSubmissions.length > 0;
+    const confirmed = participant.usageConfirmedAt !== null;
     if (confirmed) confirmedParticipantIds.add(participant.id);
     const lines = participant.surfUsages.map((entry) => entryToBillingLine(entry, participant, confirmed));
     billingMap.set(participant.id, lines);

@@ -14,7 +14,6 @@ import { resolveProfileImage } from "@/lib/profile-image";
 import {
   DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE,
   PARTICIPANT_OPTION_PRICING_GUIDE_KEY,
-  PRICING_SETTING_KEYS,
 } from "@/lib/settings";
 import { getSession } from "@/lib/session";
 import type { MeetingWithCounts } from "@/lib/types";
@@ -23,7 +22,8 @@ import {
   buildSignupPricingPreview,
   DEFAULT_SIGNUP_PRICING_PREVIEW,
 } from "@/lib/signup-pricing";
-import { toOvernightMeetingGroupSummary } from "@/lib/meeting-group";
+import { lastMeetingDate } from "@/lib/meeting-days";
+import { getSurfUsageItems } from "@/lib/surf-usage-data";
 
 function buildDetailedMeeting(meeting: {
   id: number;
@@ -35,7 +35,10 @@ function buildDetailedMeeting(meeting: {
   isOpen: boolean;
   meetingType: string;
   createdByKakaoId: string | null;
-  meetingGroup: Parameters<typeof toOvernightMeetingGroupSummary>[0];
+  endDate: string | null;
+  regularFee: number;
+  companionFee: number;
+  lodgingFee: number;
   participants: Array<{
     id: number;
     name: string;
@@ -43,9 +46,10 @@ function buildDetailedMeeting(meeting: {
     hasLesson: boolean;
     hasBus: boolean;
     hasRental: boolean;
+    hasDay2Rental: boolean;
     usesClubLodging: boolean;
     status: string;
-    attendanceStatus: string;
+    absentAt: Date | null;
     kakaoId: string;
     companionId: number | null;
     waitlistPosition: number | null;
@@ -64,9 +68,10 @@ function buildDetailedMeeting(meeting: {
       hasLesson: participant.hasLesson,
       hasBus: participant.hasBus,
       hasRental: participant.hasRental,
+      hasDay2Rental: participant.hasDay2Rental,
       usesClubLodging: participant.usesClubLodging,
       status: participant.status,
-      attendanceStatus: participant.attendanceStatus,
+      absent: participant.absentAt !== null,
       kakaoId: participant.kakaoId,
       companionId: participant.companionId,
       waitlistPosition: participant.waitlistPosition,
@@ -84,7 +89,10 @@ function buildDetailedMeeting(meeting: {
     meetingType: meeting.meetingType,
     createdByKakaoId: meeting.createdByKakaoId,
     approvedCount: participantsList.filter((participant) => participant.status === "APPROVED").length,
-    overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
+    endDate: meeting.endDate,
+    regularFee: meeting.regularFee,
+    companionFee: meeting.companionFee,
+    lodgingFee: meeting.lodgingFee,
     participantsList,
   };
 }
@@ -114,6 +122,7 @@ function sanitizeDetailedMeetingForViewer(
         hasLesson: false,
         hasBus: false,
         hasRental: false,
+        hasDay2Rental: false,
         usesClubLodging: false,
       };
     }),
@@ -121,13 +130,6 @@ function sanitizeDetailedMeetingForViewer(
 }
 
 const DETAILED_MEETING_INCLUDE = {
-  meetingGroup: {
-    include: {
-      meetings: {
-        orderBy: { groupDayIndex: "asc" as const },
-      },
-    },
-  },
   participants: {
     orderBy: [{ status: "asc" as const }, { submittedAt: "asc" as const }],
     include: {
@@ -173,6 +175,7 @@ export default async function SchedulePageContent({
       meetings,
       notices,
       settings,
+      usageItems,
       prefetchedDetailedMeetings,
       regularCompanions,
       linkedCompanion,
@@ -195,13 +198,6 @@ export default async function SchedulePageContent({
       prisma.meeting.findMany({
         orderBy: [{ date: "asc" }, { startTime: "asc" }],
         include: {
-          meetingGroup: {
-            include: {
-              meetings: {
-                orderBy: { groupDayIndex: "asc" },
-              },
-            },
-          },
           _count: {
             select: { participants: { where: { status: "APPROVED" } } },
           },
@@ -211,15 +207,12 @@ export default async function SchedulePageContent({
         orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.setting.findMany({
-        where: {
-          key: {
-            in: [PARTICIPANT_OPTION_PRICING_GUIDE_KEY, ...Object.values(PRICING_SETTING_KEYS)],
-          },
-        },
+        where: { key: { in: [PARTICIPANT_OPTION_PRICING_GUIDE_KEY] } },
       }),
+      getSurfUsageItems(),
       validatedDate
         ? prisma.meeting.findMany({
-            where: { date: validatedDate },
+            where: { date: { lte: validatedDate }, OR: [{ date: validatedDate }, { endDate: { gte: validatedDate } }] },
             orderBy: [{ date: "asc" }, { startTime: "asc" }],
             include: DETAILED_MEETING_INCLUDE,
           })
@@ -246,7 +239,11 @@ export default async function SchedulePageContent({
         : Promise.resolve([]),
       session
         ? prisma.participant.findMany({
-            where: { kakaoId: session.kakaoId, companionId: null, meeting: { date: { gte: getTodayInSeoul() } } },
+            where: {
+              kakaoId: session.kakaoId,
+              companionId: null,
+              meeting: { OR: [{ date: { gte: getTodayInSeoul() } }, { endDate: { gte: getTodayInSeoul() } }] },
+            },
             select: { meetingId: true, status: true, waitlistPosition: true },
           })
         : Promise.resolve([]),
@@ -284,7 +281,10 @@ export default async function SchedulePageContent({
       meetingType: meeting.meetingType,
       createdByKakaoId: meeting.createdByKakaoId,
       approvedCount: meeting._count.participants,
-      overnightGroup: toOvernightMeetingGroupSummary(meeting.meetingGroup),
+      endDate: meeting.endDate,
+      regularFee: meeting.regularFee,
+      companionFee: meeting.companionFee,
+      lodgingFee: meeting.lodgingFee,
     }));
 
     noticesForClient = notices.map((notice) => ({
@@ -313,21 +313,16 @@ export default async function SchedulePageContent({
     const settingsMap = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
     participantOptionPricingGuide =
       settingsMap[PARTICIPANT_OPTION_PRICING_GUIDE_KEY] ?? DEFAULT_PARTICIPANT_OPTION_PRICING_GUIDE;
-    signupPricingPreview = buildSignupPricingPreview(settingsMap);
+    signupPricingPreview = buildSignupPricingPreview({ regular: 0, companion: 0 }, usageItems);
 
     const initialView = findInitialView(meetingsForClient, today, initialSelectedDate);
-    const selectedMeetingsOnDate = initialView.selectedDate
-      ? meetingsForClient.filter((meeting) => meeting.date === initialView.selectedDate)
+    // 1박은 일정 중 어느 날을 골라도 같은 모임이다.
+    const selectedMeetingIds = initialView.selectedDate
+      ? meetingsForClient
+          .filter((meeting) => meeting.date <= initialView.selectedDate! && initialView.selectedDate! <= lastMeetingDate(meeting))
+          .map((meeting) => meeting.id)
       : [];
-    const selectedMeetingIds = [...new Set(selectedMeetingsOnDate.map((meeting) => (
-      meeting.overnightGroup?.days[0]?.id ?? meeting.id
-    )))];
-    const selectedCanonicalMeetings = selectedMeetingIds
-      .map((meetingId) => meetingsForClient.find((meeting) => meeting.id === meetingId))
-      .filter((meeting): meeting is MeetingWithCounts => Boolean(meeting));
-    const detailedMeetingIds = [...new Set(selectedCanonicalMeetings.flatMap((meeting) => (
-      meeting.overnightGroup?.days.map((day) => day.id) ?? [meeting.id]
-    )))];
+    const detailedMeetingIds = selectedMeetingIds;
 
     if (selectedMeetingIds.length > 0) {
       // Use prefetched data if date matched, otherwise fetch for auto-selected date
@@ -358,22 +353,12 @@ export default async function SchedulePageContent({
       for (const meetingId of selectedMeetingIds) {
         const detailedMeeting = detailedMeetingsById.get(meetingId);
         if (!detailedMeeting || !sessionUser) continue;
-        const day2MeetingId = detailedMeeting.overnightGroup?.days[1]?.id;
-        const day2Meeting = day2MeetingId ? detailedMeetingsById.get(day2MeetingId) : null;
-
         const myParticipant = detailedMeeting.participantsList.find(
           (participant) =>
             participant.kakaoId === sessionUser.kakaoId &&
             participant.companionId === null &&
             participant.status !== "CANCELLED"
         );
-        const myDay2Participant = myParticipant && day2Meeting
-          ? day2Meeting.participantsList.find((participant) => (
-              participant.kakaoId === sessionUser.kakaoId
-              && participant.companionId === null
-              && participant.status !== "CANCELLED"
-            ))
-          : null;
 
         const signedUpCompanionData = detailedMeeting.participantsList.reduce<Record<number, SignupInitialData["signedUpCompanionData"][number]>>(
           (acc, participant) => {
@@ -384,19 +369,10 @@ export default async function SchedulePageContent({
             ) {
               acc[participant.companionId] = {
                 participantId: participant.id,
-                day2ParticipantId: day2Meeting?.participantsList.find((day2Participant) => (
-                  day2Participant.kakaoId === participant.kakaoId
-                  && day2Participant.companionId === participant.companionId
-                  && day2Participant.status !== "CANCELLED"
-                ))?.id,
                 hasLesson: participant.hasLesson,
                 hasBus: participant.hasBus,
                 hasRental: participant.hasRental,
-                day2HasRental: day2Meeting?.participantsList.find((day2Participant) => (
-                  day2Participant.kakaoId === participant.kakaoId
-                  && day2Participant.companionId === participant.companionId
-                  && day2Participant.status !== "CANCELLED"
-                ))?.hasRental ?? false,
+                day2HasRental: participant.hasDay2Rental,
                 usesClubLodging: participant.usesClubLodging,
               };
             }
@@ -431,12 +407,7 @@ export default async function SchedulePageContent({
                         hasLesson: participant.hasLesson,
                         hasBus: participant.hasBus,
                         hasRental: participant.hasRental,
-                        day2ParticipantId: day2Meeting?.participantsList.find((item) => (
-                          item.companionId === linkedCompanion.id && item.status !== "CANCELLED"
-                        ))?.id,
-                        day2HasRental: day2Meeting?.participantsList.find((item) => (
-                          item.companionId === linkedCompanion.id && item.status !== "CANCELLED"
-                        ))?.hasRental ?? false,
+                        day2HasRental: participant.hasDay2Rental,
                         usesClubLodging: participant.usesClubLodging,
                       }
                     : null;
@@ -458,14 +429,13 @@ export default async function SchedulePageContent({
           myParticipant: myParticipant
             ? {
                 id: myParticipant.id,
-                day2ParticipantId: myDay2Participant?.id,
                 status: myParticipant.status,
                 waitlistPosition: myParticipant.waitlistPosition ?? null,
                 note: myParticipant.note ?? "",
                 hasLesson: !!myParticipant.hasLesson,
                 hasBus: !!myParticipant.hasBus,
                 hasRental: !!myParticipant.hasRental,
-                day2HasRental: !!myDay2Participant?.hasRental,
+                day2HasRental: !!myParticipant.hasDay2Rental,
                 usesClubLodging: !!myParticipant.usesClubLodging,
               }
             : null,

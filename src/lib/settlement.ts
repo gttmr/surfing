@@ -1,13 +1,12 @@
 import { prisma } from "@/lib/db";
 import { getFoodOrderSupportCap } from "@/lib/food-ordering-data";
 import { type FoodOrderItemSnapshot } from "@/lib/food-ordering";
-import { getPricingConfig, groupParticipantsForSettlement } from "@/lib/pricing";
+import { groupParticipantsForSettlement } from "@/lib/pricing";
 import { getConfirmedSurfUsageBillingByParticipant } from "@/lib/surf-usage-data";
 import {
   isMeetingBillingSnapshotPayload,
   type MeetingBillingSnapshotPayload,
 } from "@/lib/billing-snapshot";
-import type { OvernightMeetingGroupSummary } from "@/lib/meeting-group";
 import {
   SETTLEMENT_ACCOUNT_HOLDER_KEY,
   SETTLEMENT_ACCOUNT_NUMBER_KEY,
@@ -23,8 +22,9 @@ export type SettlementMeetingGroup = {
     startTime: string;
     endTime: string;
     location: string;
-    settlementOpen: boolean;
-    overnightGroup: OvernightMeetingGroupSummary | null;
+    billingPublished: boolean;
+    /** 1박 이상이면 마지막 날 */
+    endDate: string | null;
   };
   group: ReturnType<typeof groupParticipantsForSettlement>[number];
   paymentStatus: MemberPaymentStatus;
@@ -94,19 +94,12 @@ function recipientFromSnapshot(
 }
 
 export async function getSettlementGroupsForKakaoId(kakaoId: string) {
-  const [pricing, foodSupportCap, participants, snapshots, accountSettings] = await Promise.all([
-    getPricingConfig(),
+  const [foodSupportCap, participants, snapshots, accountSettings] = await Promise.all([
     getFoodOrderSupportCap(),
     prisma.participant.findMany({
     where: {
       status: "APPROVED",
-      meeting: {
-        settlementOpen: true,
-        OR: [
-          { meetingGroupId: null },
-          { groupDayIndex: 1 },
-        ],
-      },
+      meeting: { billingPublishedAt: { not: null } },
       OR: [
         { kakaoId, companionId: null },
         { companion: { linkedKakaoId: kakaoId } },
@@ -141,15 +134,7 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
       },
     }),
     prisma.meetingBillingSnapshot.findMany({
-      where: {
-        meeting: {
-          settlementOpen: true,
-          OR: [
-            { meetingGroupId: null },
-            { groupDayIndex: 1 },
-          ],
-        },
-      },
+      where: { meeting: { billingPublishedAt: { not: null } } },
       orderBy: { publishedAt: "desc" },
       include: {
         meeting: {
@@ -159,7 +144,7 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
             startTime: true,
             endTime: true,
             location: true,
-            settlementOpen: true,
+            endDate: true,
           },
         },
       },
@@ -188,7 +173,7 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
     return [{
       meeting: {
         ...snapshot.meeting,
-        overnightGroup: payload.version === 2 ? payload.overnightGroup : null,
+        billingPublished: true,
       },
       group: recipient,
       settlementAccount: {
@@ -261,19 +246,19 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
             cancelledAt: item.cancelledAt?.toISOString() ?? null,
             cancelledReasonCode: item.cancelledReasonCode,
             cancelledReasonText: item.cancelledReasonText,
+            createdAt: item.createdAt.toISOString(),
           })),
         ])
       );
 
       const surfUsageBilling = surfUsageBillingByMeeting.get(meeting.id);
       const recipients = groupParticipantsForSettlement(
+        meeting,
         meetingParticipants,
-        pricing,
         adjustmentMap,
         foodOrderMap,
         foodSupportCap,
         surfUsageBilling?.billingMap ?? new Map(),
-        surfUsageBilling?.confirmedParticipantIds ?? new Set()
       );
       const myGroup = recipients.find((recipient) => recipient.recipientKakaoId === kakaoId);
       if (!myGroup) return null;
@@ -285,8 +270,8 @@ export async function getSettlementGroupsForKakaoId(kakaoId: string) {
           startTime: meeting.startTime,
           endTime: meeting.endTime,
           location: meeting.location,
-          settlementOpen: meeting.settlementOpen,
-          overnightGroup: null,
+          billingPublished: true,
+          endDate: meeting.endDate,
         },
         group: myGroup,
         ...paymentState(confirmationMap.get(meeting.id) ?? null, myGroup.totalFee),

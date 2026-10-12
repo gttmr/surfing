@@ -110,8 +110,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: access.lockedReason ?? "주문 권한이 없습니다." }, { status: 403 });
   }
 
-  if (!isMeetingOrderOpen(meeting.date)) {
-    return NextResponse.json({ error: "주문은 모임 당일에만 받을 수 있습니다." }, { status: 400 });
+  if (!isMeetingOrderOpen(meeting)) {
+    return NextResponse.json({ error: "주문은 모임 기간에만 받을 수 있습니다." }, { status: 400 });
   }
 
   let normalizedItems;
