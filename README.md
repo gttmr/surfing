@@ -72,6 +72,16 @@ npm run dev
 - 여러 폰이 같은 알림을 보내도 3분 안의 같은 문구는 한 건으로 저장한다(동시 요청은 DB 잠금으로 직렬화).
 - 알림 문구 해석은 `src/lib/bank-deposit-parse.ts`. 실제 은행 알림 문구가 다르면 원문이 `BankDeposit.rawText`에 남으니 그 문구로 테스트를 추가하고 패턴을 고친다.
 
+## 운영 배포 순서
+배포 빌드는 `prisma generate && next build`만 하므로 운영 DB 스키마는 자동으로 바뀌지 않는다. 스키마 변경은 아래 순서로 직접 적용한다.
+
+1. `npm run db:backup:prod` — 운영 백업 (적용 스크립트는 1시간 안의 백업이 없으면 멈춘다)
+2. 추가분 SQL 만들기: 백업을 로컬 DB(`prod_shadow`)에 복원 → `npx prisma migrate diff --from-url <prod_shadow> --to-schema-datamodel prisma/schema.prisma --script` → `scripts/deploy/<날짜>-*.sql`에 BEGIN/COMMIT으로 감싸 저장. 새 테이블에는 RLS를 켠다.
+3. 리허설: `prod_shadow`에 SQL 적용 → 같은 diff 명령에 `--exit-code`로 차이 없음 확인
+4. `scripts/deploy/apply-prod-schema.sh scripts/deploy/<파일>.sql` — `apply` 입력 후 한 트랜잭션으로 적용
+5. `main` 병합 → Vercel 운영 배포
+6. 되돌리기: 코드는 Vercel에서 이전 배포로 롤백. 추가만 한 스키마는 이전 코드와 함께 써도 문제없으므로 그대로 둔다.
+
 ## 배포 전 확인
 - `DATABASE_URL`
 - `SESSION_SECRET`
