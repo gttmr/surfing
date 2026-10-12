@@ -36,7 +36,7 @@ npm run dev
 
 ```bash
 npm run db:backup:prod   # 운영 DB → ~/surfing-backups/<타임스탬프>/ (읽기 전용)
-npm run dev:db:restore   # 가장 최근 백업을 로컬 DB에 덮어쓰기 (경로 인자로 특정 백업 지정 가능)
+npm run dev:db:restore   # 가장 최근 완료 백업을 로컬 DB에 덮어쓰기 (경로 인자로 특정 백업 지정 가능)
 npm run dev
 ```
 
@@ -45,6 +45,7 @@ npm run dev
 - 관리자 화면은 ADMIN 회원으로 로그인하면 자동 인증된다. 비밀번호 로그인은 `.env.development.local`의 `ADMIN_PASSWORD`를 쓴다.
 - 우회는 `next dev` + `DEV_AUTH_BYPASS=1` + loopback DB 조건이 모두 맞을 때만 켜진다. Vercel 배포나 원격 DB 연결에서는 항상 꺼진다.
 - 백업은 `supabase login` 후 `supabase link --project-ref vkskxsbybvkcxsyockxz`가 되어 있어야 한다.
+- Supabase 풀러는 새 연결 인증이 가끔 시간 초과(`EAUTHQUERY`)된다. 백업은 운영 DB에 두 번만 접속하고 각각 다시 시도하며, 모든 행 수 검증이 끝나야 `COMPLETE` 표시를 남긴다. 표시가 없는 백업은 쓰지 않는다.
 - 스키마만 있는 빈 DB가 필요하면 `npm run dev:db:reset`.
 - 백업 복구: `pg_restore --no-owner --no-privileges -d <대상 DB URL> ~/surfing-backups/<타임스탬프>/public.dump`
 
@@ -75,10 +76,10 @@ npm run dev
 ## 운영 배포 순서
 배포 빌드는 `prisma generate && next build`만 하므로 운영 DB 스키마는 자동으로 바뀌지 않는다. 스키마 변경은 아래 순서로 직접 적용한다.
 
-1. `npm run db:backup:prod` — 운영 백업 (적용 스크립트는 1시간 안의 백업이 없으면 멈춘다)
+1. `npm run db:backup:prod` — 운영 백업 (적용 스크립트는 1시간 안의 `COMPLETE` 백업이 없으면 멈춘다)
 2. 추가분 SQL 만들기: 백업을 로컬 DB(`prod_shadow`)에 복원 → `npx prisma migrate diff --from-url <prod_shadow> --to-schema-datamodel prisma/schema.prisma --script` → `scripts/deploy/<날짜>-*.sql`에 BEGIN/COMMIT으로 감싸 저장. 새 테이블에는 RLS를 켠다.
-3. 리허설: `prod_shadow`에 SQL 적용 → 같은 diff 명령에 `--exit-code`로 차이 없음 확인
-4. `scripts/deploy/apply-prod-schema.sh scripts/deploy/<파일>.sql` — `apply` 입력 후 한 트랜잭션으로 적용
+3. 리허설: `scripts/deploy/apply-prod-schema.sh --rehearse <prod_shadow URL> <파일>.sql` → 같은 diff 명령에 `--exit-code`로 차이 없음 확인
+4. `scripts/deploy/apply-prod-schema.sh scripts/deploy/<파일>.sql` — 오래 열린 트랜잭션을 먼저 보여 주고(끊긴 백업 세션이면 `kill` 입력으로 정리, 앱 세션이면 멈춤), `apply` 입력 후 한 트랜잭션으로 적용. `lock_timeout` 5초라 잠금을 못 얻으면 아무것도 바뀌지 않고 취소된다.
 5. `main` 병합 → Vercel 운영 배포
 6. 되돌리기: 코드는 Vercel에서 이전 배포로 롤백. 추가만 한 스키마는 이전 코드와 함께 써도 문제없으므로 그대로 둔다.
 

@@ -45,7 +45,10 @@ case "${1:-}" in
   stop) pg_ctl -D "$DATA_DIR" -w stop ;;
   status) pg_ctl -D "$DATA_DIR" status ;;
   restore)
-    dump="${2:-$(ls -d "$BACKUP_ROOT"/*/public.dump 2>/dev/null | sort | tail -1)}"
+    # 생략하면 완료 표시(COMPLETE)가 있는 가장 최근 백업. 표시가 생기기 전 백업만 있으면 가장 최근 것.
+    latest_complete="$(ls -d "$BACKUP_ROOT"/*/COMPLETE 2>/dev/null | sort | tail -1)"
+    dump="${2:-${latest_complete:+$(dirname "$latest_complete")/public.dump}}"
+    dump="${dump:-$(ls -d "$BACKUP_ROOT"/*/public.dump 2>/dev/null | sort | tail -1)}"
     [ -f "$dump" ] || { echo "백업 파일이 없습니다: $dump" >&2; exit 1; }
     start
     recreate_db
