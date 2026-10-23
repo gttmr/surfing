@@ -380,16 +380,26 @@ export function AdminBankDepositsPageClient({
                 <li className="border-t border-brand-divider pt-2 text-xs" key={deposit.id}>
                   <p className="brand-text-subtle">{formatDepositTime(deposit.depositedAt)}</p>
                   <p className="break-all text-brand-text">{deposit.rawText}</p>
-                  {deposit.status === "IGNORED" && deposit.amount !== null ? (
+                  <div className="mt-1 flex gap-4">
+                    {deposit.status === "IGNORED" && deposit.amount !== null ? (
+                      <button
+                        className="brand-link min-h-11 font-bold disabled:opacity-50"
+                        disabled={busy}
+                        onClick={() => void run({ action: "restore", depositId: deposit.id })}
+                        type="button"
+                      >
+                        확인 필요로 되돌리기
+                      </button>
+                    ) : null}
                     <button
-                      className="brand-link mt-1 min-h-11 font-bold disabled:opacity-50"
+                      className="min-h-11 font-bold text-brand-danger disabled:opacity-50"
                       disabled={busy}
-                      onClick={() => void run({ action: "restore", depositId: deposit.id })}
+                      onClick={() => void run({ action: "delete", depositId: deposit.id }, "알림을 삭제했습니다.")}
                       type="button"
                     >
-                      확인 필요로 되돌리기
+                      삭제
                     </button>
-                  ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
