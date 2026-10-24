@@ -7,6 +7,40 @@ import type {
   SettlementDraftChange,
 } from "./admin-meeting-settlement-types";
 
+function FoodOrderRow({
+  item,
+  showAmounts,
+  cancelled = false,
+}: {
+  readonly item: AdminSettlementParticipant["foodOrders"][number];
+  readonly showAmounts: boolean;
+  readonly cancelled?: boolean;
+}) {
+  return (
+    <div className={`brand-panel-white flex items-center justify-between gap-4 rounded-2xl px-4 py-3 ${cancelled ? "opacity-60" : ""}`}>
+      <div className="min-w-0">
+        <p className={`truncate text-sm font-semibold text-brand-text ${cancelled ? "line-through" : ""}`}>
+          {item.optionChoiceLabelSnapshot
+            ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
+            : item.menuNameSnapshot}
+        </p>
+        {showAmounts ? (
+          <p className="brand-text-subtle mt-1 text-xs">
+            {formatWon(item.unitPriceSnapshot)} · 수량 {item.quantity}
+          </p>
+        ) : null}
+      </div>
+      {cancelled ? (
+        <span className="brand-chip-dimmed shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">취소</span>
+      ) : showAmounts ? (
+        <span className="shrink-0 text-sm font-bold text-brand-text">
+          {formatWon(item.unitPriceSnapshot * item.quantity)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function AdminMeetingSettlementParticipant({
   participant,
   showAmounts,
@@ -27,6 +61,9 @@ export function AdminMeetingSettlementParticipant({
   readonly onRequestDelete: (target: NonNullable<AdjustmentDeleteTarget>) => void;
 }) {
   const amountDescriptionId = `settlement-adjustment-amount-description-${participant.id}`;
+  // 취소된 주문은 청구에서 빠진다. 지운 것처럼 보이지 않게 따로 모아 보여 준다.
+  const activeFoodOrders = participant.foodOrders.filter((item) => !item.cancelledAt);
+  const cancelledFoodOrders = participant.foodOrders.filter((item) => item.cancelledAt);
 
   return (
     <div className="pb-1">
@@ -99,36 +136,20 @@ export function AdminMeetingSettlementParticipant({
         </div>
       ) : null}
 
-      {participant.foodOrders.length > 0 && !participant.dailyBreakdowns ? (
+      {activeFoodOrders.length > 0 && !participant.dailyBreakdowns ? (
         <div className="mb-4 space-y-2">
-          {participant.foodOrders.map((item) => {
-            // 취소된 주문은 청구에서 빠진다. 목록에는 남기되 취소 표시로 구분한다.
-            const cancelled = Boolean(item.cancelledAt);
-            return (
-            <div key={item.id} className={`brand-panel-white flex items-center justify-between gap-4 rounded-2xl px-4 py-3 ${cancelled ? "opacity-60" : ""}`}>
-              <div className="min-w-0">
-                <p className={`truncate text-sm font-semibold text-brand-text ${cancelled ? "line-through" : ""}`}>
-                  {item.optionChoiceLabelSnapshot
-                    ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
-                    : item.menuNameSnapshot}
-                </p>
-                {showAmounts ? (
-                  <p className="brand-text-subtle mt-1 text-xs">
-                    {formatWon(item.unitPriceSnapshot)} · 수량 {item.quantity}
-                    {cancelled ? " · 청구 제외" : ""}
-                  </p>
-                ) : null}
-              </div>
-              {cancelled ? (
-                <span className="brand-chip-dimmed shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">취소</span>
-              ) : showAmounts ? (
-                <span className="shrink-0 text-sm font-bold text-brand-text">
-                  {formatWon(item.unitPriceSnapshot * item.quantity)}
-                </span>
-              ) : null}
-            </div>
-            );
-          })}
+          {activeFoodOrders.map((item) => (
+            <FoodOrderRow item={item} key={item.id} showAmounts={showAmounts} />
+          ))}
+        </div>
+      ) : null}
+
+      {cancelledFoodOrders.length > 0 ? (
+        <div className="mb-4 space-y-2">
+          <p className="brand-text-subtle px-1 text-xs font-bold">취소된 주문 {cancelledFoodOrders.length}건 · 청구 제외</p>
+          {cancelledFoodOrders.map((item) => (
+            <FoodOrderRow cancelled item={item} key={item.id} showAmounts={showAmounts} />
+          ))}
         </div>
       ) : null}
 

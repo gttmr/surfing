@@ -131,3 +131,12 @@ test("a companion pays the companion fee and the shop price", () => {
   assert.equal(groups[0].items[0].baseFee, 45_000);
   assert.equal(groups[0].items[0].surfUsageMemberFee, 50_000);
 });
+
+test("a companion with a linked Kakao account is still billed to the member who brought them", () => {
+  const linked = { ...member, id: 2, companionId: 8, companion: { id: 8, name: "연동 동반", ownerKakaoId: "member-1", linkedKakaoId: "companion-kakao" } };
+  const unlinked = { ...member, id: 3, companionId: 9, companion: { id: 9, name: "동반", ownerKakaoId: "member-1", linkedKakaoId: null } };
+  const groups = groupParticipantsForSettlement(dayTrip, [member, linked, unlinked]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].recipientKakaoId, "member-1");
+  assert.deepEqual(groups[0].items.map((item) => item.participantId), [1, 2, 3]);
+});
