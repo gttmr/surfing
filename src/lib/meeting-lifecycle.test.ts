@@ -140,3 +140,14 @@ test("the shop count check is reported but never blocks billing", () => {
   const checked = getBillingReadiness({ ...base, meeting: { ...base.meeting, shopUsageCheckedAt: AFTER_MEETING } });
   assert.match(checked.checks.find((check) => check.id === "usage-resolved")?.detail ?? "", /샵도 수량을 확인/);
 });
+
+test("an admin can end a meeting before its scheduled end time", () => {
+  const meeting = { date: "2026-10-24", endTime: "18:00", isOpen: false, billingPublished: false };
+  const midday = new Date("2026-10-24T13:00:00+09:00");
+  assert.equal(getMeetingWorkflowStage({ ...meeting, now: midday }), "UPCOMING");
+  assert.equal(getMeetingWorkflowStage({ ...meeting, endedAt: midday, now: midday }), "ACTUALS_REVIEW");
+  assert.equal(
+    getMeetingWorkflowStage({ ...meeting, date: "2026-11-07", endedAt: midday, now: midday }),
+    "ACTUALS_REVIEW",
+  );
+});

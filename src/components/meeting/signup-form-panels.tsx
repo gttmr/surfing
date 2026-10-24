@@ -13,6 +13,7 @@ import {
   type CompanionOption,
   type NewCompanionEntry,
   type SignupOptionField,
+  type SignupOptionPatch,
   type SubmissionResult,
 } from "@/components/meeting/useSignupFormState";
 import {
@@ -180,7 +181,7 @@ type CompanionPanelProps = {
   onSetMainShopOption: (option: "lesson" | "rental" | null) => void;
   onSetMainDay2Rental: (value: boolean) => void;
   onSetMainLodging: (value: boolean) => void;
-  onUpdateLinkedOption: (field: SignupOptionField, value: boolean) => void;
+  onUpdateLinkedOption: (patch: SignupOptionPatch) => void;
   onApplyLinkedCompanion: () => void;
 };
 
@@ -243,7 +244,7 @@ export function CompanionSignupPanel({
               <div className="space-y-4 pl-0">
                 <ShuttleBusChoice
                   boarded={linkedStatus.participant.hasBus}
-                  onChange={(next) => onUpdateLinkedOption("hasBus", next)}
+                  onChange={(next) => onUpdateLinkedOption({ hasBus: next })}
                   disabled={updatingLinked}
                 />
                 <ShopOptionChoice
@@ -255,8 +256,7 @@ export function CompanionSignupPanel({
                         : null
                   }
                   onChange={(next) => {
-                    onUpdateLinkedOption("hasLesson", next === "lesson");
-                    onUpdateLinkedOption("hasRental", next === "rental");
+                    onUpdateLinkedOption({ hasLesson: next === "lesson", hasRental: next === "rental" });
                   }}
                   disabled={updatingLinked}
                   trailing={<OptionPricingHelp guide={participantOptionPricingGuide} />}
@@ -270,8 +270,8 @@ export function CompanionSignupPanel({
                     day1HasRental={linkedStatus.participant.hasRental}
                     disabled={updatingLinked}
                     lodgingFee={overnightLodgingFee}
-                    onDay2Rental={(value) => onUpdateLinkedOption("day2HasRental", value)}
-                    onLodging={(value) => onUpdateLinkedOption("usesClubLodging", value)}
+                    onDay2Rental={(value) => onUpdateLinkedOption({ day2HasRental: value })}
+                    onLodging={(value) => onUpdateLinkedOption({ usesClubLodging: value })}
                     participantType="COMPANION"
                     pricingPreview={pricingPreview}
                     usesClubLodging={linkedStatus.participant.usesClubLodging ?? false}
@@ -402,7 +402,7 @@ type ExistingSignupPanelProps = {
   onSetMySignupLodging: (value: boolean) => void;
   onToggleExpandedCompanion: (id: number) => void;
   onToggleCompanionForMeeting: (id: number) => void;
-  onUpdateCompanionOption: (id: number, field: OptionField, value: boolean) => void;
+  onUpdateCompanionOption: (id: number, patch: SignupOptionPatch) => void;
   onSetCompanionOption: (id: number, field: OptionField, value: boolean) => void;
   onShowCancelConfirm: (show: boolean) => void;
   onSaveMySignup: () => void;
@@ -628,14 +628,13 @@ export function ExistingSignupPanel({
                         <div className="mt-3 space-y-4 border-t border-brand-divider pt-3 pl-8">
                           <ShuttleBusChoice
                             boarded={companionData.hasBus ?? false}
-                            onChange={(next) => onUpdateCompanionOption(companion.id, "hasBus", next)}
+                            onChange={(next) => onUpdateCompanionOption(companion.id, { hasBus: next })}
                             disabled={savingMySignup}
                           />
                           <ShopOptionChoice
                             value={companionData.hasLesson ? "lesson" : companionData.hasRental ? "rental" : null}
                             onChange={(next) => {
-                              onUpdateCompanionOption(companion.id, "hasLesson", next === "lesson");
-                              onUpdateCompanionOption(companion.id, "hasRental", next === "rental");
+                              onUpdateCompanionOption(companion.id, { hasLesson: next === "lesson", hasRental: next === "rental" });
                             }}
                             disabled={savingMySignup}
                             burden={pricingPreview.companion}
@@ -648,8 +647,8 @@ export function ExistingSignupPanel({
                               day1HasRental={companionData.hasRental}
                               disabled={savingMySignup}
                               lodgingFee={overnightLodgingFee}
-                              onDay2Rental={(value) => onUpdateCompanionOption(companion.id, "day2HasRental", value)}
-                              onLodging={(value) => onUpdateCompanionOption(companion.id, "usesClubLodging", value)}
+                              onDay2Rental={(value) => onUpdateCompanionOption(companion.id, { day2HasRental: value })}
+                              onLodging={(value) => onUpdateCompanionOption(companion.id, { usesClubLodging: value })}
                               participantType="COMPANION"
                               pricingPreview={pricingPreview}
                               usesClubLodging={companionData.usesClubLodging ?? false}

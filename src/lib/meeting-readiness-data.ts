@@ -9,6 +9,7 @@ export async function getMeetingBillingReadiness(meetingId: number, now = new Da
       date: true,
       endDate: true,
       endTime: true,
+      endedAt: true,
       shopUsageCheckedAt: true,
       participants: {
         select: {

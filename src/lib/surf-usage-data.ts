@@ -74,9 +74,28 @@ const USAGE_ENTRY_SELECT = {
   source: true,
 } as const;
 
-/** 회원은 모임 첫날부터 마지막 날까지 자기 실제 이용을 직접 고칠 수 있다. */
-export function isParticipantActualUsageOpen(meeting: MeetingSchedule, today = getTodayInSeoul()): boolean {
-  return meeting.date <= today && today <= lastMeetingDate(meeting);
+/**
+ * 실제 이용은 본인, 연동된 동반인 본인, 동반인을 등록한 정회원이 고칠 수 있다.
+ * 식음료 주문과 달리 연동된 동반인의 이용도 정회원이 대신 고칠 수 있다(현장에서 정회원이 챙기는 경우가 많다).
+ */
+function canEditParticipantUsage(
+  sessionKakaoId: string,
+  participant: {
+    readonly kakaoId: string;
+    readonly companionId: number | null;
+    readonly companion: { readonly ownerKakaoId: string; readonly linkedKakaoId: string | null } | null;
+  },
+): boolean {
+  if (participant.companionId === null) return participant.kakaoId === sessionKakaoId;
+  return participant.companion?.ownerKakaoId === sessionKakaoId || participant.companion?.linkedKakaoId === sessionKakaoId;
+}
+
+/** 회원은 모임 첫날(또는 운영진이 먼저 종료한 때)부터 마지막 날까지 자기 실제 이용을 직접 고칠 수 있다. */
+export function isParticipantActualUsageOpen(
+  meeting: MeetingSchedule & { readonly endedAt?: Date | string | null },
+  today = getTodayInSeoul(),
+): boolean {
+  return (meeting.date <= today || Boolean(meeting.endedAt)) && today <= lastMeetingDate(meeting);
 }
 
 export type ParticipantMeetingSurfUsageData = {
@@ -305,6 +324,7 @@ export async function getParticipantMeetingSurfUsageData(
       id: true,
       date: true,
       endDate: true,
+      endedAt: true,
       participants: {
         where: {
           status: "APPROVED",
@@ -372,12 +392,13 @@ export async function getParticipantMeetingSurfUsageData(
         companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
       });
       const status = getSubmissionStatus(participant);
-      const canSubmit = access.canOrder && usageOpen && status !== "confirmed";
+      const canEdit = canEditParticipantUsage(kakaoId, participant);
+      const canSubmit = canEdit && usageOpen && status !== "confirmed";
       const lockedReason = !usageOpen
         ? "이용 내역은 모임 기간에만 제출할 수 있습니다."
         : status === "confirmed"
           ? "샵에서 이용 내역을 확정했습니다."
-          : access.lockedReason;
+          : canEdit ? null : access.lockedReason;
 
       return {
         participantId: participant.id,
@@ -391,7 +412,7 @@ export async function getParticipantMeetingSurfUsageData(
           access.orderRole === "owner_proxy"
             ? "미연동 · 대리입력"
             : access.orderRole === "linked_companion_locked"
-              ? "직접 입력"
+              ? canEdit ? "대리입력" : "직접 입력"
               : "내 이용",
         lockedReason,
         submissionStatus: status,
@@ -489,7 +510,7 @@ export async function submitParticipantSurfUsage(
 ) {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: { id: true, date: true, endDate: true, billingPublishedAt: true },
+    select: { id: true, date: true, endDate: true, endedAt: true, billingPublishedAt: true },
   });
 
   if (!meeting) {
@@ -532,7 +553,7 @@ export async function submitParticipantSurfUsage(
     companionLinkedKakaoId: participant.companion?.linkedKakaoId ?? null,
   });
 
-  if (!access.canOrder) {
+  if (!canEditParticipantUsage(kakaoId, participant)) {
     throw new Error(access.lockedReason ?? "이용 내역 제출 권한이 없습니다.");
   }
 
@@ -559,6 +580,7 @@ export async function getShopMeetingSurfUsageData(meetingId: number): Promise<Sh
       endDate: true,
       startTime: true,
       endTime: true,
+      endedAt: true,
       location: true,
       billingPublishedAt: true,
       shopUsageCheckedAt: true,
@@ -735,6 +757,7 @@ async function requireActualUsageReviewOpen(meetingId: number) {
       date: true,
       endDate: true,
       endTime: true,
+      endedAt: true,
       billingPublishedAt: true,
     },
   });

@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import type { ParticipantMeetingSurfUsageData } from "@/lib/surf-usage-data";
 import { formatWon } from "@/lib/format";
 import { buildUsageDraft, parseUsageSlotKey, usageSlotKey, usageSlotKeys } from "@/lib/surf-usage-slots";
+import { Icon } from "@/components/ui/Icon";
 
 /** 참가자별 → "날짜:항목" 별 수량 */
 type DraftMap = Record<number, Record<string, number>>;
 type ParticipantRow = ParticipantMeetingSurfUsageData["participants"][number];
+type UsageItem = ParticipantMeetingSurfUsageData["usageItems"][number];
+
+// 한 사람이 하루에 쓰는 강습·장비·슈트는 하나다. 하나를 고르면 같은 날의 다른 것은 꺼진다. 샤워 등은 따로 고른다.
+const MAIN_SERVICE_TYPES = new Set<UsageItem["serviceType"]>(["LESSON_PACKAGE", "EQUIPMENT_RENTAL", "WETSUIT_ONLY"]);
 
 function buildDrafts(data: ParticipantMeetingSurfUsageData): DraftMap {
   return Object.fromEntries(
@@ -83,14 +88,20 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
   const overnight = days.length > 1;
   const slots = data ? days.flatMap((day) => data.usageItems.map((item) => ({ day, item, key: usageSlotKey(day.dayIndex, item.id) }))) : [];
 
-  function updateQuantity(participantId: number, slotKey: string, nextValue: number) {
-    setDrafts((prev) => ({
-      ...prev,
-      [participantId]: {
-        ...(prev[participantId] ?? {}),
-        [slotKey]: Math.max(0, Math.min(20, nextValue)),
-      },
-    }));
+  // 회원 화면은 사람별로 쓴 것만 고른다. 수량(+/-)을 두면 미리 채운 1에 더해 2가 되는 일이 생긴다.
+  function toggleSlot(participantId: number, dayIndex: number, item: UsageItem) {
+    setDrafts((prev) => {
+      const current = prev[participantId] ?? {};
+      const key = usageSlotKey(dayIndex, item.id);
+      const turningOn = (current[key] ?? 0) === 0;
+      const next = { ...current, [key]: turningOn ? 1 : 0 };
+      if (turningOn && MAIN_SERVICE_TYPES.has(item.serviceType)) {
+        for (const other of data?.usageItems ?? []) {
+          if (other.id !== item.id && MAIN_SERVICE_TYPES.has(other.serviceType)) next[usageSlotKey(dayIndex, other.id)] = 0;
+        }
+      }
+      return { ...prev, [participantId]: next };
+    });
   }
 
   function getDraftTotal(participantId: number) {
@@ -138,7 +149,14 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
       if (!res.ok) throw new Error(next.error || "이용 내역을 저장하지 못했습니다.");
       const usageData = next as ParticipantMeetingSurfUsageData;
       setData(usageData);
-      setDrafts(buildDrafts(usageData));
+      // 제출한 사람만 서버 기록으로 다시 채운다. 다른 사람의 고치던 내용은 그대로 둔다.
+      const saved = usageData.participants.find((item) => item.participantId === participantId);
+      if (saved) {
+        setDrafts((prev) => ({
+          ...prev,
+          [participantId]: buildUsageDraft(saved, usageData.meeting.days, usageData.usageItems),
+        }));
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "이용 내역을 저장하지 못했습니다.");
     } finally {
@@ -225,44 +243,38 @@ export function MeetingSurfUsagePanel({ meetingId }: { meetingId: number }) {
                   </div>
                   {participant.canSubmit ? (
                     <>
+                      {participant.submissionStatus === "missing" && participant.entries.length === 0 ? (
+                        <p className="brand-text-subtle mb-2 px-1 text-xs">신청 내용으로 미리 골라 두었습니다. 실제와 다르면 고친 뒤 제출해 주세요.</p>
+                      ) : null}
                       <div className="space-y-2">
                         {slots.map(({ day, item, key }) => {
                           const value = drafts[participant.participantId]?.[key] ?? 0;
+                          const selected = value > 0;
                           const label = overnight ? `${day.dayIndex}일차 ${item.name}` : item.name;
                           return (
                             <div key={key}>
                               {overnight && item.id === data.usageItems[0]?.id ? (
                                 <p className="brand-text-subtle px-1 pb-1 pt-2 text-xs font-extrabold">{day.dayIndex}일차 · {Number(day.date.slice(5, 7))}.{Number(day.date.slice(8, 10))}</p>
                               ) : null}
-                              <div className="brand-list-item flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold text-brand-text">{item.name}</p>
+                              <button
+                                aria-checked={selected}
+                                aria-label={`${participant.name} ${label}`}
+                                className={`brand-select-card flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${selected ? "brand-select-card-active" : ""}`}
+                                onClick={() => toggleSlot(participant.participantId, day.dayIndex, item)}
+                                role="checkbox"
+                                type="button"
+                              >
+                                <span className={`brand-choice-indicator flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${selected ? "brand-check-active brand-choice-indicator-active" : ""}`}>
+                                  {selected ? <Icon className="text-[16px]" name="check" /> : null}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-semibold text-brand-text">{item.name}</span>
                                   {item.description ? (
-                                    <p className="brand-text-subtle mt-0.5 text-xs">{item.description}</p>
+                                    <span className="brand-text-subtle mt-0.5 block text-xs">{item.description}</span>
                                   ) : null}
-                                </div>
-                                <div className="flex shrink-0 items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(participant.participantId, key, value - 1)}
-                                    aria-label={`${participant.name} ${label} 수량 줄이기`}
-                                    disabled={value === 0}
-                                    className="brand-button-secondary h-9 w-9 rounded-full text-base font-bold"
-                                  >
-                                    -
-                                  </button>
-                                  <span className="w-8 text-center text-sm font-bold text-brand-text">{value}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateQuantity(participant.participantId, key, value + 1)}
-                                    aria-label={`${participant.name} ${label} 수량 늘리기`}
-                                    disabled={value === 20}
-                                    className="brand-button-primary h-9 w-9 rounded-full text-base font-bold"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
+                                </span>
+                                {value > 1 ? <span className="shrink-0 text-xs font-bold text-brand-text">{value}개</span> : null}
+                              </button>
                             </div>
                           );
                         })}

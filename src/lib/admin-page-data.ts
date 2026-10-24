@@ -142,6 +142,8 @@ export type AdminMeetingDetail = {
   lodgingFee: number;
   /** 청구가 공개되면 참가비를 바꿀 수 없다 */
   billingPublished: boolean;
+  /** 운영진이 모임 종료를 누른 시각 */
+  endedAt: string | null;
   participants: AdminMeetingParticipant[];
   approvedCount: number;
 };
@@ -342,6 +344,7 @@ export async function getAdminMeetings(): Promise<AdminMeetingListItem[]> {
       date: meeting.date,
       endDate: meeting.endDate,
       endTime: meeting.endTime,
+      endedAt: meeting.endedAt,
       isOpen: meeting.isOpen,
       billingPublished: meeting.billingPublishedAt !== null,
       recipientCount: snapshot?.recipients.length ?? meeting.settlementConfirmations.length,
@@ -432,6 +435,7 @@ export async function getAdminMeetingDetail(meetingId: number): Promise<AdminMee
     companionFee: meeting.companionFee,
     lodgingFee: meeting.lodgingFee,
     billingPublished: meeting.billingPublishedAt !== null,
+    endedAt: meeting.endedAt?.toISOString() ?? null,
     approvedCount: participants.filter((participant) => participant.status === "APPROVED").length,
     participants,
   };
@@ -660,6 +664,7 @@ export async function getAdminSettlementData(meetingId: number): Promise<AdminSe
     date: meeting.date,
     endDate: meeting.endDate,
     endTime: meeting.endTime,
+    endedAt: meeting.endedAt,
     isOpen: meeting.isOpen,
     billingPublished,
     recipientCount: recipients.length,
