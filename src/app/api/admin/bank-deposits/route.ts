@@ -66,6 +66,13 @@ export async function POST(req: NextRequest) {
           data: { status: "REVIEW" },
         });
         break;
+      case "delete":
+        // 청구 확인에 쓰인 적 없는, 정산과 무관하거나 읽지 못한 알림만 지운다.
+        if (!depositId) return error("입금을 선택해 주세요.");
+        await prisma.bankDeposit.deleteMany({
+          where: { id: depositId, status: { in: ["IGNORED", "UNPARSED"] }, confirmations: { none: {} } },
+        });
+        break;
       case "add-manual": {
         const name = typeof body.depositorName === "string" ? body.depositorName.trim() : "";
         const amount = positiveInt(body.amount);
