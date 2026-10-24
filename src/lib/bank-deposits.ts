@@ -356,7 +356,7 @@ export type BankDepositView = {
     recipientName: string;
     /** 이 입금 중 이 청구에 들어간 금액 */
     amount: number;
-    /** 청구 기준 남은 금액(+) 또는 더 받은 금액(-). 0이면 딱 맞다. */
+    /** 청구 기준 남은 금액(+) 또는 더 받은 금액(-). 마지막으로 연결한 입금에만 있고, 나머지는 0 */
     balance: number;
   }[];
   readonly suggestions: readonly DepositCandidate[];
@@ -381,18 +381,21 @@ export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
     prisma.bankDeposit.findMany({
       orderBy: { depositedAt: "desc" },
       take: RECENT_LIMIT,
-      include: { payments: { select: { meetingId: true, recipientKakaoId: true, amount: true, billTotal: true } } },
+      include: { payments: { select: { id: true, meetingId: true, recipientKakaoId: true, amount: true, billTotal: true } } },
     }),
   ]);
   const billKey = (bill: { meetingId: number; recipientKakaoId: string }) => `${bill.meetingId}:${bill.recipientKakaoId}`;
   const paidBills = deposits.flatMap((deposit) => deposit.payments);
   const billPayments = await prisma.bankDepositPayment.findMany({
     where: { OR: paidBills.map((bill) => ({ meetingId: bill.meetingId, recipientKakaoId: bill.recipientKakaoId })) },
-    select: { meetingId: true, recipientKakaoId: true, amount: true },
+    select: { id: true, meetingId: true, recipientKakaoId: true, amount: true },
   });
   const billPaid = new Map<string, number>();
+  // 남은·더 받은 금액은 그 청구에 마지막으로 연결한 입금에만 붙인다. 먼저 들어온 동반인 입금에는 책임이 없다.
+  const lastPaymentId = new Map<string, number>();
   for (const payment of paidBills.length > 0 ? billPayments : []) {
     billPaid.set(billKey(payment), (billPaid.get(billKey(payment)) ?? 0) + payment.amount);
+    lastPaymentId.set(billKey(payment), Math.max(lastPaymentId.get(billKey(payment)) ?? 0, payment.id));
   }
 
   const kakaoIds = new Set([
@@ -422,7 +425,7 @@ export async function getBankDepositDashboard(): Promise<BankDepositDashboard> {
         meetingLabel: meetingLabel.get(match.meetingId) ?? `모임 #${match.meetingId}`,
         recipientName: userName.get(match.recipientKakaoId) ?? match.recipientKakaoId,
         amount: match.amount,
-        balance: match.billTotal - (billPaid.get(billKey(match)) ?? 0),
+        balance: lastPaymentId.get(billKey(match)) === match.id ? match.billTotal - (billPaid.get(billKey(match)) ?? 0) : 0,
       })),
       suggestions: reviewable && deposit.amount !== null
         ? (() => {
