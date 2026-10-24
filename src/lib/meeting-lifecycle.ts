@@ -36,6 +36,7 @@ export type BillingReadinessInput = {
     readonly date: string;
     readonly endDate?: string | null;
     readonly endTime: string;
+    readonly endedAt?: Date | string | null;
     /** 샵의 항목별 수량 확인. 청구를 막지는 않고 안내만 한다. */
     readonly shopUsageCheckedAt?: Date | string | null;
   };
@@ -61,11 +62,17 @@ export function isMeetingEnded(date: string, endTime: string, now = new Date()):
   return Number.isFinite(boundary.getTime()) && now.getTime() >= boundary.getTime();
 }
 
-/** 일정이 모두 끝났는지 (1박은 마지막 날 종료 시각 기준) */
+/** 일정이 모두 끝났는지. 운영진이 종료했거나, 마지막 날 종료 시각이 지났으면 끝난 것이다. */
 export function isMeetingScheduleEnded(
-  meeting: { readonly date: string; readonly endDate?: string | null; readonly endTime: string },
+  meeting: {
+    readonly date: string;
+    readonly endDate?: string | null;
+    readonly endTime: string;
+    readonly endedAt?: Date | string | null;
+  },
   now = new Date(),
 ): boolean {
+  if (meeting.endedAt) return true;
   return isMeetingEnded(lastMeetingDate(meeting), meeting.endTime, now);
 }
 
@@ -73,6 +80,7 @@ export function getActualUsageReviewAvailability(input: {
   readonly date: string;
   readonly endDate?: string | null;
   readonly endTime: string;
+  readonly endedAt?: Date | string | null;
   readonly billingPublishedAt?: Date | string | null;
   readonly now?: Date;
 }): ActualUsageReviewAvailability {
@@ -156,6 +164,7 @@ export function getMeetingWorkflowStage(input: {
   readonly date: string;
   readonly endDate?: string | null;
   readonly endTime: string;
+  readonly endedAt?: Date | string | null;
   readonly isOpen: boolean;
   readonly billingPublished: boolean;
   readonly recipientCount?: number;

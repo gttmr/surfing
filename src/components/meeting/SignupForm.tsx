@@ -190,8 +190,8 @@ export function SignupForm({
         onSetMainShopOption={setMainShopOption}
         onSetMainDay2Rental={setDay2HasRental}
         onSetMainLodging={setUsesClubLodging}
-        onUpdateLinkedOption={(field, value) => {
-          void handleUpdateLinkedOption(field, value);
+        onUpdateLinkedOption={(patch) => {
+          void handleUpdateLinkedOption(patch);
         }}
         onApplyLinkedCompanion={() => {
           void handleApplyLinkedCompanion();
@@ -277,8 +277,8 @@ export function SignupForm({
             return next;
           });
         }}
-        onUpdateCompanionOption={(id, field, value) => {
-          void handleUpdateCompanionOption(id, field, value);
+        onUpdateCompanionOption={(id, patch) => {
+          void handleUpdateCompanionOption(id, patch);
         }}
         onSetCompanionOption={setCompanionOpt}
         onShowCancelConfirm={setShowCancelConfirm}

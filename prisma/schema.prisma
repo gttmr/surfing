@@ -25,6 +25,7 @@ model Meeting {
   shopPaidAt                   DateTime? // 샵(장비+식음료) 지급
   shopPaidAmount               Int?
   settlementCompletedAt        DateTime?
+  endedAt                      DateTime? // 운영진이 모임 종료를 누른 시각. 있으면 예정 종료 시각과 관계없이 끝난 모임이다.
   settlementCompletedByKakaoId String?
   settlementNote               String?
   shopUsageCheckedAt           DateTime? // 샵이 항목별 이용 수량을 확인한 시각 (이용 내역이 바뀌면 초기화)

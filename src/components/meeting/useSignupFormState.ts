@@ -37,6 +37,16 @@ export interface NewCompanionEntry {
 }
 
 export type SignupOptionField = "hasLesson" | "hasBus" | "hasRental" | "day2HasRental" | "usesClubLodging";
+export type SignupOptionPatch = Partial<Record<SignupOptionField, boolean>>;
+
+/** 강습과 장비 대여 필요는 함께 고를 수 없다. 한쪽만 켜는 변경이면 다른 쪽을 끈다. */
+function exclusiveOptionPatch(patch: SignupOptionPatch): SignupOptionPatch {
+  return {
+    ...(patch.hasLesson === true && patch.hasRental === undefined ? { hasRental: false } : {}),
+    ...(patch.hasRental === true && patch.hasLesson === undefined ? { hasLesson: false } : {}),
+    ...patch,
+  };
+}
 
 /** 참가비는 모임마다 저장된 금액을 쓴다. */
 function pricingPreviewForMeeting(preview: SignupPricingPreview, meeting: DetailedMeeting): SignupPricingPreview {
@@ -530,53 +540,47 @@ export function useSignupFormState({
     }
   }
 
-  async function handleUpdateCompanionOption(companionId: number, field: SignupOptionField, value: boolean) {
-    const companionData = signedUpCompanionData[companionId];
-    if (!companionData) return;
-    setSignedUpCompanionData((prev) => ({
-      ...prev,
-      [companionId]: {
-        ...prev[companionId],
-        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
-        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
-        [field]: value,
-      },
-    }));
-    await fetch(`/api/participants/${companionData.participantId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
-        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
-        [field]: value,
-      }),
-    });
+  // 옵션 여러 개(강습·장비)를 바꿔도 요청은 한 번만 보낸다. 나눠 보내면 서버에서 서로 덮어써 고르지 않은 값이 남는다.
+  async function patchParticipantOptions(participantId: number, patch: SignupOptionPatch) {
+    try {
+      const res = await fetch(`/api/participants/${participantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setServerError(data?.error ?? "옵션을 저장하지 못했습니다.");
+      }
+    } catch {
+      setServerError("네트워크 오류가 발생했습니다.");
+    }
     await syncFromUpdatedMeeting();
   }
 
-  async function handleUpdateLinkedOption(field: SignupOptionField, value: boolean) {
+  async function handleUpdateCompanionOption(companionId: number, patch: SignupOptionPatch) {
+    const companionData = signedUpCompanionData[companionId];
+    if (!companionData) return;
+    const nextPatch = exclusiveOptionPatch(patch);
+    setServerError("");
+    setSignedUpCompanionData((prev) => ({
+      ...prev,
+      [companionId]: { ...prev[companionId], ...nextPatch },
+    }));
+    await patchParticipantOptions(companionData.participantId, nextPatch);
+  }
+
+  async function handleUpdateLinkedOption(patch: SignupOptionPatch) {
     if (!linkedStatus?.participant) return;
+    const nextPatch = exclusiveOptionPatch(patch);
     setUpdatingLinked(true);
+    setServerError("");
     setLinkedStatus((prev) => prev ? {
       ...prev,
-      participant: prev.participant ? {
-        ...prev.participant,
-        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
-        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
-        [field]: value,
-      } : null,
+      participant: prev.participant ? { ...prev.participant, ...nextPatch } : null,
     } : null);
-    await fetch(`/api/participants/${linkedStatus.participant.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(field === "hasLesson" && value ? { hasRental: false } : {}),
-        ...(field === "hasRental" && value ? { hasLesson: false } : {}),
-        [field]: value,
-      }),
-    });
+    await patchParticipantOptions(linkedStatus.participant.id, nextPatch);
     setUpdatingLinked(false);
-    await syncFromUpdatedMeeting();
   }
 
   async function handleApplyLinkedCompanion() {

@@ -84,13 +84,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  const { date, startTime, endTime, location, description, isOpen, meetingType } = body;
+  const { date, startTime, endTime, location, description, isOpen, meetingType, ended } = body;
   const meetingId = parseInt(id);
   const current = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: { id: true, billingPublishedAt: true },
+    select: { id: true, billingPublishedAt: true, endedAt: true },
   });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // 운영진은 예정 종료 시각과 관계없이 언제든 모임을 종료할 수 있다. 종료하면 신청도 닫는다.
+  if (ended !== undefined && typeof ended !== "boolean") {
+    return NextResponse.json({ error: "모임 종료 값을 확인해 주세요." }, { status: 400 });
+  }
+  if (ended === false && current.billingPublishedAt) {
+    return NextResponse.json({ error: "청구가 공개되어 모임 종료를 취소할 수 없습니다." }, { status: 409 });
+  }
 
   // 참가비·숙박비는 청구 공개 전까지만 바꿀 수 있다(공개 후에는 청구 정정 절차).
   const fees = {
@@ -117,6 +125,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       ...(description !== undefined && { description: description || null }),
       ...(isOpen !== undefined && { isOpen }),
       ...(meetingType && { meetingType }),
+      ...(ended === true && { endedAt: current.endedAt ?? new Date(), isOpen: false }),
+      ...(ended === false && { endedAt: null }),
       ...feeData,
     },
   });

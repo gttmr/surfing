@@ -16,6 +16,7 @@ import { isOvernightMeeting, lastMeetingDate } from "@/lib/meeting-days";
 
 type Confirmation =
   | { readonly kind: "delete" }
+  | { readonly kind: "end" }
   | { readonly kind: "participant"; readonly action: ParticipantAction; readonly participant: AdminMeetingParticipant };
 
 type AdminMeetingDetailPageClientProps = {
@@ -155,6 +156,36 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
     requestAnimationFrame(() => router.push("/admin/meetings"));
   }
 
+  async function handleSetEnded(ended: boolean) {
+    const response = await fetch(`/api/meetings/${meeting.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ended }),
+    });
+    if (!response.ok) {
+      const message = await meetingResponseError(response, ended ? "모임을 종료하지 못했습니다." : "모임 종료를 취소하지 못했습니다.");
+      if (ended) setDialogError(message);
+      else setPageError(message);
+      return;
+    }
+    setConfirmation(null);
+    addToast(ended ? "모임을 종료했습니다" : "모임 종료를 취소했습니다", "success");
+    await reloadMeeting();
+    router.refresh();
+  }
+
+  async function handleUndoEnd() {
+    setWorking(true);
+    setPageError("");
+    try {
+      await handleSetEnded(false);
+    } catch {
+      setPageError("네트워크 연결을 확인하고 다시 시도해 주세요.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function handleConfirmedAction() {
     if (!confirmation) return;
     setWorking(true);
@@ -163,6 +194,9 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
       switch (confirmation.kind) {
         case "delete":
           await handleDelete();
+          break;
+        case "end":
+          await handleSetEnded(true);
           break;
         case "participant":
           await handleParticipantAction(confirmation);
@@ -187,10 +221,16 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
   const participantConfirmation = confirmation?.kind === "participant" ? confirmation : null;
   const participantCopy = participantConfirmation ? PARTICIPANT_ACTION_COPY[participantConfirmation.action] : null;
   const participantDescription = participantConfirmation ? PARTICIPANT_ACTION_DESCRIPTION[participantConfirmation.action] : null;
-  const dialogTitle = confirmation?.kind === "delete" ? "모임을 삭제할까요?" : participantCopy?.title ?? "상태를 변경할까요?";
+  const dialogTitle = confirmation?.kind === "delete"
+    ? "모임을 삭제할까요?"
+    : confirmation?.kind === "end"
+      ? "모임을 종료할까요?"
+      : participantCopy?.title ?? "상태를 변경할까요?";
   const dialogDescription = confirmation?.kind === "delete"
     ? `“${meetingName}” 모임과 참가·주문·청구·입금 등 운영 기록도 함께 삭제되며 복구할 수 없습니다.`
-    : participantConfirmation
+    : confirmation?.kind === "end"
+      ? "신청이 닫히고 실제 이용 확인과 청구 단계로 넘어갑니다. 청구를 공개하기 전에는 종료를 취소할 수 있습니다."
+      : participantConfirmation
       ? <>“{meetingName}” 모임의 <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-name">{participantConfirmation.participant.name}님</span>의 <span className="inline-block whitespace-nowrap" data-dialog-chunk="participant-action">{participantDescription?.action}</span>. {participantDescription?.consequence}</>
       : undefined;
   const completedReadinessCount = initialOperations.readiness.checks.filter((check) => check.complete).length;
@@ -256,6 +296,16 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
                 <Icon name="arrow_forward" />
               </Link>
             </div>
+            {meeting.endedAt && !initialOperations.meeting.billingPublished ? (
+              <button
+                className="brand-link flex min-h-11 w-full items-center justify-center border-b border-brand-divider px-4 text-xs font-bold disabled:opacity-50"
+                disabled={working}
+                onClick={() => void handleUndoEnd()}
+                type="button"
+              >
+                모임 종료 취소
+              </button>
+            ) : null}
             {!initialOperations.meeting.billingPublished ? (
               <details>
                 <summary className="brand-touch-target flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-brand-text">
@@ -280,8 +330,16 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
               <p className="brand-text-subtle text-xs font-bold">현재 단계</p>
               <h2 className="mt-1 text-lg font-extrabold text-brand-text">{initialOperations.workflowLabel}</h2>
               <p className="brand-text-muted mt-1 break-keep text-xs leading-5">
-                지금은 신청만 관리하면 됩니다. {displayDate(meetingEndDate)} 모임이 끝나면 이용 확인과 청구가 열립니다.
+                모임을 마치면 &lsquo;모임 종료&rsquo;를 눌러 주세요. 이용 확인과 청구가 열립니다. 누르지 않아도 {displayDate(meetingEndDate)} {meeting.endTime}이 지나면 자동으로 넘어갑니다.
               </p>
+              <button
+                className="brand-button-primary mt-3 min-h-11 w-full rounded-xl px-3 text-sm font-bold"
+                disabled={working}
+                onClick={() => { setDialogError(""); setConfirmation({ kind: "end" }); }}
+                type="button"
+              >
+                모임 종료
+              </button>
               {waitlistedCount > 0 ? (
                 <button
                   className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-brand-surface px-3 text-sm font-extrabold text-brand-primary"
@@ -296,7 +354,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
                 </button>
               ) : null}
               <button
-                className={`${meeting.isOpen ? "brand-button-primary" : "brand-button-secondary"} mt-3 min-h-11 w-full rounded-xl px-3 text-sm font-bold`}
+                className="brand-button-secondary mt-2 min-h-11 w-full rounded-xl px-3 text-sm font-bold"
                 disabled={working}
                 onClick={handleToggleOpen}
                 type="button"
@@ -341,7 +399,7 @@ export function AdminMeetingDetailPageClient({ meetingId, initialMeeting, initia
         <div className="flex gap-3">
           <button className="brand-button-secondary flex-1 rounded-2xl px-4 py-3 text-sm font-bold" disabled={working} onClick={() => setConfirmation(null)} type="button">돌아가기</button>
           <button className={`${confirmation?.kind === "delete" || participantConfirmation?.action === "cancel" ? "brand-button-danger-solid" : "brand-button-primary"} flex-1 rounded-2xl px-4 py-3 text-sm font-bold`} disabled={working} onClick={handleConfirmedAction} type="button">
-            {working ? "처리 중" : confirmation?.kind === "delete" ? "모임 삭제" : participantCopy?.button}
+            {working ? "처리 중" : confirmation?.kind === "delete" ? "모임 삭제" : confirmation?.kind === "end" ? "모임 종료" : participantCopy?.button}
           </button>
         </div>
       </Dialog>

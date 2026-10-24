@@ -15,13 +15,13 @@ export type PendingShopCountCheck = {
 export async function getPendingShopCountChecks(now = new Date()): Promise<PendingShopCountCheck[]> {
   const meetings = await prisma.meeting.findMany({
     where: {
-      date: { lte: getTodayInSeoul(now) },
+      OR: [{ date: { lte: getTodayInSeoul(now) } }, { endedAt: { not: null } }],
       shopUsageCheckedAt: null,
       billingPublishedAt: null,
       participants: { some: { usageConfirmedAt: { not: null } } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
-    select: { id: true, date: true, endDate: true, endTime: true, location: true },
+    select: { id: true, date: true, endDate: true, endTime: true, endedAt: true, location: true },
   });
 
   return meetings
