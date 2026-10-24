@@ -38,6 +38,7 @@ model Meeting {
   surfUsages                   ParticipantSurfUsage[]
   chargeAdjustments            ParticipantChargeAdjustment[]
   settlementConfirmations      SettlementConfirmation[]
+  depositPayments              BankDepositPayment[]
   billingSnapshot              MeetingBillingSnapshot?
   createdAt                    DateTime                      @default(now())
 }
@@ -319,12 +320,30 @@ model BankDeposit {
   matchedByKakaoId String? // "bank-auto" = 자동 대조
   matchedAt        DateTime?
   sourceDeviceId   Int? // 처음 전달한 폰
-  // 이 입금으로 확인한 청구 수. 청구 재공개 등으로 확인 기록이 지워져 연결이 이보다 적어지면 다시 대조한다.
+  // 이 입금으로 완납 확인한 청구 수 (기록용). 연결의 원본은 payments 다.
   matchedCount     Int                      @default(0)
   confirmations    SettlementConfirmation[]
+  payments         BankDepositPayment[]
 
   @@index([status, depositedAt])
   @@index([rawText, depositedAt])
+}
+
+// 입금 하나가 어느 청구에 얼마 들어갔는지. 한 청구를 여러 입금(정회원, 동반인 각자)이 나눠 낼 수 있다.
+model BankDepositPayment {
+  id               Int         @id @default(autoincrement())
+  depositId        Int
+  meetingId        Int
+  recipientKakaoId String
+  amount           Int // 이 입금 중 이 청구에 들어간 금액. 더 받은 금액도 포함한다.
+  billTotal        Int // 연결할 때의 청구 금액. 청구 금액이 바뀌면 연결을 풀고 다시 대조한다.
+  participantId    Int? // 동반인·정회원 본인 몫만 낸 경우 그 참가자
+  createdAt        DateTime    @default(now())
+  deposit          BankDeposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+  meeting          Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([depositId, meetingId, recipientKakaoId])
+  @@index([meetingId, recipientKakaoId])
 }
 
 // 은행 입금자명 → 회원 연결 (가족 명의, 별명 등)

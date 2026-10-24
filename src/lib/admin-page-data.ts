@@ -199,6 +199,10 @@ export type AdminSettlementParticipant = {
 };
 
 export type AdminSettlementRecipient = SettlementRecipientGroup & {
+  /** 은행 입금으로 이 청구에 들어온 금액. 청구보다 크면 더 받은 것이다. */
+  paidAmount: number;
+  /** 자기 몫을 따로 입금한 참가자 */
+  paidParticipantIds: number[];
   reported: boolean;
   reportedAt: string | null;
   verified: boolean;
@@ -466,7 +470,7 @@ function sortSettlementItems<T extends { id: number; kakaoId: string; companionI
 }
 
 async function loadSettlementContext(meetingId: number) {
-  const [meeting, foodSupportCap, confirmations, surfUsageBilling] = await Promise.all([
+  const [meeting, foodSupportCap, confirmations, surfUsageBilling, depositPayments] = await Promise.all([
     prisma.meeting.findUnique({
       where: { id: meetingId },
       include: {
@@ -506,6 +510,7 @@ async function loadSettlementContext(meetingId: number) {
       where: { meetingId },
     }),
     getConfirmedSurfUsageBillingByParticipant(meetingId),
+    prisma.bankDepositPayment.findMany({ where: { meetingId } }),
   ]);
 
   if (!meeting) return null;
@@ -573,8 +578,15 @@ async function loadSettlementContext(meetingId: number) {
     const confirmation = confirmationMap.get(recipient.recipientKakaoId) ?? null;
     const reportedAt = confirmation?.reportedAt ?? null;
     const verifiedAt = confirmation?.verifiedAt ?? null;
+    // 청구 금액이 바뀌기 전에 들어온 일부 입금은 다시 대조할 때까지 세지 않는다.
+    const payments = depositPayments.filter((payment) => (
+      payment.recipientKakaoId === recipient.recipientKakaoId
+      && (verifiedAt !== null || payment.billTotal === recipient.totalFee)
+    ));
     return {
       ...recipient,
+      paidAmount: payments.reduce((total, payment) => total + payment.amount, 0),
+      paidParticipantIds: payments.flatMap((payment) => (payment.participantId === null ? [] : [payment.participantId])),
       reported: reportedAt !== null,
       reportedAt,
       verified: verifiedAt !== null,

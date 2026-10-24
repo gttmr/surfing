@@ -42,8 +42,18 @@ export function AdminBillingReadinessPanel({ data }: { readonly data: AdminSettl
 function statusMeta(recipient: AdminSettlementRecipient) {
   if (recipient.totalFee === 0) return { label: "납부 없음", className: "brand-chip-success", icon: "remove_circle" };
   if (recipient.verified) return { label: "입금 완료", className: "brand-chip-success", icon: "check_circle" };
+  if (recipient.paidAmount > 0) return { label: "일부 입금", className: "brand-chip-danger", icon: "account_balance_wallet" };
   if (recipient.reported) return { label: "확인 중", className: "brand-chip-soft", icon: "hourglass_top" };
   return { label: "입금 필요", className: "brand-chip-danger", icon: "account_balance_wallet" };
+}
+
+/** 은행 입금이 청구와 맞지 않을 때만 문구를 만든다. 은행 입금 없이 운영진이 확인한 청구(현금 등)는 비교하지 않는다. */
+function depositBalanceNote(recipient: AdminSettlementRecipient): string | null {
+  if (recipient.paidAmount === 0) return null;
+  const difference = recipient.paidAmount - recipient.totalFee;
+  if (difference > 0) return `${formatWon(difference)} 더 받음`;
+  if (difference < 0) return `남은 ${formatWon(-difference)}`;
+  return null;
 }
 
 function PaymentRecipientRow({
@@ -56,6 +66,8 @@ function PaymentRecipientRow({
   readonly onVerify: (recipient: AdminSettlementRecipient, verified: boolean) => void;
 }) {
   const status = statusMeta(recipient);
+  const balanceNote = depositBalanceNote(recipient);
+  const separatelyPaid = new Set(recipient.paidParticipantIds);
   return (
     <details className="brand-panel-white overflow-hidden rounded-2xl">
       <summary className="brand-touch-target flex cursor-pointer list-none items-center gap-3 px-4 py-3">
@@ -67,6 +79,7 @@ function PaymentRecipientRow({
         <span className="text-right">
           <span className="block text-sm font-extrabold text-brand-text">{formatWon(recipient.totalFee)}</span>
           <span className={`${status.className} mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold`}>{status.label}</span>
+          {balanceNote ? <span className="mt-1 block text-[11px] font-bold text-brand-danger-text">{balanceNote}</span> : null}
         </span>
         <Icon className="brand-text-subtle" name="expand_more" />
       </summary>
@@ -75,13 +88,22 @@ function PaymentRecipientRow({
           {recipient.items.map((item) => (
             <div className="flex items-start justify-between gap-3 text-sm" key={item.participantId}>
               <div className="min-w-0">
-                <p className="font-bold text-brand-text">{item.participantName}</p>
+                <p className="font-bold text-brand-text">
+                  {item.participantName}
+                  {separatelyPaid.has(item.participantId) ? <span className="brand-chip-success ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">따로 입금</span> : null}
+                </p>
                 <p className="brand-text-subtle mt-0.5 text-xs">참가비·실제 이용·식음료·조정 반영</p>
               </div>
               <span className="shrink-0 font-extrabold text-brand-text">{formatWon(item.totalFee)}</span>
             </div>
           ))}
         </div>
+        {recipient.paidAmount > 0 ? (
+          <p className="brand-text-muted mt-3 text-xs">
+            은행 입금 {formatWon(recipient.paidAmount)} 받음
+            {balanceNote ? <span className="font-bold text-brand-danger-text"> · {balanceNote}</span> : null}
+          </p>
+        ) : null}
         {recipient.reportedAt ? <p className="brand-text-subtle mt-3 text-xs">회원 입금 알림 {new Date(recipient.reportedAt).toLocaleString("ko-KR")}</p> : null}
         {recipient.verifiedAt ? <p className="brand-text-subtle mt-1 text-xs">관리자 확인 {new Date(recipient.verifiedAt).toLocaleString("ko-KR")}</p> : null}
         {recipient.totalFee > 0 ? <button
