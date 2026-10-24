@@ -408,10 +408,10 @@ export function AdminBankDepositsPageClient({
                       {deposit.matches.map((match) => {
                         const balance = balanceLabel(match.balance);
                         return (
-                          <p className="brand-text-muted truncate" key={`${match.meetingLabel}:${match.recipientName}`}>
-                            {match.recipientName} · {match.meetingLabel}
-                            {balance ? <span className="font-bold text-brand-danger-text"> · {balance}</span> : null}
-                          </p>
+                          <div key={`${match.meetingLabel}:${match.recipientName}`}>
+                            <p className="brand-text-muted truncate">{match.recipientName} · {match.meetingLabel}</p>
+                            {balance ? <p className="font-bold text-brand-danger-text">{balance}</p> : null}
+                          </div>
                         );
                       })}
                     </div>
