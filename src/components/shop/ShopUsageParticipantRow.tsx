@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 import type { ShopMeetingSurfUsageData } from "@/lib/surf-usage-data";
@@ -115,6 +116,7 @@ export function ShopUsageParticipantRow({
   actionError,
   days,
   dirty,
+  editable,
   items,
   lockedAction,
   onConfirm,
@@ -128,6 +130,7 @@ export function ShopUsageParticipantRow({
   readonly actionError: ShopUsageActionError | null;
   readonly days: readonly MeetingDay[];
   readonly dirty: boolean;
+  readonly editable: boolean;
   readonly items: readonly UsageItem[];
   readonly lockedAction: "save" | "confirm" | null;
   readonly onConfirm: (participantId: number) => void;
@@ -139,7 +142,10 @@ export function ShopUsageParticipantRow({
   readonly values: ShopUsageDrafts[number];
 }) {
   const confirmed = participant.submissionStatus === "confirmed";
-  const canSave = !confirmed && lockedAction === null && (dirty || participant.submissionStatus === "missing");
+  // 확정된 내역도 청구 공개 전에는 '수정하기'로 다시 연다. 저장하면 확정이 풀리고 다시 확정해야 한다.
+  const [reopened, setReopened] = useState(false);
+  const readOnly = !editable || (confirmed && !reopened);
+  const canSave = !readOnly && lockedAction === null && (dirty || participant.submissionStatus === "missing");
   const canConfirm = participant.submissionStatus === "submitted" && !dirty && lockedAction === null;
   const submittedAt = participant.submittedAt ? formatRelativeTimeKo(participant.submittedAt) : null;
   const hasVariance = hasShopUsageVariance(participant);
@@ -188,7 +194,7 @@ export function ShopUsageParticipantRow({
             <dt className="brand-text-subtle font-semibold">실제 이용</dt>
             <dd className="font-bold text-brand-text">{actualUsageLabel}</dd>
           </dl>
-          {confirmed ? (
+          {readOnly ? (
             <ReadOnlyUsage entries={participant.entries} overnight={overnight} />
           ) : (
             <UsageEditor days={days} items={items} onQuantityChange={onQuantityChange} participant={participant} values={values} />
@@ -201,7 +207,7 @@ export function ShopUsageParticipantRow({
             </div>
           ) : null}
 
-          {!confirmed ? (
+          {!readOnly ? (
             <div className="border-t border-brand-divider px-4 py-3">
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -223,12 +229,30 @@ export function ShopUsageParticipantRow({
               </div>
               {!canConfirm && lockedAction === null ? (
                 <p className="brand-text-subtle mt-2 text-center text-[11px]">
-                  {participant.submissionStatus === "missing" ? "미제출 내역은 먼저 저장해 주세요." : dirty ? "변경을 저장하면 확정할 수 있습니다." : ""}
+                  {participant.submissionStatus === "missing"
+                    ? "미제출 내역은 먼저 저장해 주세요."
+                    : dirty
+                      ? "변경을 저장하면 확정할 수 있습니다."
+                      : confirmed
+                        ? "고친 뒤 저장하면 다시 확정해야 합니다."
+                        : ""}
                 </p>
               ) : null}
             </div>
+          ) : confirmed && editable ? (
+            <div className="border-t border-brand-divider px-4 py-3">
+              <button
+                className="brand-button-secondary w-full rounded-2xl px-3 py-3 text-sm font-bold"
+                onClick={() => setReopened(true)}
+                type="button"
+              >
+                수정하기
+              </button>
+            </div>
           ) : (
-            <p className="brand-chip-dimmed border-t border-brand-divider px-4 py-3 text-center text-xs font-bold">확정된 내역은 읽기 전용입니다.</p>
+            <p className="brand-chip-dimmed border-t border-brand-divider px-4 py-3 text-center text-xs font-bold">
+              {confirmed ? "청구가 공개되어 확정된 내역은 읽기 전용입니다." : "지금은 고칠 수 없습니다."}
+            </p>
           )}
         </div>
       ) : null}

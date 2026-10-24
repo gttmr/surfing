@@ -332,6 +332,7 @@ export function ShopSurfUsageWorkspace({
         days={data.meeting.days}
         dirtyParticipantIds={dirtyParticipantIds}
         drafts={drafts}
+        editable={data.meeting.actualUsageReview.editable}
         filter={filter}
         itemRows={data.itemRows}
         items={activeItems}

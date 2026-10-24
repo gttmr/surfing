@@ -65,6 +65,7 @@ export function ShopUsageParticipantReview({
   days,
   dirtyParticipantIds,
   drafts,
+  editable,
   filter,
   itemRows,
   items,
@@ -86,6 +87,8 @@ export function ShopUsageParticipantReview({
   readonly days: ShopMeetingSurfUsageData["meeting"]["days"];
   readonly dirtyParticipantIds: readonly number[];
   readonly drafts: ShopUsageDrafts;
+  /** 청구 공개 전이면 확정된 내역도 다시 고칠 수 있다. */
+  readonly editable: boolean;
   readonly filter: ShopUsageFilter;
   readonly itemRows: readonly UsageItemRow[];
   readonly items: readonly UsageItem[];
@@ -144,6 +147,7 @@ export function ShopUsageParticipantReview({
             actionError={actionError?.participantId === participant.participantId ? actionError : null}
             days={days}
             dirty={dirtyParticipantIds.includes(participant.participantId)}
+            editable={editable}
             items={items}
             key={participant.participantId}
             lockedAction={lockedParticipant?.participantId === participant.participantId ? lockedParticipant.action : null}
