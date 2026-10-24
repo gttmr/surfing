@@ -240,16 +240,12 @@ export function groupParticipantsForSettlement(
     let recipientName = participant.user?.name || participant.name;
     let recipientType: SettlementLineItem["recipientType"] = "self";
 
+    // 동반인은 카카오 계정이 연동되어 있어도 데려온 정회원에게 함께 청구한다.
+    // "linked_companion"은 예전에 공개된 청구 스냅샷을 읽기 위해서만 남겨 둔다.
     if (isCompanion && participant.companion) {
-      if (participant.companion.linkedKakaoId) {
-        recipientKakaoId = participant.companion.linkedKakaoId;
-        recipientName = participant.name;
-        recipientType = "linked_companion";
-      } else {
-        recipientKakaoId = participant.companion.ownerKakaoId;
-        recipientName = participant.companion.owner?.name || participant.companion.ownerKakaoId;
-        recipientType = "owner";
-      }
+      recipientKakaoId = participant.companion.ownerKakaoId;
+      recipientName = participant.companion.owner?.name || participant.companion.ownerKakaoId;
+      recipientType = "owner";
     }
 
     const lineItem: SettlementLineItem = {
