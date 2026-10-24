@@ -173,8 +173,15 @@ export async function applyDepositMatch(input: {
 
   // 동반인 몫 입금은 그 사람 이름이므로 정회원 입금자명으로 기억하지 않는다.
   const recipientIds = new Set(targets.map((target) => target.recipientKakaoId));
-  if (input.rememberDepositorName && deposit.depositorName && recipientIds.size === 1 && participantId === null) {
-    const depositorName = normalizeDepositorName(deposit.depositorName);
+  // 입금자명이 회원 이름과 같으면 기억할 필요가 없다.
+  const depositorName = deposit.depositorName ? normalizeDepositorName(deposit.depositorName) : null;
+  if (
+    input.rememberDepositorName
+    && depositorName
+    && recipientIds.size === 1
+    && participantId === null
+    && depositorName !== normalizeDepositorName(targets[0].recipientName)
+  ) {
     const kakaoId = targets[0].recipientKakaoId;
     operations.push(
       prisma.depositorAlias.upsert({

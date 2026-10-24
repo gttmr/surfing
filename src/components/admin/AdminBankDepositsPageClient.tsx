@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Icon } from "@/components/ui/Icon";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { remainingFee, type DepositCandidate } from "@/lib/bank-deposit-match";
+import { normalizeDepositorName, remainingFee, type DepositCandidate } from "@/lib/bank-deposit-match";
 import type { BankDepositDashboard, BankDepositView } from "@/lib/bank-deposits";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 
@@ -49,6 +49,10 @@ function ReviewCard({
   // 남은 금액보다 많이 들어온 입금은 한 번 더 확인받고 연결한다.
   const [overpaying, setOverpaying] = useState<DepositCandidate | null>(null);
   const amount = deposit.amount ?? 0;
+  // 입금자명이 회원 이름과 같으면 이미 이름으로 맞춰지므로 따로 기억할 것이 없다.
+  const depositorName = deposit.depositorName ? normalizeDepositorName(deposit.depositorName) : null;
+  const canRemember = depositorName !== null
+    && deposit.suggestions.some((candidate) => normalizeDepositorName(candidate.recipientName) !== depositorName);
   const match = (candidate: DepositCandidate, allowOverpayment = false) =>
     onAction({
       action: "match",
@@ -122,10 +126,10 @@ function ReviewCard({
               </button>
             );
           })}
-          {deposit.depositorName ? (
+          {canRemember ? (
             <label className="brand-text-muted flex min-h-11 items-center gap-2 text-xs">
               <input checked={remember} onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
-              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 이 회원으로 자동 확인
+              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 고른 회원으로 자동 확인 (회원 이름과 다를 때만)
             </label>
           ) : null}
         </div>
