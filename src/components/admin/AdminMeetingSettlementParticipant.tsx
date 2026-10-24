@@ -101,10 +101,13 @@ export function AdminMeetingSettlementParticipant({
 
       {participant.foodOrders.length > 0 && !participant.dailyBreakdowns ? (
         <div className="mb-4 space-y-2">
-          {participant.foodOrders.map((item) => (
-            <div key={item.id} className="brand-panel-white flex items-center justify-between gap-4 rounded-2xl px-4 py-3">
+          {participant.foodOrders.map((item) => {
+            // 취소된 주문은 청구에서 빠진다. 목록에는 남기되 취소 표시로 구분한다.
+            const cancelled = Boolean(item.cancelledAt);
+            return (
+            <div key={item.id} className={`brand-panel-white flex items-center justify-between gap-4 rounded-2xl px-4 py-3 ${cancelled ? "opacity-60" : ""}`}>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-brand-text">
+                <p className={`truncate text-sm font-semibold text-brand-text ${cancelled ? "line-through" : ""}`}>
                   {item.optionChoiceLabelSnapshot
                     ? `${item.menuNameSnapshot} · ${item.optionChoiceLabelSnapshot}`
                     : item.menuNameSnapshot}
@@ -112,16 +115,20 @@ export function AdminMeetingSettlementParticipant({
                 {showAmounts ? (
                   <p className="brand-text-subtle mt-1 text-xs">
                     {formatWon(item.unitPriceSnapshot)} · 수량 {item.quantity}
+                    {cancelled ? " · 청구 제외" : ""}
                   </p>
                 ) : null}
               </div>
-              {showAmounts ? (
+              {cancelled ? (
+                <span className="brand-chip-dimmed shrink-0 rounded-full px-2.5 py-1 text-xs font-bold">취소</span>
+              ) : showAmounts ? (
                 <span className="shrink-0 text-sm font-bold text-brand-text">
                   {formatWon(item.unitPriceSnapshot * item.quantity)}
                 </span>
               ) : null}
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
