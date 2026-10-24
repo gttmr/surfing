@@ -129,7 +129,7 @@ function ReviewCard({
           {canRemember ? (
             <label className="brand-text-muted flex min-h-11 items-center gap-2 text-xs">
               <input checked={remember} onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
-              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 고른 회원으로 자동 확인 (회원 이름과 다를 때만)
+              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 고른 회원으로 자동 확인
             </label>
           ) : null}
         </div>
