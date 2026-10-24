@@ -52,18 +52,26 @@ function clearVerifiedNotice(meetingId: number, recipientKakaoId: string) {
 }
 
 /**
- * 입금 확인을 취소한다. 은행 입금으로 확인한 청구라면 그 입금으로 함께 확인한 청구도 모두 풀고,
+ * 입금 확인을 취소한다. 은행 입금으로 받은 청구라면 그 청구에 들어간 입금을 모두 풀고(그 입금으로 함께 확인한 다른 청구도),
  * 입금은 자동 대조가 다시 확인하지 않도록 운영진 확인 대기(REVIEW)로 둔다.
  */
 export async function unverifyPaymentOperations(
   meetingId: number,
   recipientKakaoId: string,
 ): Promise<Prisma.PrismaPromise<unknown>[]> {
-  const confirmation = await prisma.settlementConfirmation.findUnique({
-    where: { meetingId_recipientKakaoId: { meetingId, recipientKakaoId } },
-    select: { depositId: true },
-  });
-  if (confirmation?.depositId) return releaseDepositOperations(confirmation.depositId, "REVIEW");
+  const [confirmation, payments] = await Promise.all([
+    prisma.settlementConfirmation.findUnique({
+      where: { meetingId_recipientKakaoId: { meetingId, recipientKakaoId } },
+      select: { depositId: true },
+    }),
+    prisma.bankDepositPayment.findMany({ where: { meetingId, recipientKakaoId }, select: { depositId: true } }),
+  ]);
+  const depositIds = new Set(payments.map((payment) => payment.depositId));
+  if (confirmation?.depositId) depositIds.add(confirmation.depositId);
+  if (depositIds.size > 0) {
+    const operations = await Promise.all([...depositIds].map((depositId) => releaseDepositOperations(depositId, "REVIEW")));
+    return operations.flat();
+  }
   return [
     prisma.settlementConfirmation.updateMany({
       where: { meetingId, recipientKakaoId },
@@ -77,27 +85,34 @@ export async function unverifyPaymentOperations(
   ];
 }
 
-/** 입금 하나로 확인한 청구를 모두 미확인으로 되돌리고, 입금을 다시 대조 대상(status)으로 둔다. */
+/**
+ * 입금 하나의 연결을 모두 푼다. 그 입금이 들어간 청구는 더 이상 다 받은 것이 아니므로 미확인으로 되돌리고,
+ * 입금은 다시 대조 대상(status)으로 둔다. 같은 청구에 들어간 다른 입금의 일부 입금 기록은 남긴다.
+ */
 export async function releaseDepositOperations(
   depositId: number,
   status: "REVIEW" | "UNMATCHED",
 ): Promise<Prisma.PrismaPromise<unknown>[]> {
-  const linked = await prisma.settlementConfirmation.findMany({
-    where: { depositId },
-    select: { meetingId: true, recipientKakaoId: true },
-  });
+  const [payments, confirmations] = await Promise.all([
+    prisma.bankDepositPayment.findMany({ where: { depositId }, select: { meetingId: true, recipientKakaoId: true } }),
+    prisma.settlementConfirmation.findMany({ where: { depositId }, select: { meetingId: true, recipientKakaoId: true } }),
+  ]);
+  const bills = new Map(
+    [...payments, ...confirmations].map((bill) => [`${bill.meetingId}:${bill.recipientKakaoId}`, bill]),
+  );
   return [
-    prisma.settlementConfirmation.updateMany({
-      where: { depositId },
-      data: { verifiedAt: null, verifiedByKakaoId: null, depositId: null },
-    }),
-    ...linked.flatMap((row) => [
-      ...clearVerifiedNotice(row.meetingId, row.recipientKakaoId),
+    ...[...bills.values()].flatMap((bill) => [
+      prisma.settlementConfirmation.updateMany({
+        where: { meetingId: bill.meetingId, recipientKakaoId: bill.recipientKakaoId, verifiedAt: { not: null } },
+        data: { verifiedAt: null, verifiedByKakaoId: null, depositId: null },
+      }),
+      ...clearVerifiedNotice(bill.meetingId, bill.recipientKakaoId),
       prisma.meeting.updateMany({
-        where: { id: row.meetingId },
+        where: { id: bill.meetingId },
         data: { settlementCompletedAt: null, settlementCompletedByKakaoId: null },
       }),
     ]),
+    prisma.bankDepositPayment.deleteMany({ where: { depositId } }),
     prisma.bankDeposit.update({
       where: { id: depositId },
       data: { status, matchedByKakaoId: null, matchedAt: null, matchedCount: 0 },

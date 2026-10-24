@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Icon } from "@/components/ui/Icon";
 import { Toast, useToast } from "@/components/ui/Toast";
-import type { DepositCandidate } from "@/lib/bank-deposit-match";
+import { normalizeDepositorName, remainingFee, type DepositCandidate } from "@/lib/bank-deposit-match";
 import type { BankDepositDashboard, BankDepositView } from "@/lib/bank-deposits";
 import { formatRelativeTimeKo, formatWon } from "@/lib/format";
 
@@ -32,6 +32,10 @@ function DepositHeading({ deposit }: { readonly deposit: BankDepositView }) {
   );
 }
 
+function candidateKey(candidate: DepositCandidate) {
+  return `${candidate.meetingId}:${candidate.recipientKakaoId}`;
+}
+
 function ReviewCard({
   deposit,
   busy,
@@ -42,46 +46,90 @@ function ReviewCard({
   readonly onAction: (action: Action) => void;
 }) {
   const [remember, setRemember] = useState(true);
-  const match = (candidate: DepositCandidate) =>
+  // 남은 금액보다 많이 들어온 입금은 한 번 더 확인받고 연결한다.
+  const [overpaying, setOverpaying] = useState<DepositCandidate | null>(null);
+  const amount = deposit.amount ?? 0;
+  // 입금자명이 회원 이름과 같으면 이미 이름으로 맞춰지므로 따로 기억할 것이 없다.
+  const depositorName = deposit.depositorName ? normalizeDepositorName(deposit.depositorName) : null;
+  const canRemember = depositorName !== null
+    && deposit.suggestions.some((candidate) => normalizeDepositorName(candidate.recipientName) !== depositorName);
+  const match = (candidate: DepositCandidate, allowOverpayment = false) =>
     onAction({
       action: "match",
       depositId: deposit.id,
       targets: [{ meetingId: candidate.meetingId, recipientKakaoId: candidate.recipientKakaoId }],
       remember,
+      allowOverpayment,
     });
+  const choose = (candidate: DepositCandidate) => {
+    if (amount > remainingFee(candidate)) setOverpaying(candidate);
+    else match(candidate);
+  };
 
   return (
     <li className="brand-card rounded-2xl p-4">
       <DepositHeading deposit={deposit} />
       <p className="brand-text-subtle mt-2 break-all text-[11px]">{deposit.rawText}</p>
 
-      {deposit.suggestions.length > 0 ? (
+      {overpaying ? (
+        <div className="brand-panel-white mt-3 rounded-xl p-3" role="alert">
+          <p className="text-sm font-bold text-brand-danger-text">
+            {overpaying.recipientName} 남은 청구 {formatWon(remainingFee(overpaying))}보다 {formatWon(amount - remainingFee(overpaying))} 많이 들어왔습니다.
+          </p>
+          <p className="brand-text-muted mt-1 text-xs">입금 완료로 확인하고, 더 받은 금액은 확인된 입금 목록에 표시합니다. 돌려줄 돈은 따로 챙겨 주세요.</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              className="brand-button-secondary min-h-11 flex-1 rounded-xl text-sm font-bold disabled:opacity-50"
+              disabled={busy}
+              onClick={() => setOverpaying(null)}
+              type="button"
+            >
+              다시 고르기
+            </button>
+            <button
+              className="brand-button-primary min-h-11 flex-1 rounded-xl text-sm font-bold disabled:opacity-50"
+              disabled={busy}
+              onClick={() => match(overpaying, true)}
+              type="button"
+            >
+              더 받은 것으로 확인
+            </button>
+          </div>
+        </div>
+      ) : deposit.suggestions.length > 0 ? (
         <div className="mt-3 space-y-2">
           <p className="brand-text-muted text-xs font-bold">누구의 입금인가요?</p>
           {deposit.suggestions.map((candidate) => {
-            const amountMatches = candidate.totalFee === deposit.amount;
+            const remaining = remainingFee(candidate);
+            const amountMatches = remaining === amount;
             return (
               <button
                 className="brand-list-item brand-list-item-hover flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 text-left disabled:opacity-50"
                 disabled={busy}
-                key={`${candidate.meetingId}:${candidate.recipientKakaoId}`}
-                onClick={() => match(candidate)}
+                key={candidateKey(candidate)}
+                onClick={() => choose(candidate)}
                 type="button"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-bold text-brand-text">{candidate.recipientName}</span>
-                  <span className="brand-text-subtle block truncate text-xs">{candidate.meetingLabel}</span>
+                  <span className="brand-text-subtle block truncate text-xs">
+                    {candidate.meetingLabel}
+                    {candidate.paidAmount > 0 ? ` · 청구 ${formatWon(candidate.totalFee)} 중 ${formatWon(candidate.paidAmount)} 받음` : ""}
+                  </span>
+                  {amount < remaining ? (
+                    <span className="brand-text-subtle block text-xs">일부 입금으로 기록 · 남은 {formatWon(remaining - amount)}</span>
+                  ) : null}
                 </span>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${amountMatches ? "brand-chip-success" : "brand-chip-danger"}`}>
-                  청구 {formatWon(candidate.totalFee)}
+                  {candidate.paidAmount > 0 ? "남은" : "청구"} {formatWon(remaining)}
                 </span>
               </button>
             );
           })}
-          {deposit.depositorName ? (
+          {canRemember ? (
             <label className="brand-text-muted flex min-h-11 items-center gap-2 text-xs">
               <input checked={remember} onChange={(event) => setRemember(event.target.checked)} type="checkbox" />
-              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 이 회원으로 자동 확인
+              다음부터 &lsquo;{deposit.depositorName}&rsquo; 입금은 고른 회원으로 자동 확인
             </label>
           ) : null}
         </div>
@@ -89,16 +137,22 @@ function ReviewCard({
         <p className="brand-text-muted mt-3 text-xs">맞는 미확인 청구가 없습니다. 청구 공개 후 다시 대조됩니다.</p>
       )}
 
-      <button
+      {overpaying ? null : <button
         className="brand-button-secondary mt-3 min-h-11 w-full rounded-xl text-sm font-bold disabled:opacity-50"
         disabled={busy}
         onClick={() => onAction({ action: "ignore", depositId: deposit.id })}
         type="button"
       >
         모임 정산과 관계없는 입금
-      </button>
+      </button>}
     </li>
   );
+}
+
+function balanceLabel(balance: number) {
+  if (balance > 0) return `남은 ${formatWon(balance)}`;
+  if (balance < 0) return `${formatWon(-balance)} 더 받음`;
+  return null;
 }
 
 // 폰이 이 시간 넘게 아무것도 보내지 않으면 연결 상태를 확인하라고 표시한다.
@@ -295,9 +349,16 @@ export function AdminBankDepositsPageClient({
                 <p className="brand-text-subtle border-b border-brand-divider px-4 py-2 text-xs font-bold">{meeting.meetingLabel}</p>
                 <ul className="divide-y divide-brand-divider">
                   {meeting.recipients.map((recipient) => (
-                    <li className="flex min-h-11 items-center justify-between px-4 text-sm" key={recipient.recipientKakaoId}>
+                    <li className="flex min-h-11 items-center justify-between gap-3 px-4 text-sm" key={recipient.recipientKakaoId}>
                       <span className="font-bold text-brand-text">{recipient.recipientName}</span>
-                      <span className="text-brand-text">{formatWon(recipient.totalFee)}</span>
+                      <span className="text-right text-brand-text">
+                        {recipient.paidAmount > 0 ? (
+                          <>
+                            남은 {formatWon(remainingFee(recipient))}
+                            <span className="brand-text-subtle block text-xs">청구 {formatWon(recipient.totalFee)} 중 {formatWon(recipient.paidAmount)} 받음</span>
+                          </>
+                        ) : formatWon(recipient.totalFee)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -344,11 +405,15 @@ export function AdminBankDepositsPageClient({
                   <DepositHeading deposit={deposit} />
                   <div className="mt-2 flex items-end justify-between gap-3">
                     <div className="min-w-0 text-xs">
-                      {deposit.matches.map((match) => (
-                        <p className="brand-text-muted truncate" key={`${match.meetingLabel}:${match.recipientName}`}>
-                          {match.recipientName} · {match.meetingLabel}
-                        </p>
-                      ))}
+                      {deposit.matches.map((match) => {
+                        const balance = balanceLabel(match.balance);
+                        return (
+                          <p className="brand-text-muted truncate" key={`${match.meetingLabel}:${match.recipientName}`}>
+                            {match.recipientName} · {match.meetingLabel}
+                            {balance ? <span className="font-bold text-brand-danger-text"> · {balance}</span> : null}
+                          </p>
+                        );
+                      })}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${deposit.matchedAutomatically ? "brand-chip-soft" : "brand-chip-dimmed"}`}>

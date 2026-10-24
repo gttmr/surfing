@@ -74,6 +74,8 @@ const DATA: MeetingBillingSnapshotSource = {
         totalFee: 35000,
       }],
       totalFee: 35000,
+      paidAmount: 0,
+      paidParticipantIds: [],
       reported: false,
       reportedAt: null,
       verified: false,

@@ -45,7 +45,13 @@ export async function POST(req: NextRequest) {
             ? [{ meetingId, recipientKakaoId: item.recipientKakaoId }]
             : [];
         });
-        await applyDepositMatch({ depositId, targets, actorKakaoId, rememberDepositorName: body.remember === true });
+        await applyDepositMatch({
+          depositId,
+          targets,
+          actorKakaoId,
+          rememberDepositorName: body.remember === true,
+          allowOverpayment: body.allowOverpayment === true,
+        });
         break;
       }
       case "undo":
